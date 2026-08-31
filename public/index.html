@@ -2,7 +2,7 @@
 <!-- saved from url=(0031)file:///D:/downloads/index.html -->
 <html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>UniDex Legends</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
@@ -10,10 +10,14 @@
         html, body {
             background-color: #030305; color: #00ff66;
             font-family: 'Courier New', Courier, monospace;
-            margin: 0; padding: 8px; width: 100vw; height: 100vh;
+            margin: 0; padding: 6px;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh; /* Adapts cleanly to mobile browser URL bars */
             overflow: hidden; display: flex; flex-direction: column;
             user-select: none;
             touch-action: manipulation;
+            padding-bottom: max(6px, env(safe-area-inset-bottom));
         }
 
         /* Top HUD Bar */
@@ -21,8 +25,8 @@
             background: linear-gradient(180deg, #12121c 0%, #08080f 100%);
             border: 1px solid #00ffff55;
             box-shadow: 0 0 12px rgba(0, 255, 255, 0.2);
-            padding: 6px 10px; margin-bottom: 6px; border-radius: 6px;
-            font-size: 12px; flex-shrink: 0; display: none;
+            padding: 4px 8px; margin-bottom: 6px; border-radius: 6px;
+            font-size: 11.5px; flex-shrink: 0; display: none;
             justify-content: space-between; align-items: center;
             flex-wrap: wrap; gap: 4px;
         }
@@ -32,18 +36,19 @@
         /* Main Interactive Console Wrapper */
         #screen-wrapper {
             position: relative;
-            flex: 1 1 0%;
-            min-height: 0;
+            flex: 1 1 auto;
+            min-height: 120px;
             display: flex;
             width: 100%;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
+            overflow: hidden;
         }
 
         #console {
             flex: 1 1 100%; min-height: 0; background-color: #020204;
             border: 2px solid #222233;
-            padding: 12px; overflow-y: scroll;
-            border-radius: 8px; font-size: 14px; line-height: 1.45;
+            padding: 10px; overflow-y: auto;
+            border-radius: 8px; font-size: 13.5px; line-height: 1.4;
             box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.95), 0 0 20px rgba(0, 255, 100, 0.15);
             display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;
             position: relative;
@@ -51,10 +56,10 @@
             scroll-behavior: smooth;
         }
 
-        /* Visible Neon Scrollbars for Mobile & Desktop */
+        /* Visible Neon Scrollbars */
         #console::-webkit-scrollbar, #controls::-webkit-scrollbar {
-            width: 10px;
-            height: 10px;
+            width: 8px;
+            height: 8px;
         }
         #console::-webkit-scrollbar-track, #controls::-webkit-scrollbar-track {
             background: #080811;
@@ -65,9 +70,6 @@
             border: 1px solid #00ffff;
             border-radius: 4px;
         }
-        #console::-webkit-scrollbar-thumb:hover {
-            background: #00ffffaa;
-        }
 
         /* On-Screen Mobile Touch Scroll Nudge Buttons */
         .touch-scroll-panel {
@@ -77,7 +79,7 @@
             transform: translateY(-50%);
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
             z-index: 10;
             pointer-events: auto;
         }
@@ -87,9 +89,9 @@
             border: 1px solid #00ffff;
             box-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
             border-radius: 50%;
-            width: 38px;
-            height: 38px;
-            font-size: 16px;
+            width: 32px;
+            height: 32px;
+            font-size: 14px;
             font-weight: bold;
             display: flex;
             align-items: center;
@@ -110,7 +112,7 @@
             z-index: 2; background-size: 100% 3px, 6px 100%; pointer-events: none; opacity: 0.65;
         }
 
-        .log-entry { margin-bottom: 6px; border-bottom: 1px solid #14141e; padding-bottom: 4px; width: 100%; text-align: left; position: relative; z-index: 3; }
+        .log-entry { margin-bottom: 5px; border-bottom: 1px solid #14141e; padding-bottom: 3px; width: 100%; text-align: left; position: relative; z-index: 3; }
 
         @keyframes travelSlide {
             0% { transform: scale(0.2) rotate(-15deg); opacity: 0; filter: blur(8px); }
@@ -150,10 +152,10 @@
             100% { background: #000; opacity: 0; transform: scale(1.05); }
         }
         .rest-scene { animation: restNightSequence 4s ease-in-out forwards; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; z-index: 3; width: 100%; height: 100%; }
-        .zzz-1 { animation: zFloat 1.5s infinite ease-in; display: inline-block; font-size: 24px; color: #00ffff; }
-        .zzz-2 { animation: zFloat 1.5s infinite ease-in 0.5s; display: inline-block; font-size: 32px; color: #ff00ff; }
-        .zzz-3 { animation: zFloat 1.5s infinite ease-in 1s; display: inline-block; font-size: 40px; color: #ffff00; }
-        @keyframes zFloat { 0% { transform: translateY(0px) translateX(0px); opacity: 0; } 50% { opacity: 1; } 100% { transform: translateY(-40px) translateX(20px); opacity: 0; } }
+        .zzz-1 { animation: zFloat 1.5s infinite ease-in; display: inline-block; font-size: 20px; color: #00ffff; }
+        .zzz-2 { animation: zFloat 1.5s infinite ease-in 0.5s; display: inline-block; font-size: 26px; color: #ff00ff; }
+        .zzz-3 { animation: zFloat 1.5s infinite ease-in 1s; display: inline-block; font-size: 32px; color: #ffff00; }
+        @keyframes zFloat { 0% { transform: translateY(0px) translateX(0px); opacity: 0; } 50% { opacity: 1; } 100% { transform: translateY(-30px) translateX(15px); opacity: 0; } }
 
         @keyframes saveToastFade { 0% { opacity: 0; transform: translateY(10px); } 20% { opacity: 1; transform: translateY(0); } 80% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-10px); } }
         #save-toast { position: fixed; bottom: 20px; right: 20px; background: #002211; border: 1px solid #00ff66; color: #00ff66; padding: 6px 12px; border-radius: 4px; font-size: 12px; z-index: 9999; display: none; box-shadow: 0 0 10px rgba(0,255,100,0.4); pointer-events: none; }
@@ -166,8 +168,8 @@
         .wheel-spinning { animation: wheelSpinAnim 2.2s cubic-bezier(0.15, 0.85, 0.35, 1.05) forwards; }
 
         @keyframes ballToss {
-            0% { transform: translateY(80px) scale(0.4) rotate(0deg); opacity: 0; }
-            40% { transform: translateY(-30px) scale(1.1) rotate(360deg); opacity: 1; }
+            0% { transform: translateY(60px) scale(0.4) rotate(0deg); opacity: 0; }
+            40% { transform: translateY(-20px) scale(1.1) rotate(360deg); opacity: 1; }
             100% { transform: translateY(0px) scale(1) rotate(720deg); opacity: 1; }
         }
         @keyframes ballWobble {
@@ -179,17 +181,35 @@
             75% { transform: rotate(-8deg) scale(1); }
             85% { transform: rotate(8deg) scale(1); }
         }
-        .pokeball-container { display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; z-index: 3; margin: 15px 0; }
-        .pokeball-sprite { width: 70px; height: 70px; border-radius: 50%; position: relative; box-shadow: inset 0 0 8px rgba(0,0,0,0.8), 0 0 15px rgba(255,255,255,0.4); border: 3px solid #111; overflow: hidden; animation: ballToss 0.6s ease-out forwards, ballWobble 1.2s ease-in-out 0.6s 2; }
+        .pokeball-container { display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; z-index: 3; margin: 10px 0; }
+        .pokeball-sprite { width: 60px; height: 60px; border-radius: 50%; position: relative; box-shadow: inset 0 0 8px rgba(0,0,0,0.8), 0 0 15px rgba(255,255,255,0.4); border: 3px solid #111; overflow: hidden; animation: ballToss 0.6s ease-out forwards, ballWobble 1.2s ease-in-out 0.6s 2; }
         .ball-top { width: 100%; height: 50%; background: #ff1a1a; }
         .ball-bottom { width: 100%; height: 50%; background: #ffffff; }
         .ball-center-band { position: absolute; top: 46%; left: 0; width: 100%; height: 8%; background: #111; z-index: 4; }
-        .ball-center-btn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 18px; height: 18px; border-radius: 50%; background: #ffffff; border: 3px solid #111; z-index: 5; box-shadow: 0 0 4px #fff; }
+        .ball-center-btn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 16px; height: 16px; border-radius: 50%; background: #ffffff; border: 2px solid #111; z-index: 5; box-shadow: 0 0 4px #fff; }
 
-        #controls { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; flex-shrink: 0; width: 100%; min-height: 85px; max-height: 230px; overflow-y: auto; -webkit-overflow-scrolling: touch; z-index: 4; }
-        @media (min-width: 600px) { #controls { grid-template-columns: repeat(4, 1fr); } }
+        /* Responsive Action Button Grid */
+        #controls {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 5px;
+            flex-shrink: 0;
+            width: 100%;
+            max-height: 42vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            z-index: 4;
+            padding: 2px 2px 8px 2px;
+        }
+        @media (min-width: 650px) { #controls { grid-template-columns: repeat(4, 1fr); max-height: 250px; } }
         
-        .btn { background: #12121c; color: #00ff66; border: 1px solid #00ff6666; padding: 11px 6px; font-family: 'Courier New', Courier, monospace; font-size: 13px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; transition: all 0.15s ease; touch-action: manipulation; }
+        .btn {
+            background: #12121c; color: #00ff66; border: 1px solid #00ff6666;
+            padding: 8px 4px;
+            font-family: 'Courier New', Courier, monospace; font-size: 12px; font-weight: bold;
+            cursor: pointer; border-radius: 4px; text-align: center; transition: all 0.15s ease;
+            touch-action: manipulation; min-height: 38px; display: flex; align-items: center; justify-content: center;
+        }
         .btn:hover, .btn.gamepad-focused { background: #1c1c2e; box-shadow: 0 0 10px rgba(0, 255, 100, 0.8); outline: 2px solid #00ffff; }
         .btn:active, .btn.selected { background-color: #00ff66; color: #000; outline: 2px solid #ff00ff; }
         
@@ -202,7 +222,7 @@
         .btn-map { border-color: #00ffcc; color: #00ffcc; background: #002222; }
         .btn-mine { border-color: #ffaa00; color: #ffaa00; background: #221500; }
         .btn-combat { border-color: #ff0033; color: #ff0033; background: #33000a; }
-        .btn-start { border-color: #00ffff; color: #00ffff; font-size: 14.5px; grid-column: span 2; background: #002222; }
+        .btn-start { border-color: #00ffff; color: #00ffff; font-size: 13.5px; grid-column: span 2; background: #002222; }
         .btn-maid { border-color: #ff66ff; color: #ff66ff; background: #220022; }
         .btn-dex { border-color: #ffff00; color: #ffff00; background: #222200; }
         .btn-cyber { border-color: #ff9900; color: #ff9900; background: #2a1500; }
@@ -214,20 +234,20 @@
         .btn-spin { border-color: #ffff00; color: #ffff00; background: #333300; }
         .btn-raid { border-color: #ff0055; color: #ffffff; background: #4a001a; font-weight: bold; }
         
-        .clickable-portrait { cursor: pointer; transition: transform 0.2s ease, border-color 0.2s ease; border: 3px solid transparent; border-radius: 10px; padding: 5px; background: rgba(0,0,0,0.4); }
-        .clickable-portrait:hover { transform: scale(1.08); border-color: #00ffff; box-shadow: 0 0 15px rgba(0,255,255,0.4); }
-        .dex-card { background: #08080f; border: 1px solid #222238; border-radius: 6px; padding: 10px; margin: 6px 0; width: 96%; text-align: left; position: relative; z-index: 3; box-shadow: 0 2px 6px rgba(0,0,0,0.6); display: flex; align-items: center; gap: 12px; }
+        .clickable-portrait { cursor: pointer; transition: transform 0.2s ease, border-color 0.2s ease; border: 3px solid transparent; border-radius: 10px; padding: 4px; background: rgba(0,0,0,0.4); }
+        .clickable-portrait:hover { transform: scale(1.05); border-color: #00ffff; box-shadow: 0 0 12px rgba(0,255,255,0.4); }
+        .dex-card { background: #08080f; border: 1px solid #222238; border-radius: 6px; padding: 8px; margin: 4px 0; width: 98%; text-align: left; position: relative; z-index: 3; box-shadow: 0 2px 6px rgba(0,0,0,0.6); display: flex; align-items: center; gap: 10px; }
     </style>
 </head>
 <body>
     <div id="save-toast">💾 Game Saved</div>
     <div id="stats-bar">
         <div>🌍 <span id="loc-display">Nexus HQ</span> | Trainer: <span class="stat-highlight" id="player-name-display">Trainer</span></div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-            💼 <span id="manager-title-display" style="color:#00ffcc; font-weight:bold;">Novice</span> | 💰 $<span class="stat-money" id="funds-display">5000</span> | Day <span id="day-display">1</span> | ⚡ <span id="stamina-display">100</span> | 🌌 UniDex: <span id="dex-count-display">0/2000</span>
-            <input type="range" id="master-volume" min="0" max="1" step="0.05" value="0.35" oninput="updateMasterVolume(this.value)" style="width: 70px; cursor: pointer;" title="Master Volume">
-            <button onclick="toggleAudioMute()" style="background:#111; color:#00ffff; border:1px solid #00ffff; border-radius:3px; padding:2px 6px; font-size:11px; cursor:pointer;" id="audio-toggle-btn">🔊</button>
-            <button onclick="toggleFullScreen()" style="background:#111; color:#00ffcc; border:1px solid #00ffcc; border-radius:3px; padding:2px 6px; font-size:11px; cursor:pointer;" title="Toggle Fullscreen">⛶</button>
+        <div style="display: flex; align-items: center; gap: 6px;">
+            💼 <span id="manager-title-display" style="color:#00ffcc; font-weight:bold;">Novice</span> | 💰 $<span class="stat-money" id="funds-display">5000</span> | Day <span id="day-display">1</span> | ⚡ <span id="stamina-display">100</span> | 🌌 <span id="dex-count-display">0/2000</span>
+            <input type="range" id="master-volume" min="0" max="1" step="0.05" value="0.35" oninput="updateMasterVolume(this.value)" style="width: 55px; cursor: pointer;" title="Master Volume">
+            <button onclick="toggleAudioMute()" style="background:#111; color:#00ffff; border:1px solid #00ffff; border-radius:3px; padding:2px 5px; font-size:10px; cursor:pointer;" id="audio-toggle-btn">🔊</button>
+            <button onclick="toggleFullScreen()" style="background:#111; color:#00ffcc; border:1px solid #00ffcc; border-radius:3px; padding:2px 5px; font-size:10px; cursor:pointer;" title="Toggle Fullscreen">⛶</button>
         </div>
     </div>
     
@@ -640,8 +660,8 @@
         consoleDiv.scrollTop = consoleDiv.scrollHeight;
     }
 
-    function portrait(src, alt, maxHeight = 240) {
-        return `<img src="${src}" alt="${alt}" style="max-height: ${maxHeight}px; max-width: 95%; object-fit: contain; margin-bottom: 12px; border-radius: 10px; border: 3px solid #00ffff; background: #0d0d0d; box-shadow: 0 0 20px rgba(0,255,255,0.3);" onerror="this.style.display='none';" />`;
+    function portrait(src, alt, maxHeight = 190) {
+        return `<img src="${src}" alt="${alt}" style="max-height: ${maxHeight}px; max-width: 90%; object-fit: contain; margin-bottom: 8px; border-radius: 8px; border: 2px solid #00ffff; background: #0d0d0d; box-shadow: 0 0 15px rgba(0,255,255,0.3);" onerror="this.style.display='none';" />`;
     }
 
     function getCharacterPortrait(name) {
@@ -730,8 +750,8 @@
         slotButtons.push({ text: "🗑️ Delete Save Slot", class: "btn btn-back", action: showDeleteSaveSlotsScreen });
 
         document.getElementById("console").innerHTML = `
-            <h1 style="color: #00ffff; text-shadow: 0 0 15px #00ffff; margin-bottom: 5px; font-size: 30px; letter-spacing: 2px;">UNIDEX LEGENDS</h1>
-            <p style="color: #ffff00; font-size: 13px; max-width: 420px; margin-top: 5px;">Select a timeline save slot to continue your franchise, or start fresh!</p>
+            <h1 style="color: #00ffff; text-shadow: 0 0 15px #00ffff; margin-bottom: 5px; font-size: 26px; letter-spacing: 2px;">UNIDEX LEGENDS</h1>
+            <p style="color: #ffff00; font-size: 12.5px; max-width: 400px; margin-top: 4px;">Select a timeline save slot to continue your franchise, or start fresh!</p>
         `;
         renderButtons(slotButtons);
     }
@@ -771,8 +791,8 @@
         playBGM('intro');
         clearConsole("center", "radial-gradient(circle at 50% 30%, #001a1a 0%, #000 85%)", "#00ffff");
         document.getElementById("console").innerHTML = `
-            ${portrait("/pictures/professor.jpg", "Professor Bill", 240)}
-            <p style="color: #00ffff; font-size: 13.5px; line-height: 1.5; max-width: 440px;">
+            ${portrait("/pictures/professor.jpg", "Professor Bill", 200)}
+            <p style="color: #00ffff; font-size: 13px; line-height: 1.45; max-width: 400px;">
                 👴 <strong>[Professor Bill]:</strong> "Hello there! Welcome to the world of multiversal research! My name is Professor BILL! People call me the DIMENSION PROF!"
             </p>
         `;
@@ -782,8 +802,8 @@
     function showProfessorDialogue1_B() {
         clearConsole("center", "radial-gradient(circle at 50% 30%, #001a1a 0%, #000 85%)", "#00ffff");
         document.getElementById("console").innerHTML = `
-            ${portrait("/pictures/professor.jpg", "Professor Bill", 240)}
-            <p style="color: #00ffff; font-size: 13.5px; line-height: 1.5; max-width: 440px;">
+            ${portrait("/pictures/professor.jpg", "Professor Bill", 200)}
+            <p style="color: #00ffff; font-size: 13px; line-height: 1.45; max-width: 400px;">
                 👴 <strong>[Professor Bill]:</strong> "This world is inhabited by legendary characters from across all realities! For some people, these icons are close allies. Others use them for epic battles. Myself... I study them as a profession."
             </p>
         `;
@@ -793,8 +813,8 @@
     function showProfessorDialogue1_C() {
         clearConsole("center", "radial-gradient(circle at 50% 30%, #001a1a 0%, #000 85%)", "#00ffff");
         document.getElementById("console").innerHTML = `
-            ${portrait("/pictures/professor.jpg", "Professor Bill", 240)}
-            <p style="color: #00ffff; font-size: 13.5px; line-height: 1.5; max-width: 440px;">
+            ${portrait("/pictures/professor.jpg", "Professor Bill", 200)}
+            <p style="color: #00ffff; font-size: 13px; line-height: 1.45; max-width: 400px;">
                 👴 <strong>[Professor Bill]:</strong> "You are standing in the magnificent <strong>Midnoria</strong> region—a unique nexus point where space-time intersects, allowing portals to open into infinite parallel universes and fictional realms."
             </p>
         `;
@@ -804,17 +824,17 @@
     function showProfessorDialogue2() {
         clearConsole("center", "radial-gradient(circle at 50% 30%, #001a1a 0%, #000 85%)", "#00ffff");
         document.getElementById("console").innerHTML = `
-            <div style="display: flex; gap: 20px; justify-content: center; margin-bottom: 12px; align-items: center;">
+            <div style="display: flex; gap: 15px; justify-content: center; margin-bottom: 10px; align-items: center;">
                 <div class="clickable-portrait" onclick="setManagerGender('Boy')">
-                    ${portrait("/pictures/boy_trainer.jpg", "Boy Trainer", 220)}<br>
-                    <strong style="color: #00ffff;">👦 BOY</strong>
+                    ${portrait("/pictures/boy_trainer.jpg", "Boy Trainer", 180)}<br>
+                    <strong style="color: #00ffff; font-size:12px;">👦 BOY</strong>
                 </div>
                 <div class="clickable-portrait" onclick="setManagerGender('Girl')">
-                    ${portrait("/pictures/girl trainer.jpg", "Girl Trainer", 220)}<br>
-                    <strong style="color: #ff00ff;">👧 GIRL</strong>
+                    ${portrait("/pictures/girl trainer.jpg", "Girl Trainer", 180)}<br>
+                    <strong style="color: #ff00ff; font-size:12px;">👧 GIRL</strong>
                 </div>
             </div>
-            <p style="color: #ffff00; font-size: 13px;">👴 <strong>[Professor Bill]:</strong> "First, what is your name? Click your trainer avatar to select your gender and proceed!"</p>
+            <p style="color: #ffff00; font-size: 12px;">👴 <strong>[Professor Bill]:</strong> "First, what is your name? Click your avatar to select your gender and proceed!"</p>
         `;
         renderButtons([]);
     }
@@ -827,8 +847,8 @@
     function showProfessorDialogue3() {
         clearConsole("center", "radial-gradient(circle at 50% 30%, #001a1a 0%, #000 85%)", "#00ffff");
         document.getElementById("console").innerHTML = `
-            <p style="color: #00ffff; font-size: 14px;">👴 <strong>[Professor Bill]:</strong> "First, what is your name? Enter it into your official Midnoria trainer license below:"</p>
-            <input type="text" id="name-input" placeholder="Enter name..." style="background: #111; color: #0f0; border: 1px solid #0f0; padding: 10px; font-family: 'Courier New'; font-size: 14px; border-radius: 4px; width: 80%; max-width: 250px; text-align: center;" />
+            <p style="color: #00ffff; font-size: 13px;">👴 <strong>[Professor Bill]:</strong> "First, what is your name? Enter it into your official Midnoria trainer license below:"</p>
+            <input type="text" id="name-input" placeholder="Enter name..." style="background: #111; color: #0f0; border: 1px solid #0f0; padding: 8px; font-family: 'Courier New'; font-size: 13px; border-radius: 4px; width: 80%; max-width: 220px; text-align: center; margin-top:8px;" />
         `;
         renderButtons([{ text: "Confirm Name ➡", class: "btn btn-start", action: confirmManagerName }]);
     }
@@ -842,8 +862,8 @@
     function showStarterSelectionPrompt() {
         clearConsole("center", "radial-gradient(circle at 50% 30%, #001a1a 0%, #000 85%)", "#00ffff");
         document.getElementById("console").innerHTML = `
-            ${portrait("/pictures/professor.jpg", "Professor Bill", 240)}
-            <p style="color: #00ffff; font-size: 13.5px; line-height: 1.5; max-width: 420px;">
+            ${portrait("/pictures/professor.jpg", "Professor Bill", 200)}
+            <p style="color: #00ffff; font-size: 13px; line-height: 1.45; max-width: 400px;">
                 👴 <strong>[Professor Bill]:</strong> "Right! So your name is <strong>${game.playerName}</strong>! You cannot possibly venture out into the wild dimensions of Midnoria without a reliable partner. Would you like to select your starter companion now?"
             </p>
         `;
@@ -856,8 +876,8 @@
     function showStarterRefusal() {
         clearConsole("center", "radial-gradient(circle at 50% 30%, #001a1a 0%, #000 85%)", "#00ffff");
         document.getElementById("console").innerHTML = `
-            ${portrait("/pictures/professor.jpg", "Professor Bill", 240)}
-            <p style="color: #ff3333; font-size: 13.5px; line-height: 1.5; max-width: 420px;">
+            ${portrait("/pictures/professor.jpg", "Professor Bill", 200)}
+            <p style="color: #ff3333; font-size: 13px; line-height: 1.45; max-width: 400px;">
                 👴 <strong>[Professor Bill]:</strong> "Haha, don't be shy, trainer! It is far too dangerous out there without backup. Let's try this again!"
             </p>
         `;
@@ -866,7 +886,7 @@
 
     function showStarterSelection() {
         clearConsole("center", "radial-gradient(circle at 50% 30%, #001a1a 0%, #000 85%)", "#00ffff");
-        document.getElementById("console").innerHTML = `<p style="color: #00ffff; font-size: 13.5px; line-height: 1.5; max-width: 420px;">👴 <strong>[Professor Bill]:</strong> "Choose your starter companion to aid your journey across Midnoria, trainer!"</p>`;
+        document.getElementById("console").innerHTML = `<p style="color: #00ffff; font-size: 13px; line-height: 1.45; max-width: 400px;">👴 <strong>[Professor Bill]:</strong> "Choose your starter companion to aid your journey across Midnoria, trainer!"</p>`;
         renderButtons([
             { text: "🎀 Astolfo", class: "btn btn-maid", action: () => confirmStarterChoice(9001, 20, "Astolfo") },
             { text: "🖤 Felix Argyle", class: "btn btn-maid", action: () => confirmStarterChoice(9002, 22, "Felix Argyle") },
@@ -878,8 +898,8 @@
         playStarterCry(starterName);
         clearConsole("center", "radial-gradient(circle at 50% 30%, #001a1a 0%, #000 85%)", "#00ffff");
         document.getElementById("console").innerHTML = `
-            ${portrait(getCharacterPortrait(starterName), starterName, 200)}
-            <p style="color: #ffff00; font-size: 14px; line-height: 1.5; max-width: 420px;">
+            ${portrait(getCharacterPortrait(starterName), starterName, 180)}
+            <p style="color: #ffff00; font-size: 13px; line-height: 1.45; max-width: 400px;">
                 👴 <strong>[Professor Bill]:</strong> "Ah, you want <strong>${starterName}</strong>? This character is quite spirited! Are you sure you want this one?"
             </p>
         `;
@@ -938,10 +958,10 @@
         playBGM('shop');
         clearConsole("center", "radial-gradient(circle at 50% 30%, #333300 0%, #080800 85%)", "#ffff00");
         document.getElementById("console").innerHTML = `
-            <div id="wheel-icon" style="font-size: 60px; margin-bottom: 10px;">🎡</div>
-            <h2 style="color: #ffff00;">🎰 MULTIVERSE LUCKY WHEEL</h2>
-            <p style="color: #aaa; font-size:13px; max-width: 380px;">Spin the wheel for a chance to win bonus cash, rare gems, stamina, or Pokéballs! (Cost: $100)</p>
-            <p id="wheel-result" style="color: #00ffff; font-size: 14px;"></p>
+            <div id="wheel-icon" style="font-size: 50px; margin-bottom: 8px;">🎡</div>
+            <h2 style="color: #ffff00; font-size:18px;">🎰 MULTIVERSE LUCKY WHEEL</h2>
+            <p style="color: #aaa; font-size:12px; max-width: 360px;">Spin the wheel for a chance to win bonus cash, rare gems, stamina, or Pokéballs! (Cost: $100)</p>
+            <p id="wheel-result" style="color: #00ffff; font-size: 13px;"></p>
         `;
         renderButtons([
             { text: "🔄 Spin the Wheel ($100)", class: "btn btn-spin", action: triggerWheelSpin },
@@ -989,9 +1009,9 @@
         playBGM('shop');
         clearConsole("flex-start", "radial-gradient(ellipse at 50% 20%, #3d1c00 0%, #140a00 70%)", "#ff8c00");
         document.getElementById("console").innerHTML = `
-            ${portrait("/pictures/doug.png", "Doug", 130)}
-            <h2 style="color: #ffaa00;">🏪 MIDNORIA MARKET DISTRICT</h2>
-            <p style="color: #aaa; font-size:13px;">Visit the bustling merchant stalls of Midnoria!</p>
+            ${portrait("/pictures/doug.png", "Doug", 120)}
+            <h2 style="color: #ffaa00; font-size:18px;">🏪 MIDNORIA MARKET DISTRICT</h2>
+            <p style="color: #aaa; font-size:12px;">Visit the bustling merchant stalls of Midnoria!</p>
         `;
         renderButtons([
             { text: "💰 Doug's Ore Exchange", class: "btn btn-mine", action: showMiningShop },
@@ -1013,27 +1033,27 @@
         clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #402000 0%, #120800 75%)", "#ffaa00");
         let randomQuote = DOUG_QUOTES[Math.floor(Math.random() * DOUG_QUOTES.length)];
         document.getElementById("console").innerHTML = `
-            ${portrait("/pictures/doug.png", "Doug", 120)}
-            <h2 style="color: #ffaa00;">💰 DOUG'S ORE EXCHANGE</h2>
-            <p style="color: #aaa; font-size:13px;">${randomQuote}</p>
+            ${portrait("/pictures/doug.png", "Doug", 110)}
+            <h2 style="color: #ffaa00; font-size:18px;">💰 DOUG'S ORE EXCHANGE</h2>
+            <p style="color: #aaa; font-size:12px;">${randomQuote}</p>
         `;
         let sellableItems = ["Copper Ore", "Diamond", "Starfruit Jam", "Sweet Candy"];
-        let html = `<div style="width:100%; max-width:400px; margin: 10px 0;">`;
+        let html = `<div style="width:100%; max-width:380px; margin: 6px 0;">`;
         let hasItemsToSell = false;
 
         game.inventory.forEach((item, idx) => {
             if (sellableItems.includes(item)) {
                 hasItemsToSell = true;
                 let price = item === "Diamond" ? 1500 : item === "Copper Ore" ? 300 : 200;
-                html += `<div style="background:#08080f; border:1px solid #ffaa0055; padding:8px; margin:4px 0; border-radius:4px; display:flex; justify-content:space-between; align-items:center;">
+                html += `<div style="background:#08080f; border:1px solid #ffaa0055; padding:6px; margin:3px 0; border-radius:4px; display:flex; justify-content:space-between; align-items:center; font-size:12px;">
                     <span>💎 ${item} ($${price})</span>
-                    <button class="btn btn-mine" style="padding:3px 8px; font-size:11px;" onclick="sellMiningItem(${idx}, ${price}, '${item}')">Sell</button>
+                    <button class="btn btn-mine" style="padding:2px 6px; font-size:10px; min-height:26px;" onclick="sellMiningItem(${idx}, ${price}, '${item}')">Sell</button>
                 </div>`;
             }
         });
 
         if (!hasItemsToSell) {
-            html += `<p style="color:#ff3333;">*Screams into a pillow, tearing his hair out* "YOU HAVE NO ORES! BRING ME ROCKS!!"</p>`;
+            html += `<p style="color:#ff3333; font-size:12px;">*Screams into a pillow, tearing his hair out* "YOU HAVE NO ORES! BRING ME ROCKS!!"</p>`;
         }
         html += `</div>`;
         document.getElementById("console").innerHTML += html;
@@ -1060,10 +1080,10 @@
         clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #002233 0%, #000c14 85%)", "#00ffff");
         let randomDonQuote = DON_QUOTES[Math.floor(Math.random() * DON_QUOTES.length)];
         document.getElementById("console").innerHTML = `
-            ${portrait("/pictures/don.png", "Don", 140)}
-            <p style="color: #00ffff; font-size:13px; font-style:italic;">*Sighs heavily and loudly rubs his temples*</p>
-            <h2 style="color: #00ffff;">🛍️ DON'S GENERAL STORE</h2>
-            <p style="color: #aaa; font-size:13px;">${randomDonQuote}</p>
+            ${portrait("/pictures/don.png", "Don", 120)}
+            <p style="color: #00ffff; font-size:12px; font-style:italic;">*Sighs heavily and loudly rubs his temples*</p>
+            <h2 style="color: #00ffff; font-size:18px;">🛍️ DON'S GENERAL STORE</h2>
+            <p style="color: #aaa; font-size:12px;">${randomDonQuote}</p>
         `;
         renderButtons([
             { text: "🧪 Healing Potion ($150)", action: () => buyGeneralItem("Healing Potion", 150) },
@@ -1089,9 +1109,9 @@
         playBGM('villain');
         clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #200020 0%, #0a000a 85%)", "#ff00ff");
         document.getElementById("console").innerHTML = `
-            ${portrait("/pictures/fr3xi0us.png", "Fr3xi0us", 140)}
-            <h2 style="color: #ff00ff;">🕶️ FR3XI0US'S BLACK MARKET</h2>
-            <p style="color: #aaa; font-size:13px;">"Looking for high-end gear and survival utilities? You came to the right place."</p>
+            ${portrait("/pictures/fr3xi0us.png", "Fr3xi0us", 120)}
+            <h2 style="color: #ff00ff; font-size:18px;">🕶️ FR3XI0US'S BLACK MARKET</h2>
+            <p style="color: #aaa; font-size:12px;">"Looking for high-end gear and survival utilities? You came to the right place."</p>
         `;
         renderButtons([
             { text: "🔴 Master Ball ($2500)", action: () => buyGeneralItem("Master Ball", 2500) },
@@ -1105,19 +1125,17 @@
         clearConsole("flex-start", "radial-gradient(ellipse at 50% 20%, #1a0f00 0%, #080400 80%)", "#33ccff");
         let gear = game.equippedGear || { weapon: "None", armor: "None", helmet: "None", accessory: "None" };
         let html = `
-            <h2 style="color: #33ccff; margin: 2px 0;">🎒 INVENTORY & GEAR SLOTS</h2>
-            <div class="dex-card" style="display:block;">
+            <h2 style="color: #33ccff; margin: 2px 0; font-size:18px;">🎒 INVENTORY & GEAR SLOTS</h2>
+            <div class="dex-card" style="display:block; font-size:12px;">
                 <strong style="color: #ffff00;">Trainer Equipment Loadout:</strong><br>
-                ⚔️ Weapon: <span style="color:#00ffff;">${gear.weapon}</span><br>
-                🛡️ Armor: <span style="color:#00ffff;">${gear.armor}</span><br>
-                🪖 Helmet: <span style="color:#00ffff;">${gear.helmet}</span><br>
-                💍 Accessory: <span style="color:#00ffff;">${gear.accessory}</span><br>
+                ⚔️ Weapon: <span style="color:#00ffff;">${gear.weapon}</span> | 🛡️ Armor: <span style="color:#00ffff;">${gear.armor}</span><br>
+                🪖 Helmet: <span style="color:#00ffff;">${gear.helmet}</span> | 💍 Accessory: <span style="color:#00ffff;">${gear.accessory}</span><br>
                 ⚡ Total Trainer Power: <strong style="color:#ff00ff;">${game.managerPower}</strong>
             </div>
-            <p style="color:#00ff88; font-size:12px; margin:4px 0;">Backpack Items (${game.inventory.length}):</p>
+            <p style="color:#00ff88; font-size:11.5px; margin:4px 0;">Backpack Items (${game.inventory.length}):</p>
         `;
         game.inventory.forEach((item) => {
-            html += `<div style="background:#08080f; border:1px solid #222233; padding:6px; margin:3px 0; border-radius:4px; font-size:13px; display:flex; justify-content:space-between; align-items:center;">
+            html += `<div style="background:#08080f; border:1px solid #222233; padding:5px; margin:2px 0; border-radius:4px; font-size:12px; display:flex; justify-content:space-between; align-items:center;">
                 <span>📦 ${item}</span>
             </div>`;
         });
@@ -1130,8 +1148,8 @@
         clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #173b5c 0%, #0a141e 80%)", "#33aaff");
         let decor = game.homeDecor || { tier: 1, name: "Standard Suite", items: [] };
         document.getElementById("console").innerHTML = `
-            <h2 style="color: #33aaff;">🏠 HOME DECOR & SUITE UPGRADE</h2>
-            <div class="dex-card" style="display:block;">
+            <h2 style="color: #33aaff; font-size:18px;">🏠 HOME DECOR & SUITE UPGRADE</h2>
+            <div class="dex-card" style="display:block; font-size:12px;">
                 🏠 Current Suite: <strong style="color:#00ffff;">${decor.name} (Tier ${decor.tier})</strong><br>
                 🎨 Installed Decor: <span style="color:#ff00ff;">${decor.items.join(", ") || "None"}</span>
             </div>
@@ -1173,7 +1191,7 @@
         playBGM('farm');
         clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #053b16 0%, #021408 80%)", "#00ff66");
         updateUI();
-        document.getElementById("console").innerHTML = `<h2 style="color:#00ff88;">🌱 HYDROPONIC GREENHOUSE</h2><p>Greenhouse operational.</p>`;
+        document.getElementById("console").innerHTML = `<h2 style="color:#00ff88; font-size:18px;">🌱 HYDROPONIC GREENHOUSE</h2><p style="font-size:12px;">Greenhouse operational.</p>`;
         renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
     }
 
@@ -1182,22 +1200,22 @@
         playBGM('staff');
         clearConsole("flex-start", "radial-gradient(circle at 50% 25%, #2b005c 0%, #0c001a 80%)", "#a020f0");
         let staff = game.staff || [];
-        let html = `<h2 style="color:#a020f0;">⚔️ STAFF ROSTER & INTERACTIONS</h2><div style="width:100%;">`;
+        let html = `<h2 style="color:#a020f0; font-size:18px;">⚔️ STAFF ROSTER & INTERACTIONS</h2><div style="width:100%;">`;
         
         if (!staff.length) {
-            html += `<p style="color:#aaa;">No staff recruited yet.</p>`;
+            html += `<p style="color:#aaa; font-size:12px;">No staff recruited yet.</p>`;
         } else {
             staff.forEach((s, idx) => {
                 html += `
                     <div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
-                        <div style="display:flex; align-items:center; gap:10px;">
-                            <img src="${getCharacterPortrait(s.name)}" style="width:40px;height:40px;object-fit:contain;border-radius:6px;border:1px solid #a020f0;" onerror="this.style.display='none'"/>
-                            <div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <img src="${getCharacterPortrait(s.name)}" style="width:34px;height:34px;object-fit:contain;border-radius:6px;border:1px solid #a020f0;" onerror="this.style.display='none'"/>
+                            <div style="font-size:12px;">
                                 <strong>${s.name}</strong><br>
-                                <span style="font-size:11px;color:#aaa;">Origin: ${s.origin || 'Unknown'} | Power: ${s.power || 0}</span>
+                                <span style="font-size:10.5px;color:#aaa;">Origin: ${s.origin || 'Unknown'} | Power: ${s.power || 0}</span>
                             </div>
                         </div>
-                        <button class="btn btn-maid" style="padding:4px 10px; font-size:12px;" onclick="interactWithStaff(${idx})">💬 Talk</button>
+                        <button class="btn btn-maid" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="interactWithStaff(${idx})">💬 Talk</button>
                     </div>
                 `;
             });
@@ -1213,9 +1231,9 @@
         playBGM('staff');
         clearConsole("center", "radial-gradient(circle at 50% 30%, #2b005c 0%, #0c001a 80%)", "#a020f0");
         document.getElementById("console").innerHTML = `
-            ${portrait(getCharacterPortrait(member.name), member.name, 200)}
-            <h3 style="color:#ff66ff;">💬 Chat with ${member.name}</h3>
-            <p style="color:#ffff00; font-size:14px; max-width:400px; line-height:1.4;">
+            ${portrait(getCharacterPortrait(member.name), member.name, 160)}
+            <h3 style="color:#ff66ff; font-size:16px;">💬 Chat with ${member.name}</h3>
+            <p style="color:#ffff00; font-size:12.5px; max-width:380px; line-height:1.4;">
                 "Hey trainer ${game.playerName}! Thanks for having me along across timelines in Midnoria. Let's keep pushing our limits!"
             </p>
         `;
@@ -1266,11 +1284,11 @@
                     <div class="ball-top"></div><div class="ball-center-band"></div><div class="ball-center-btn"></div><div class="ball-bottom"></div>
                 </div>
             </div>
-            ${portrait(getCharacterPortrait(activeEncounter.name), activeEncounter.name, 140)}
-            <h2>🌌 WILD ENCOUNTER!</h2>
-            <p style="color:#00ffff; font-size:20px;"><strong>${activeEncounter.name}</strong></p>
-            <p style="color:#ff00ff;">Origin: ${activeEncounter.origin}</p>
-            <p id="capture-status" style="color:#ffff66;">Ready to throw Poké Ball...</p>
+            ${portrait(getCharacterPortrait(activeEncounter.name), activeEncounter.name, 120)}
+            <h2 style="font-size:16px;">🌌 WILD ENCOUNTER!</h2>
+            <p style="color:#00ffff; font-size:18px; margin:2px 0;"><strong>${activeEncounter.name}</strong></p>
+            <p style="color:#ff00ff; font-size:12px; margin:2px 0;">Origin: ${activeEncounter.origin}</p>
+            <p id="capture-status" style="color:#ffff66; font-size:12px;">Ready to throw Poké Ball...</p>
         `;
         renderButtons([
             { text: "🔴 Throw Poké Ball", class: "btn btn-start", action: processPortalCatch },
@@ -1301,9 +1319,9 @@
         playBGM('dlcHub');
         clearConsole("center", "radial-gradient(circle at 50% 50%, #4d004d 0%, #1a001a 80%)", "#ff00ff");
         document.getElementById("console").innerHTML = `
-            <h2 style="color: #ff00ff;">🔒 SECURE PREMIUM NETWORK</h2>
-            <p style="color: #00ffff;">Enter the VIP Passcode to permanently unlock premium dimensions.</p>
-            <input type="text" id="dlc-passcode-input" placeholder="Passcode..." style="background: #111; color: #0f0; border: 1px solid #0f0; padding: 10px; font-family: 'Courier New'; font-size: 14px; border-radius: 4px; width: 80%; max-width: 250px; text-align: center;" />
+            <h2 style="color: #ff00ff; font-size:18px;">🔒 SECURE PREMIUM NETWORK</h2>
+            <p style="color: #00ffff; font-size:12px;">Enter the VIP Passcode to permanently unlock premium dimensions.</p>
+            <input type="text" id="dlc-passcode-input" placeholder="Passcode..." style="background: #111; color: #0f0; border: 1px solid #0f0; padding: 8px; font-family: 'Courier New'; font-size: 13px; border-radius: 4px; width: 80%; max-width: 220px; text-align: center; margin-top:6px;" />
         `;
         renderButtons([
             { text: "🔓 Unlock Network", class: "btn btn-start", action: () => {
@@ -1323,8 +1341,8 @@
         playBGM('dlcHub');
         clearConsole("center", "radial-gradient(circle at 50% 50%, #4d004d 0%, #1a001a 80%)", "#ff00ff");
         document.getElementById("console").innerHTML = `
-            <h2 style="color: #ff00ff; text-shadow: 0 0 10px #ff00ff;">PREMIUM DLC DIMENSIONS</h2>
-            <p style="color:#ff99ff; font-size:13px;">Explore exclusive high-tier sectors!</p>
+            <h2 style="color: #ff00ff; text-shadow: 0 0 10px #ff00ff; font-size:18px;">PREMIUM DLC DIMENSIONS</h2>
+            <p style="color:#ff99ff; font-size:12px;">Explore exclusive high-tier sectors!</p>
         `;
         renderButtons([
             { text: "🥞 Goth IHOP", class: "btn btn-goth", action: () => triggerPortalTheme("gothIhop", 'shop') },
@@ -1333,14 +1351,14 @@
         ]);
     }
 
-    // --- MULTIPLAYER ONLINE HUB, TRADING, PVP & CO-OP RAIDS ---
+    // --- MULTIPLAYER ONLINE HUB ---
     function showOnlineLobbyGate() {
         playBGM('trade');
         clearConsole("center", "radial-gradient(circle at 50% 30%, #003366 0%, #000c14 85%)", "#00aaff");
         document.getElementById("console").innerHTML = `
-            <h2 style="color:#00ffff;">🌐 ONLINE MULTIPLAYER HUB</h2>
-            <p style="color:#aaa; max-width:400px; font-size:13px;">Join a shared timeline room with your friends to view rosters, trade, fight PvP duels, or tackle Co-Op Raid Bosses!</p>
-            <input type="text" id="room-code-input" value="${currentRoomId || 'MIDNORIA'}" style="background:#111;color:#0ff;border:1px solid #0ff;padding:8px;font-family:'Courier New';font-size:14px;border-radius:4px;width:70%;max-width:200px;text-align:center;margin-top:10px;" />
+            <h2 style="color:#00ffff; font-size:18px;">🌐 ONLINE MULTIPLAYER HUB</h2>
+            <p style="color:#aaa; max-width:380px; font-size:12px;">Join a shared timeline room with your friends to view rosters, trade, fight PvP duels, or tackle Co-Op Raid Bosses!</p>
+            <input type="text" id="room-code-input" value="${currentRoomId || 'MIDNORIA'}" style="background:#111;color:#0ff;border:1px solid #0ff;padding:8px;font-family:'Courier New';font-size:13px;border-radius:4px;width:70%;max-width:180px;text-align:center;margin-top:6px;" />
         `;
         renderButtons([
             { text: "Connect to Room", class: "btn btn-sys", action: () => {
@@ -1355,24 +1373,24 @@
     function renderActiveLobbyView() {
         clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #002244 0%, #000814 85%)", "#00aaff");
         let html = `
-            <h2 style="color:#00ffff; margin-bottom:2px;">📡 ROOM: ${currentRoomId}</h2>
-            <p style="color:#aaa; font-size:12px; margin-top:2px;">Active Trainers Connected: ${onlineRoomPlayers.length || 1}</p>
-            <div style="width:100%; max-width:420px; max-height:160px; overflow-y:auto; margin-bottom:8px;">
+            <h2 style="color:#00ffff; margin-bottom:2px; font-size:16px;">📡 ROOM: ${currentRoomId}</h2>
+            <p style="color:#aaa; font-size:11.5px; margin-top:2px;">Active Trainers Connected: ${onlineRoomPlayers.length || 1}</p>
+            <div style="width:100%; max-width:380px; max-height:140px; overflow-y:auto; margin-bottom:6px;">
         `;
 
         if (!onlineRoomPlayers.length) {
-            html += `<div class="dex-card">👤 ${game.playerName} (You) - Host</div>`;
+            html += `<div class="dex-card" style="font-size:12px;">👤 ${game.playerName} (You) - Host</div>`;
         } else {
             onlineRoomPlayers.forEach(p => {
                 let isMe = p.name === game.playerName;
-                html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center; font-size:12px;">
                     <div><strong>👤 ${p.name}</strong> ${isMe ? '<span style="color:#ffaa00;">(You)</span>' : ''}</div>
-                    ${!isMe ? `<button class="btn btn-combat" style="padding:3px 8px; font-size:11px;" onclick="challengePlayerPvP('${p.name}')">⚔️ Duel</button>` : ''}
+                    ${!isMe ? `<button class="btn btn-combat" style="padding:2px 6px; font-size:10px; min-height:24px;" onclick="challengePlayerPvP('${p.name}')">⚔️ Duel</button>` : ''}
                 </div>`;
             });
         }
         html += `</div>`;
-        document.getElementById("console").innerHTML += html;
+        document.getElementById("console").innerHTML = html;
 
         renderButtons([
             { text: "🐲 Start Co-Op Raid Boss", class: "btn btn-raid", action: startCoopRaidSession },
@@ -1384,11 +1402,11 @@
     function showMultiplayerTradeScreen() {
         clearConsole("center", "radial-gradient(circle at 50% 30%, #201a00 0%, #050400 85%)", "#ffaa00");
         document.getElementById("console").innerHTML = `
-            <h2 style="color:#ffaa00;">🤝 MULTIPLAYER TRADE EXCHANGE</h2>
-            <p style="color:#aaa; font-size:13px; max-width:380px;">Trade minerals, items, or staff recruits across the room network.</p>
-            <div class="dex-card" style="display:block; text-align:left;">
+            <h2 style="color:#ffaa00; font-size:18px;">🤝 MULTIPLAYER TRADE EXCHANGE</h2>
+            <p style="color:#aaa; font-size:12px; max-width:360px;">Trade minerals, items, or staff recruits across the room network.</p>
+            <div class="dex-card" style="display:block; text-align:left; font-size:12px;">
                 <strong style="color:#00ffff;">Offer Item:</strong> Diamond / Copper Ore / Pokéball<br>
-                <span style="color:#888; font-size:12px;">Select trade item to broadcast offer to lobby.</span>
+                <span style="color:#888; font-size:11px;">Select trade item to broadcast offer to lobby.</span>
             </div>
         `;
         renderButtons([
@@ -1433,13 +1451,13 @@
 
         clearConsole("center", "radial-gradient(circle at 50% 30%, #3a0000 0%, #0a0002 85%)", "#ff0055");
         document.getElementById("console").innerHTML = `
-            <h2 style="color:#ff0055; text-shadow: 0 0 10px #ff0055;">🐲 MULTIPLAYER CO-OP RAID BOSS</h2>
-            <div class="dex-card" style="display:block; text-align:center;">
-                <strong style="color:#ff3333; font-size:18px;">${activeRaidSession.bossName}</strong><br>
+            <h2 style="color:#ff0055; text-shadow: 0 0 10px #ff0055; font-size:18px;">🐲 MULTIPLAYER CO-OP RAID BOSS</h2>
+            <div class="dex-card" style="display:block; text-align:center; font-size:12px;">
+                <strong style="color:#ff3333; font-size:16px;">${activeRaidSession.bossName}</strong><br>
                 ❤️ Raid HP: <span style="color:#ff3333;" id="raid-boss-hp">${activeRaidSession.bossHP} / ${activeRaidSession.bossMaxHP}</span><br>
                 👥 United Lobby Attackers: <span style="color:#00ffff;">${activeRaidSession.partyCount} Player(s)</span>
             </div>
-            <p id="raid-combat-log" style="color:#ffff00; font-size:13px;">Coordinate your party strike against the raid boss!</p>
+            <p id="raid-combat-log" style="color:#ffff00; font-size:12px;">Coordinate your party strike against the raid boss!</p>
         `;
 
         renderButtons([
@@ -1463,8 +1481,8 @@
                 updateUI(); saveGame();
                 clearConsole("center", "radial-gradient(circle, #003300, #000)", "#00ff88");
                 document.getElementById("console").innerHTML = `
-                    <h2 style="color:#00ff88;">🏆 RAID BOSS DEFEATED!</h2>
-                    <p style="color:#fff;">The entire party claimed $${reward} and a rare Diamond!</p>
+                    <h2 style="color:#00ff88; font-size:18px;">🏆 RAID BOSS DEFEATED!</h2>
+                    <p style="color:#fff; font-size:12px;">The entire party claimed $${reward} and a rare Diamond!</p>
                 `;
                 renderButtons([{ text: "✔ Return to Lobby", class: "btn btn-start", action: renderActiveLobbyView }]);
             }, 1200);
@@ -1479,13 +1497,13 @@
         playBGM('credits');
         clearConsole("center", "radial-gradient(circle at 50% 30%, #151515 0%, #000 85%)", "#ffffff");
         document.getElementById("console").innerHTML = `
-            <h2 style="color:#fff;">📜 UNIDEX LEGENDS — CREDITS</h2>
-            <div class="dex-card" style="display:block;line-height:1.6;font-size:13px;text-align:center;">
+            <h2 style="color:#fff; font-size:18px;">📜 UNIDEX LEGENDS — CREDITS</h2>
+            <div class="dex-card" style="display:block;line-height:1.5;font-size:12px;text-align:center;">
                 <strong>UNIDEX LEGENDS</strong><br><br>
                 <strong>Concept & Direction</strong><br>Bill<br><br>
                 <strong>Beta Testing</strong><br>Fr3xi0us<br><br>
                 <strong>Concepts & Ideas</strong><br>Doug & Don<br><br>
-                <em style="color:#ffcc00; font-size:11px;">Disclaimer: This is a non-profit fangame. All characters, names, and intellectual properties belong to their respective copyright holders. No infringement intended.</em>
+                <em style="color:#ffcc00; font-size:10.5px;">Disclaimer: This is a non-profit fangame. All characters, names, and intellectual properties belong to their respective copyright holders. No infringement intended.</em>
             </div>
         `;
         renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
@@ -1496,7 +1514,7 @@
         clearConsole("center", "radial-gradient(circle at 50% 30%, #000 0%, #080702 85%)", "#ffaa00");
         document.getElementById("console").innerHTML = `
             <div class="rest-scene">
-                <h2 style="color: #00ffff; margin-bottom: 10px;">💤 SLEEPING... (DAY CYCLE)</h2>
+                <h2 style="color: #00ffff; margin-bottom: 8px; font-size:18px;">💤 SLEEPING... (DAY CYCLE)</h2>
                 <div>
                     <span class="zzz-1">Z</span>
                     <span class="zzz-2">Z</span>
@@ -1530,18 +1548,18 @@
         let slice = entries.slice((page-1)*perPage, page*perPage);
 
         let html = `
-            <h2 style="color:#ffff00;">📖 UNIDEX (Page ${page}/${totalPages})</h2>
-            <div style="margin: 8px 0; width: 100%; display: flex; justify-content: center; gap: 6px;">
-                <input type="text" id="dex-search-input" placeholder="Search name or origin..." value="${searchQuery}" style="background: #111; color: #0ff; border: 1px solid #0ff; padding: 6px; font-family: 'Courier New'; font-size: 12px; border-radius: 4px; width: 65%; max-width: 220px;" />
-                <button class="btn btn-sys" style="padding: 6px 12px; font-size: 12px;" onclick="filterDexSearch()">Search</button>
-                ${searchQuery ? `<button class="btn btn-back" style="padding: 6px 10px; font-size: 12px;" onclick="showDexMenu(1, '')">Reset</button>` : ''}
+            <h2 style="color:#ffff00; font-size:18px;">📖 UNIDEX (${page}/${totalPages})</h2>
+            <div style="margin: 6px 0; width: 100%; display: flex; justify-content: center; gap: 4px;">
+                <input type="text" id="dex-search-input" placeholder="Search name/origin..." value="${searchQuery}" style="background: #111; color: #0ff; border: 1px solid #0ff; padding: 5px; font-family: 'Courier New'; font-size: 11px; border-radius: 4px; width: 60%; max-width: 180px;" />
+                <button class="btn btn-sys" style="padding: 4px 8px; font-size: 11px; min-height:28px;" onclick="filterDexSearch()">Search</button>
+                ${searchQuery ? `<button class="btn btn-back" style="padding: 4px 6px; font-size: 11px; min-height:28px;" onclick="showDexMenu(1, '')">Reset</button>` : ''}
             </div>
             <div style="width:100%;">
         `;
         slice.forEach(e => {
             let caught = game.pokedex && game.pokedex[String(e.id)];
-            let icon = caught ? `<img src="${getCharacterPortrait(e.name)}" style="width:30px;height:30px;object-fit:contain;border-radius:4px;border:1px solid #0ff;" onerror="this.style.display='none'"/>` : '⚪';
-            html += `<div class="dex-card">${icon} <span>#${e.id} - ${caught ? e.name : '????????'}</span></div>`;
+            let icon = caught ? `<img src="${getCharacterPortrait(e.name)}" style="width:26px;height:26px;object-fit:contain;border-radius:4px;border:1px solid #0ff;" onerror="this.style.display='none'"/>` : '⚪';
+            html += `<div class="dex-card" style="font-size:11.5px;">${icon} <span>#${e.id} - ${caught ? e.name : '????????'}</span></div>`;
         });
         html += `</div>`;
         document.getElementById("console").innerHTML = html;
@@ -1571,8 +1589,8 @@
         playBGM('hq');
         clearConsole("center", "radial-gradient(circle at 50% 40%, #002244 0%, #02060a 85%)", "#00ffcc");
         document.getElementById("console").innerHTML = `
-            <h2 style="color: #00ffcc;">🗺️ MIDNORIA REGIONS MAP</h2>
-            <p style="color: #aaa; font-size:13px;">Explore diverse biomes and hunt regional monsters (Costs 5 Stamina):</p>
+            <h2 style="color: #00ffcc; font-size:18px;">🗺️ MIDNORIA REGIONS MAP</h2>
+            <p style="color: #aaa; font-size:12px;">Explore diverse biomes and hunt regional monsters (Costs 5 Stamina):</p>
         `;
         renderButtons([
             { text: "🌲 Whispering Forest", class: "btn btn-farm", action: () => selectRegion('forest') },
@@ -1594,8 +1612,8 @@
         document.getElementById("console").innerHTML = `
             <div class="${animDivClass}" style="width:100%; height:100%;">
                 <div class="travel-animation">
-                    <div style="font-size: 50px; margin-bottom: 10px;">${reg.icon || '🚀'}</div>
-                    <h2 style="color: ${reg.color};">ARRIVED IN ${reg.name.toUpperCase()}</h2>
+                    <div style="font-size: 40px; margin-bottom: 8px;">${reg.icon || '🚀'}</div>
+                    <h2 style="color: ${reg.color}; font-size:18px;">ARRIVED IN ${reg.name.toUpperCase()}</h2>
                 </div>
             </div>
         `;
@@ -1610,8 +1628,8 @@
         let reg = REGIONS_DATA[regionKey];
         clearConsole("flex-start", reg.bg, reg.color);
         document.getElementById("console").innerHTML = `
-            <h2 style="color: ${reg.color};">${reg.name.toUpperCase()}</h2>
-            <p style="color: #aaa; font-size:13px;">Hunt regional monsters or gather rare materials.</p>
+            <h2 style="color: ${reg.color}; font-size:18px;">${reg.name.toUpperCase()}</h2>
+            <p style="color: #aaa; font-size:12px;">Hunt regional monsters or gather rare materials.</p>
         `;
         renderButtons([
             { text: "⚔️ Hunt Regional Monster", class: "btn btn-combat", action: () => startRegionalMonsterEncounter(regionKey) },
@@ -1645,15 +1663,15 @@
         playBGM('horror');
         clearConsole("flex-start", "radial-gradient(circle at 50% 35%, #1a0f00 0%, #050200 85%)", "#ff8800");
         
-        let inventoryHTML = `<div style="width:96%; max-width:420px; background:#0b0800; border:1px dashed #ffaa0088; border-radius:6px; padding:8px; margin:8px 0; text-align:left;">
-            <strong style="color:#ffaa00; font-size:13px;">🎒 Bag Mining Minerals (${game.inventory.filter(i => ['Copper Ore','Diamond'].includes(i)).length}):</strong><br>
-            <span style="font-size:12px; color:#aaa;">${game.inventory.filter(i => ['Copper Ore','Diamond'].includes(i)).join(', ') || 'No ores or gems in backpack yet.'}</span>
+        let inventoryHTML = `<div style="width:98%; max-width:380px; background:#0b0800; border:1px dashed #ffaa0088; border-radius:6px; padding:6px; margin:6px 0; text-align:left;">
+            <strong style="color:#ffaa00; font-size:12px;">🎒 Bag Minerals (${game.inventory.filter(i => ['Copper Ore','Diamond'].includes(i)).length}):</strong><br>
+            <span style="font-size:11px; color:#aaa;">${game.inventory.filter(i => ['Copper Ore','Diamond'].includes(i)).join(', ') || 'No ores or gems in backpack yet.'}</span>
         </div>`;
 
         document.getElementById("console").innerHTML = `
             <div class="mining-scene" style="width:100%; height:100%;">
-                <h2 style="color: #ffaa00;">⛏️ STARDEW VALLEY MINES</h2>
-                <p style="color: #aaa; font-size:13px;">Smash rocks, mine ores, and fight monsters.</p>
+                <h2 style="color: #ffaa00; font-size:18px;">⛏️ STARDEW VALLEY MINES</h2>
+                <p style="color: #aaa; font-size:12px;">Smash rocks, mine ores, and fight monsters.</p>
                 ${inventoryHTML}
             </div>
         `;
@@ -1671,8 +1689,8 @@
         clearConsole("center", "radial-gradient(circle at 50% 35%, #1a0f00 0%, #050200 85%)", "#ff8800");
         document.getElementById("console").innerHTML = `
             <div class="mining-animation" style="width:100%; height:100%;">
-                <h2 style="color: #ffaa00;">⛏️ MINING IN PROGRESS...</h2>
-                <p style="color: #fff; font-size: 16px;">*Whack* *Whack* Smashing rocks and walls!</p>
+                <h2 style="color: #ffaa00; font-size:18px;">⛏️ MINING IN PROGRESS...</h2>
+                <p style="color: #fff; font-size: 14px;">*Whack* *Whack* Smashing rocks!</p>
             </div>
         `;
         renderButtons([]);
@@ -1710,19 +1728,19 @@
         let s = activeCombatSession;
         clearConsole("center", "radial-gradient(circle at 50% 30%, #33000a 0%, #080002 85%)", "#ff0044");
         document.getElementById("console").innerHTML = `
-            <h2 style="color: #ff0033;">⚔️ BATTLE vs ${s.enemyName.toUpperCase()}</h2>
-            <div style="display: flex; justify-content: space-around; width: 100%; margin: 15px 0;">
-                <div class="dex-card" style="text-align: center; width: 45%; display: block; border-color: #00ff66;">
-                    ${portrait(getCharacterPortrait(s.companionName), s.companionName, 90)}
-                    <strong style="color: #00ffff;">${s.companionName}</strong><br>
-                    ❤️ HP: <span style="color:#33ff33;" id="comp-hp">${s.companionHP} / ${s.companionMaxHP}</span>
+            <h2 style="color: #ff0033; font-size:16px;">⚔️ BATTLE vs ${s.enemyName.toUpperCase()}</h2>
+            <div style="display: flex; justify-content: space-around; width: 100%; margin: 8px 0;">
+                <div class="dex-card" style="text-align: center; width: 48%; display: block; border-color: #00ff66; padding:6px;">
+                    ${portrait(getCharacterPortrait(s.companionName), s.companionName, 75)}
+                    <strong style="color: #00ffff; font-size:12px;">${s.companionName}</strong><br>
+                    ❤️ <span style="color:#33ff33; font-size:11px;" id="comp-hp">${s.companionHP} / ${s.companionMaxHP}</span>
                 </div>
-                <div class="dex-card" style="text-align: center; width: 45%; display: block; border-color: #ff0055;">
-                    <strong style="color: #ff0055;">${s.enemyName}</strong><br>
-                    ❤️ HP: <span style="color:#ff3333;" id="enemy-hp">${s.enemyHP} / ${s.enemyMaxHP}</span>
+                <div class="dex-card" style="text-align: center; width: 48%; display: block; border-color: #ff0055; padding:6px;">
+                    <strong style="color: #ff0055; font-size:12px;">${s.enemyName}</strong><br>
+                    ❤️ <span style="color:#ff3333; font-size:11px;" id="enemy-hp">${s.enemyHP} / ${s.enemyMaxHP}</span>
                 </div>
             </div>
-            <p style="color: #ffff00; font-size: 13px;" id="combat-log">What will ${s.companionName} do?</p>
+            <p style="color: #ffff00; font-size: 12px; margin:2px 0;" id="combat-log">What will ${s.companionName} do?</p>
         `;
         renderButtons([
             { text: "⚔️ Strike", class: "btn btn-combat", action: () => executePokemonAction('strike') },
@@ -1742,7 +1760,7 @@
                 game.funds += (s.rewardCash || 1000);
                 updateUI(); saveGame();
                 clearConsole("center", "radial-gradient(circle,#003300,#000)", "#00ff88");
-                document.getElementById("console").innerHTML = `<h2>🎉 BATTLE WON!</h2><p>Earned $${s.rewardCash || 1000}!</p>`;
+                document.getElementById("console").innerHTML = `<h2 style="font-size:18px;">🎉 BATTLE WON!</h2><p style="font-size:12px;">Earned $${s.rewardCash || 1000}!</p>`;
                 renderButtons([{ text: "Return to HQ", class: "btn btn-back", action: showMainMenu }]);
             }, 1200);
         } else {
@@ -1751,7 +1769,7 @@
                 document.getElementById("comp-hp").innerText = `${s.companionHP} / ${s.companionMaxHP}`;
                 if (s.companionHP <= 0) {
                     clearConsole("center", "radial-gradient(circle,#330000,#000)", "#ff3333");
-                    document.getElementById("console").innerHTML = `<h2>💀 DEFEATED...</h2><p>Fled back to HQ.</p>`;
+                    document.getElementById("console").innerHTML = `<h2 style="font-size:18px;">💀 DEFEATED...</h2><p style="font-size:12px;">Fled back to HQ.</p>`;
                     renderButtons([{ text: "Return to HQ", class: "btn btn-back", action: showMainMenu }]);
                 }
             }, 1000);
