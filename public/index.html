@@ -56,7 +56,7 @@
         .dex-card { background: #08080f; border: 1px solid #222238; border-radius: 6px; padding: 7px; margin: 4px 0; width: 98%; text-align: left; display: flex; align-items: center; gap: 8px; z-index: 3; position: relative; }
         .sys-icon { cursor:pointer; font-size:14px; background:#222; padding:2px 6px; border-radius:4px; border:1px solid #555; display: flex; align-items: center; justify-content: center;}
 
-        /* --- RESTORED ANIMATIONS --- */
+        /* ANIMATIONS */
         @keyframes travelSlide {
             0% { transform: scale(0.2) rotate(-15deg); opacity: 0; filter: blur(8px); }
             50% { transform: scale(1.2) rotate(5deg); opacity: 1; filter: blur(0px); }
@@ -116,7 +116,6 @@
     </style>
 </head>
 <body>
-    <!-- Audio Element (Source is set dynamically by JS) -->
     <audio id="bg-music" loop></audio>
 
     <div id="save-toast" style="position:fixed; bottom:20px; right:20px; background:#002211; border:1px solid #00ff66; color:#00ff66; padding:6px 12px; border-radius:4px; font-size:12px; z-index:9999; display:none;">💾 Game Saved</div>
@@ -147,7 +146,6 @@
     let socket = null;
     try { socket = io({ transports: ['websocket', 'polling'] }); } catch(e) {}
 
-    // --- DYNAMIC MUSIC & AUDIO SYSTEM ---
     let isMuted = true;
     let currentTrack = "";
     
@@ -155,19 +153,20 @@
         if (currentTrack === trackName) return; 
         currentTrack = trackName;
         let aud = document.getElementById("bg-music");
+        if (!aud) return;
         aud.src = `music/${trackName}.mp3`;
         if (!isMuted) {
-            aud.play().catch(e => console.log("Audio play blocked by browser:", e));
+            aud.play().catch(e => console.log("Audio play allowed on user click:", e));
         }
     }
 
     function toggleAudio() {
         let aud = document.getElementById("bg-music");
         if(isMuted) { 
-            aud.play().catch(()=>{}); 
             isMuted = false; 
             document.getElementById("audio-btn").innerText = "🔊"; 
-            if(!currentTrack) playMusic('intro');
+            if(!currentTrack) playMusic('mainhq');
+            else aud.play().catch(()=>{});
         } else { 
             aud.pause(); 
             isMuted = true; 
@@ -175,14 +174,16 @@
         }
     }
     
-    function setVolume(val) { document.getElementById("bg-music").volume = val; }
+    function setVolume(val) { 
+        let aud = document.getElementById("bg-music");
+        if (aud) aud.volume = val; 
+    }
     
     function toggleFullscreen() {
         if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(()=>{}); }
         else { document.exitFullscreen(); }
     }
 
-    // --- GAME STATE & SOCKETS ---
     let globalActiveTrainers = [];
     let globalLeaderboard = [];
     let globalChatMessages = [];
@@ -217,12 +218,39 @@
 
     let game = JSON.parse(JSON.stringify(defaultGameState));
 
-    function getActiveChampion() {
-        if (!game.staff || !Array.isArray(game.staff) || game.staff.length === 0) {
-            game.staff = [{ name: "Astolfo", origin: "Fate", power: 30, maxHp: 120, hp: 120, level: 1, locked: true, loyalty: 10, evolved: false }];
+    function sanitizeGameState(loadedState) {
+        let clean = Object.assign(JSON.parse(JSON.stringify(defaultGameState)), loadedState || {});
+        if (!Array.isArray(clean.staff) || clean.staff.length === 0) {
+            clean.staff = [{ name: "Astolfo", origin: "Fate", power: 30, maxHp: 120, hp: 120, level: 1, locked: true, loyalty: 10, evolved: false }];
+        } else {
+            clean.staff = clean.staff.map(member => {
+                if (typeof member === "string") {
+                    return { name: member, origin: "Multiverse", power: 30, maxHp: 120, hp: 120, level: 1, locked: false, loyalty: 10, evolved: false };
+                }
+                return {
+                    name: member.name || "Companion",
+                    origin: member.origin || "Multiverse",
+                    power: member.power || 25,
+                    maxHp: member.maxHp || 100,
+                    hp: member.hp !== undefined ? member.hp : (member.maxHp || 100),
+                    level: member.level || 1,
+                    locked: !!member.locked,
+                    loyalty: member.loyalty || 10,
+                    evolved: !!member.evolved
+                };
+            });
         }
-        if (game.activeChampionIndex === undefined || game.activeChampionIndex >= game.staff.length) game.activeChampionIndex = 0;
-        return game.staff[game.activeChampionIndex] || game.staff[0];
+        if (!Array.isArray(clean.inventory)) clean.inventory = ["Energy Core", "Pokéball", "Copper Ore"];
+        if (!clean.equippedGear) clean.equippedGear = { weapon: "None (+0 ATK)", armor: "None (+0 DEF)" };
+        if (!clean.farm || !Array.isArray(clean.farm.plots)) clean.farm = { plots: [{ crop: null, stage: 0, ready: false }, { crop: null, stage: 0, ready: false }, { crop: null, stage: 0, ready: false }] };
+        clean.activeChampionIndex = (clean.activeChampionIndex !== undefined && clean.activeChampionIndex < clean.staff.length) ? clean.activeChampionIndex : 0;
+        return clean;
+    }
+
+    function getActiveChampion() {
+        if (!game.staff || game.staff.length === 0) sanitizeGameState(game);
+        let idx = (game.activeChampionIndex !== undefined && game.activeChampionIndex < game.staff.length) ? game.activeChampionIndex : 0;
+        return game.staff[idx] || game.staff[0];
     }
 
     function getSaveKey(slot) { return `unidexSave_slot_${slot}`; }
@@ -438,7 +466,7 @@
         if (hasData) {
             try {
                 let loaded = JSON.parse(localStorage.getItem(getSaveKey(slotNum)));
-                game = Object.assign(JSON.parse(JSON.stringify(defaultGameState)), loaded);
+                game = sanitizeGameState(loaded);
             } catch (err) { game = JSON.parse(JSON.stringify(defaultGameState)); }
         } else {
             game = JSON.parse(JSON.stringify(defaultGameState));
@@ -447,7 +475,6 @@
         showMainMenu();
     }
 
-    // --- ANIMATED SINGLE PLAYER COMBAT ---
     function startSinglePlayerCombat(mobName, mobHp, mobDmg, reward, type="travel") {
         playMusic('battle');
         clearConsole("center", "#000", "#fff");
@@ -526,7 +553,6 @@
         }, 600);
     }
 
-    // --- RESTORED WORLD MAP WITH LOCATIONS ---
     function showWorldMapMenu() {
         playMusic('intro');
         clearConsole("center", "#001a1a", "#00ff88");
@@ -876,7 +902,6 @@
         if (socket) socket.emit('attackRaidBoss', { damage: dmg, trainerName: game.playerName, championName: champ.name });
     }
 
-    // --- FULLY RESTORED PORTALS ---
     function showFreePortalsMenu() {
         playMusic('rift');
         clearConsole("center", "#4d004d", "#ff00ff");
@@ -933,7 +958,6 @@
         `;
         renderButtons([]);
         
-        // Contextual Voice Lines (if they exist in the audio folder)
         if (hero.name.includes("Astolfo")) { playMusic('astolfo voice'); }
         else if (hero.name.includes("Felix")) { playMusic('felix voice'); }
         else if (hero.name.includes("Venti")) { playMusic('venti voice'); }
@@ -944,6 +968,92 @@
             alert(`Recruited ${hero.name} from ${hero.origin}!`);
             showRosterMenu();
         }, 2000);
+    }
+
+    function showInventoryMenu() {
+        clearConsole("flex-start", "#1a0f00", "#33ccff");
+        let html = `<h2 style="color: #33ccff; font-size:15px;">🎒 INVENTORY</h2>`;
+        if (!game.inventory) game.inventory = [];
+        game.inventory.forEach((item, idx) => {
+            let useBtn = item === "Energy Core" ? `<button class="btn btn-sys" style="padding:2px 6px; font-size:10px;" onclick="useEnergyCore(${idx})">Use (+50 Stm)</button>` : '';
+            html += `<div class="dex-card" style="font-size:12px; display:flex; justify-content:space-between; align-items:center;"><span>📦 ${item}</span>${useBtn}</div>`;
+        });
+        document.getElementById("console").innerHTML = html;
+        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
+    }
+
+    function useEnergyCore(idx) {
+        if (game.inventory && game.inventory[idx] === "Energy Core") {
+            game.inventory.splice(idx, 1);
+            game.stamina = (game.stamina || 0) + 50; saveGame(); updateUI();
+            log("⚡ Energy Core used! Gained +50 Stamina!", "color-cyan");
+            showInventoryMenu();
+        }
+    }
+
+    function showLivePlayersModal() {
+        clearConsole("center", "#001f3f", "#00ffff");
+        let html = `<h2 style="color: #00ffff; font-size: 15px;">🌐 ONLINE TRAINERS</h2><div style="width: 95%; max-width: 360px; max-height: 160px; overflow-y: auto;">`;
+        globalActiveTrainers.forEach(t => {
+            html += `<div class="dex-card" style="font-size: 12px; padding: 5px; display:flex; justify-content:space-between;"><span>👤 <strong>${t.name}</strong> (${t.champion || 'Partner'})</span><span style="color:#ffaa00;">📍 ${t.location}</span></div>`;
+        });
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
+    }
+
+    function showLeaderboardModal() {
+        clearConsole("center", "#1a1500", "#ffff00");
+        let html = `<h2 style="color: #ffff00; font-size: 15px;">🏆 GLOBAL TOP TRAINERS</h2><div style="width: 95%; max-width: 380px; max-height: 160px; overflow-y: auto;">`;
+        globalLeaderboard.forEach((user, idx) => {
+            let badge = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`;
+            html += `<div class="dex-card" style="font-size: 12px; padding: 5px; display:flex; justify-content:space-between;"><span><strong>${badge} ${user.name}</strong></span><span style="color:#00ff66;">💰 $${Math.floor(user.funds || 0)}</span></div>`;
+        });
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
+    }
+
+    function showGlobalChatScreen() {
+        clearConsole("flex-start", "#001a22", "#00ffff");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color: #00ffff; font-size: 15px; margin: 3px 0;">💬 GLOBAL CHAT</h2>
+            <div id="global-chat-box" style="width:100%; max-width:400px; height:130px; background:#05050a; border:1px solid #00ffff55; border-radius:4px; padding:8px; overflow-y:auto; font-size:12px; margin-bottom:6px;"></div>
+            <div style="display:flex; gap:6px; width:100%; max-width:400px;">
+                <input type="text" id="chat-input-text" placeholder="Message..." style="flex:1; background:#111; color:#0f0; border:1px solid #0ff; padding:6px; font-family:'Courier New'; font-size:12px; border-radius:4px;" />
+                <button class="btn btn-sys" style="padding:6px 10px;" onclick="sendGlobalChatMsg()">Send</button>
+            </div>
+        `;
+        refreshChatBoxes();
+        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
+    }
+
+    function sendGlobalChatMsg() {
+        let input = document.getElementById("chat-input-text");
+        if (!input || !input.value.trim()) return;
+        if (socket && socket.connected) socket.emit('sendGlobalMessage', { name: game.playerName || "Trainer", text: input.value.trim() });
+        input.value = "";
+    }
+
+    function showRoomChatScreen() {
+        clearConsole("flex-start", "#002022", "#ffaa00");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color: #ffaa00; font-size: 15px; margin: 3px 0;">💬 ROOM CHAT [${currentRoomId}]</h2>
+            <div id="room-chat-box" style="width:100%; max-width:400px; height:130px; background:#05050a; border:1px solid #ffaa0055; border-radius:4px; padding:8px; overflow-y:auto; font-size:12px; margin-bottom:6px;"></div>
+            <div style="display:flex; gap:6px; width:100%; max-width:400px;">
+                <input type="text" id="room-chat-input" placeholder="Message..." style="flex:1; background:#111; color:#ffaa00; border:1px solid #ffaa00; padding:6px; font-family:'Courier New'; font-size:12px; border-radius:4px;" />
+                <button class="btn btn-mine" style="padding:6px 10px;" onclick="sendRoomChatMsg()">Send</button>
+            </div>
+        `;
+        refreshChatBoxes();
+        renderButtons([{ text: "⬅ Back to Lobby", class: "btn btn-back", action: renderActiveLobbyView }]);
+    }
+
+    function sendRoomChatMsg() {
+        let input = document.getElementById("room-chat-input");
+        if (!input || !input.value.trim()) return;
+        if (socket && socket.connected) socket.emit('sendRoomMessage', { roomId: currentRoomId, name: game.playerName || "Trainer", text: input.value.trim() });
+        input.value = "";
     }
 
     window.onload = () => { showIntroScreen(); };
