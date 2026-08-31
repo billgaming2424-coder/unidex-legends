@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>UniDex Legends - Mega Expansion</title>
     <script src="/socket.io/socket.io.js"></script>
@@ -91,9 +93,8 @@
     let onlineRoomPlayers = [];
     let activePvPSession = null;
     let serverRaidBoss = { name: "Void Titan Chronos", hp: 5000, maxHp: 5000 };
-    let activeRaidKey = "titan";
 
-    let game = {
+    let defaultGameState = {
         playerName: "Trainer", funds: 5000, stamina: 100, day: 1, location: "Nexus HQ",
         activeChampionIndex: 0, spireFloor: 1,
         equippedGear: { weapon: "None (+0 ATK)", armor: "None (+0 DEF)" },
@@ -106,12 +107,16 @@
         pokedex: {}, dlcUnlocked: false
     };
 
+    let game = JSON.parse(JSON.stringify(defaultGameState));
+
     function getActiveChampion() {
-        if (!game.staff || game.staff.length === 0) {
-            game.staff = [{ name: "Starter Partner", origin: "Midnoria", power: 25, maxHp: 100, hp: 100, level: 1, locked: true, loyalty: 10, evolved: false }];
+        if (!game.staff || !Array.isArray(game.staff) || game.staff.length === 0) {
+            game.staff = [{ name: "Astolfo", origin: "Fate", power: 30, maxHp: 120, hp: 120, level: 1, locked: true, loyalty: 10, evolved: false }];
         }
-        if (game.activeChampionIndex >= game.staff.length) game.activeChampionIndex = 0;
-        return game.staff[game.activeChampionIndex];
+        if (game.activeChampionIndex === undefined || game.activeChampionIndex >= game.staff.length) {
+            game.activeChampionIndex = 0;
+        }
+        return game.staff[game.activeChampionIndex] || game.staff[0];
     }
 
     function getSaveKey(slot) { return `unidexSave_slot_${slot}`; }
@@ -157,10 +162,11 @@
 
         socket.on('marketUpdate', (listings) => { globalMarketListings = listings; });
         socket.on('itemSoldNotification', ({ item, price, buyer }) => {
-            game.funds += price; saveGame(); updateUI();
+            game.funds = (game.funds || 0) + price; saveGame(); updateUI();
             alert(`💰 [MARKET SALE]: Sold [${item}] to Trainer ${buyer} for $${price}!`);
         });
         socket.on('itemPurchasedSuccess', (itemObj) => {
+            if (!game.inventory) game.inventory = [];
             game.inventory.push(itemObj.item); saveGame(); updateUI();
             alert(`🎉 [MARKET BOUGHT]: Successfully purchased [${itemObj.item}] from ${itemObj.sellerName}!`);
             showLiveMarketBoard();
@@ -179,10 +185,11 @@
                 if (hpText) hpText.innerText = `${data.bossHp} / ${data.bossMaxHp}`;
             }
             if (data.isDefeated) {
-                game.funds += data.reward || 3000;
+                game.funds = (game.funds || 0) + (data.reward || 3000);
+                if (!game.inventory) game.inventory = [];
                 game.inventory.push("Diamond");
                 saveGame(); updateUI();
-                alert(`🏆 WORLD BOSS SLAIN by ${data.slayer}! You claimed $${data.reward || 3000} & 1x Diamond!`);
+                alert(`🏆 WORLD BOSS SLAIN by ${data.slayer}! Claimed $${data.reward || 3000} & 1x Diamond!`);
             }
         });
 
@@ -228,6 +235,7 @@
         });
 
         socket.on('tradeCompleted', ({ receivedItem, partnerName }) => {
+            if (!game.inventory) game.inventory = [];
             game.inventory.push(receivedItem);
             saveGame(); updateUI();
             alert(`🎉 Received [${receivedItem}] from ${partnerName}!`);
@@ -251,6 +259,7 @@
         });
 
         socket.on('characterTradeCompleted', ({ receivedCharacter, partnerName }) => {
+            if (!game.staff) game.staff = [];
             game.staff.push(receivedCharacter);
             saveGame(); updateUI();
             alert(`🎉 Recruited [${receivedCharacter.name}] from ${partnerName}!`);
@@ -282,7 +291,7 @@
 
             if (data.isOver) {
                 if (socket.id === data.winnerId) {
-                    game.funds += 1200; saveGame(); updateUI();
+                    game.funds = (game.funds || 0) + 1200; saveGame(); updateUI();
                     alert("🏆 VICTORY! Won duel and claimed $1200!");
                 } else {
                     alert("💀 DEFEAT! Knocked out in live duel!");
@@ -366,33 +375,47 @@
             }
             slotButtons.push({ text: label, class: hasData ? "btn btn-dlc" : "btn btn-sys", action: () => selectSaveSlot(i, hasData) });
         }
-        document.getElementById("console").innerHTML = `<h1 style="color: #00ffff; font-size: 24px;">UNIDEX LEGENDS</h1><p style="color: #ffff00; font-size: 12px;">Select Save Slot:</p>`;
+        document.getElementById("console").innerHTML = `<h1 style="color: #00ffff; font-size: 24px;">UNIDEX LEGENDS</h1><p style="color: #ffff00; font-size: 12px;">Select Save Slot to begin:</p>`;
         renderButtons(slotButtons);
     }
 
     function selectSaveSlot(slotNum, hasData) {
         currentSaveSlot = slotNum;
         if (hasData) {
-            try { game = JSON.parse(localStorage.getItem(getSaveKey(slotNum))); } catch (err) {}
+            try {
+                let loaded = JSON.parse(localStorage.getItem(getSaveKey(slotNum)));
+                game = Object.assign(JSON.parse(JSON.stringify(defaultGameState)), loaded);
+            } catch (err) {
+                game = JSON.parse(JSON.stringify(defaultGameState));
+            }
         } else {
-            game = {
-                playerName: "Trainer", funds: 5000, stamina: 100, day: 1, location: "Nexus HQ",
-                activeChampionIndex: 0, spireFloor: 1,
-                equippedGear: { weapon: "None (+0 ATK)", armor: "None (+0 DEF)" },
-                inventory: ["Energy Core", "Pokéball", "Copper Ore", "Diamond"],
-                staff: [
-                    { name: "Astolfo", origin: "Fate", power: 30, maxHp: 120, hp: 120, level: 1, locked: true, loyalty: 10, evolved: false },
-                    { name: "Felix Argyle", origin: "Re:Zero", power: 28, maxHp: 110, hp: 110, level: 1, locked: false, loyalty: 5, evolved: false }
-                ],
-                farm: { plots: [{ crop: null, stage: 0, ready: false }, { crop: null, stage: 0, ready: false }, { crop: null, stage: 0, ready: false }] },
-                pokedex: {}, dlcUnlocked: false
-            };
+            game = JSON.parse(JSON.stringify(defaultGameState));
             saveGame();
         }
         showMainMenu();
     }
 
-    // --- INFINITE SPIRE OF TRIALS (DUNGEON) ---
+    function showMainMenu() {
+        clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #1a1500 0%, #080702 85%)", "#ffaa00");
+        document.getElementById("stats-bar").style.display = "flex";
+        updateUI();
+        log(`--- NEXUS HQ (Slot ${currentSaveSlot}) | WELCOME, TRAINER ${(game.playerName || "Trainer").toUpperCase()} ---`, "color-cyan");
+        renderButtons([
+            { text: "🏰 Spire of Trials", class: "btn btn-combat", action: showSpireDungeonMenu },
+            { text: "🔨 Blacksmith Forge", class: "btn btn-forge", action: showBlacksmithForgeMenu },
+            { text: "👥 Team Roster", class: "btn btn-maid", action: showRosterMenu },
+            { text: "🌱 Crop Garden", class: "btn btn-farm", action: showCropGardenMenu },
+            { text: "🏪 Market & Trades", class: "btn btn-farm", action: showMarketMenu },
+            { text: "🎰 Casino Hub", class: "btn btn-spin", action: showCasinoHubMenu },
+            { text: "🎒 Inventory", class: "btn btn-gear", action: showInventoryMenu },
+            { text: "🌌 Free Portals", class: "btn btn-sys", action: showFreePortalsMenu },
+            { text: "🔒 Premium DLC", class: "btn btn-dlc", action: showDLCMenu },
+            { text: "🌐 Online Hub", class: "btn btn-sys", action: showOnlineHubMenu },
+            { text: "💤 Sleep (Next Day)", action: () => { game.stamina = 100; game.day = (game.day || 1) + 1; saveGame(); updateUI(); alert("Rested for the night! Stamina restored."); showMainMenu(); } },
+            { text: "📁 Switch Slot", class: "btn btn-back", action: showIntroScreen }
+        ]);
+    }
+
     function showSpireDungeonMenu() {
         clearConsole("center", "#150030", "#ff00ff");
         let currentF = game.spireFloor || 1;
@@ -415,18 +438,18 @@
     function executeSpireFight(floor, mobHp, mobDmg, reward) {
         const champ = getActiveChampion();
         let champHp = champ.maxHp || 120;
-        let turnLog = "";
 
         while (mobHp > 0 && champHp > 0) {
             let dmg = Math.floor((champ.power || 25) + Math.random() * 10);
             mobHp -= dmg;
             if (mobHp <= 0) break;
-            champHp -= Math.max(1, mobDmg - (game.equippedGear.armor.includes("Aegis") ? 8 : 0));
+            champHp -= Math.max(1, mobDmg - (game.equippedGear && game.equippedGear.armor && game.equippedGear.armor.includes("Aegis") ? 8 : 0));
         }
 
         if (champHp > 0) {
             game.spireFloor = floor + 1;
-            game.funds += reward;
+            game.funds = (game.funds || 0) + reward;
+            if (!game.inventory) game.inventory = [];
             if (floor % 3 === 0) game.inventory.push("Diamond");
             saveGame(); updateUI();
             alert(`🎉 CLEARED FLOOR ${floor}! Claimed $${reward} and advanced to Floor ${game.spireFloor}!`);
@@ -437,9 +460,9 @@
         }
     }
 
-    // --- BLACKSMITH / FORGE SYSTEM ---
     function showBlacksmithForgeMenu() {
         clearConsole("flex-start", "#2b1100", "#ff8800");
+        if (!game.equippedGear) game.equippedGear = { weapon: "None (+0 ATK)", armor: "None (+0 DEF)" };
         document.getElementById("console").innerHTML = `
             <h2 style="color:#ff8800; font-size:16px;">🔨 MULTIVERSE FORGE</h2>
             <p style="color:#aaa; font-size:11px;">Equipped Weapon: <strong style="color:#00ffff;">${game.equippedGear.weapon}</strong> | Armor: <strong style="color:#00ff66;">${game.equippedGear.armor}</strong></p>
@@ -453,189 +476,32 @@
     }
 
     function craftGear(gearName, slot, reqItem1, reqItem2, goldCost, atkBoost=0, hpBoost=0) {
-        if (game.funds < goldCost || !game.inventory.includes(reqItem1) || !game.inventory.includes(reqItem2)) {
+        if (!game.inventory) game.inventory = [];
+        if ((game.funds || 0) < goldCost || !game.inventory.includes(reqItem1) || !game.inventory.includes(reqItem2)) {
             alert(`❌ Missing materials! Need: 1x ${reqItem1}, 1x ${reqItem2}, and $${goldCost}!`);
             return;
         }
         game.funds -= goldCost;
         game.inventory.splice(game.inventory.indexOf(reqItem1), 1);
         game.inventory.splice(game.inventory.indexOf(reqItem2), 1);
+        if (!game.equippedGear) game.equippedGear = {};
         game.equippedGear[slot] = gearName;
 
-        game.staff.forEach(c => {
-            c.power = (c.power || 25) + atkBoost;
-            c.maxHp = (c.maxHp || 100) + hpBoost;
-            c.hp = c.maxHp;
-        });
+        if (game.staff) {
+            game.staff.forEach(c => {
+                c.power = (c.power || 25) + atkBoost;
+                c.maxHp = (c.maxHp || 100) + hpBoost;
+                c.hp = c.maxHp;
+            });
+        }
         saveGame(); updateUI();
-        alert(`🔨 Successfully forged and equipped [${gearName}]! All heroes gained stat buffs!`);
+        alert(`🔨 Successfully forged and equipped [${gearName}]!`);
         showBlacksmithForgeMenu();
     }
 
-    // --- EVOLUTION & LIMIT BREAK ---
-    function limitBreakEvolve(idx) {
-        let member = game.staff[idx];
-        if ((member.level || 1) < 5 || (member.loyalty || 0) < 50) {
-            alert(`❌ Evolution Requirements Not Met:\n- Level: ${member.level || 1}/5\n- Loyalty: ${member.loyalty || 0}/50\n(Level up in Roster & gift Diamonds to raise Loyalty!)`);
-            return;
-        }
-        if (member.evolved) { alert("✨ This champion is already in their Ascended form!"); return; }
-
-        member.name = `Ascended ${member.name} ⚡`;
-        member.power = (member.power || 25) * 2;
-        member.maxHp = (member.maxHp || 100) * 2;
-        member.hp = member.maxHp;
-        member.evolved = true;
-        saveGame(); updateUI();
-        alert(`🌟 EVOLUTION SUCCESS! ${member.name} has unlocked Limit Break! Base stats are DOUBLED!`);
-        showRosterMenu();
-    }
-
-    // --- CASINO HUB (BLACKJACK & WHEEL) ---
-    function showCasinoHubMenu() {
-        clearConsole("center", "#333300", "#ffff00");
-        document.getElementById("console").innerHTML = `
-            <h2 style="color:#ffff00; font-size:16px;">🎰 NEXUS CASINO & RESORT</h2>
-            <div style="font-size:32px; margin:4px 0;">🎲 🃏 🎡</div>
-            <p style="color:#aaa; font-size:11.5px;">Place your bets to multiply your wealth:</p>
-        `;
-        renderButtons([
-            { text: "🎡 Lucky Wheel ($100)", class: "btn btn-spin", action: showLuckyWheelScreen },
-            { text: "🃏 Blackjack 21 ($250 Bet)", class: "btn btn-sys", action: playBlackjackMinigame },
-            { text: "🪙 Coin Flip Double ($200)", class: "btn btn-farm", action: playCoinFlipMinigame },
-            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
-        ]);
-    }
-
-    function playBlackjackMinigame() {
-        if (game.funds < 250) { alert("❌ Need $250 to play Blackjack!"); return; }
-        game.funds -= 250;
-        let pCard1 = Math.floor(2 + Math.random() * 9);
-        let pCard2 = Math.floor(2 + Math.random() * 9);
-        let pTotal = pCard1 + pCard2;
-        let dTotal = Math.floor(14 + Math.random() * 8);
-
-        if (pTotal > dTotal || dTotal > 21) {
-            game.funds += 600; saveGame(); updateUI();
-            alert(`🃏 WINNER! Your total: ${pTotal} | Dealer: ${dTotal}! Won $600!`);
-        } else {
-            saveGame(); updateUI();
-            alert(`💀 Dealer wins! Your total: ${pTotal} | Dealer: ${dTotal}! Lost $250.`);
-        }
-        showCasinoHubMenu();
-    }
-
-    function playCoinFlipMinigame() {
-        if (game.funds < 200) { alert("❌ Need $200 for Coin Flip!"); return; }
-        game.funds -= 200;
-        if (Math.random() > 0.48) {
-            game.funds += 400; saveGame(); updateUI();
-            alert("🪙 HEADS! You doubled your bet and won $400!");
-        } else {
-            saveGame(); updateUI();
-            alert("🪙 TAILS! Lost $200.");
-        }
-        showCasinoHubMenu();
-    }
-
-    // --- LIVE PLAYER MARKET / TRADE BOARD ---
-    function showLiveMarketBoard() {
-        clearConsole("flex-start", "#002b1b", "#00ff88");
-        let html = `
-            <h2 style="color:#00ff88; font-size:16px; margin: 2px 0;">🏪 GLOBAL TRADE BOARD</h2>
-            <p style="color:#aaa; font-size:11px; margin-bottom: 6px;">Buy & sell items with trainers across all dimensions:</p>
-            <div style="width:100%; max-width:380px; max-height:160px; overflow-y:auto; margin-bottom: 6px;">
-        `;
-        if (!globalMarketListings.length) {
-            html += `<p style="color:#777;">No active listings on the server. List an item below!</p>`;
-        } else {
-            globalMarketListings.forEach(l => {
-                let isMine = l.sellerId === (socket ? socket.id : '');
-                html += `
-                    <div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <strong>📦 ${l.item}</strong><br>
-                            <span style="font-size:10px; color:#aaa;">Seller: ${l.sellerName} ${isMine ? '(You)' : ''}</span>
-                        </div>
-                        <div>
-                            <span style="color:#ffff00; font-size:11px; margin-right:4px;">$${l.price}</span>
-                            ${!isMine ? `<button class="btn btn-farm" style="padding:2px 6px; font-size:10px;" onclick="buyMarketItem('${l.id}', ${l.price})">Buy</button>` : ''}
-                        </div>
-                    </div>
-                `;
-            });
-        }
-        html += `</div>`;
-        document.getElementById("console").innerHTML = html;
-        renderButtons([
-            { text: "📤 Post Item For Sale", class: "btn btn-sys", action: createMarketItemListing },
-            { text: "⬅ Back to Market", class: "btn btn-back", action: showMarketMenu }
-        ]);
-    }
-
-    function createMarketItemListing() {
-        let itemToSell = prompt(`Enter item from bag to sell:\n${game.inventory.join(', ')}`, game.inventory[0]);
-        if (itemToSell && game.inventory.includes(itemToSell)) {
-            let price = parseInt(prompt("Enter sale price in gold ($):", "400"));
-            if (!isNaN(price) && price > 0) {
-                let idx = game.inventory.indexOf(itemToSell);
-                game.inventory.splice(idx, 1);
-                saveGame(); updateUI();
-                if (socket) socket.emit('createMarketListing', { item: itemToSell, price: price, sellerName: game.playerName });
-                alert(`📤 Listed 1x [${itemToSell}] on the Trade Board for $${price}!`);
-                showLiveMarketBoard();
-            }
-        } else { alert("❌ Invalid item or not in inventory!"); }
-    }
-
-    function buyMarketItem(listingId, price) {
-        if (game.funds < price) { alert("❌ Not enough funds to buy this item!"); return; }
-        game.funds -= price;
-        saveGame(); updateUI();
-        if (socket) socket.emit('buyMarketListing', { listingId, buyerName: game.playerName });
-    }
-
-    // --- WORLD RAID BOSS ---
-    function showWorldBossRaidScreen() {
-        clearConsole("flex-start", "#2b0008", "#ff0055");
-        let percent = Math.max(0, (serverRaidBoss.hp / serverRaidBoss.maxHp) * 100);
-        const champ = getActiveChampion();
-
-        document.getElementById("console").innerHTML = `
-            <h2 style="color:#ff0055; font-size:16px; margin: 2px 0;">👹 MULTIVERSE WORLD BOSS</h2>
-            <div style="font-size:30px; margin:2px 0;">⚡ 👾 ⚡</div>
-            <strong style="color:#fff; font-size:13px;">${serverRaidBoss.name}</strong>
-            <div style="width:90%; max-width:360px; height:12px; background:#111; border:1px solid #ff0055; border-radius:8px; margin:4px 0; overflow:hidden;">
-                <div id="boss-hp-fill" style="width:${percent}%; height:100%; background:linear-gradient(90deg, #ff0033, #ff5500); transition: width 0.3s ease;"></div>
-            </div>
-            <p style="color:#aaa; font-size:11px;">Boss Health: <span id="boss-hp-text" style="color:#ff5555; font-weight:bold;">${serverRaidBoss.hp} / ${serverRaidBoss.maxHp}</span></p>
-            <div id="raid-boss-combat-log" style="width:95%; max-width:380px; height:70px; background:#050005; border:1px solid #ff005555; border-radius:4px; padding:6px; overflow-y:auto; margin-bottom:4px;"></div>
-        `;
-
-        renderButtons([
-            { text: "⚔️ Strike Boss", class: "btn btn-combat", action: () => raidBossAction("strike") },
-            { text: "⚡ Burst Raid (15 Stm)", class: "btn btn-boss", action: () => raidBossAction("burst") },
-            { text: "🐉 Netherfang Tier 2", class: "btn btn-dlc", action: () => { if(socket) socket.emit('selectRaidTier', 'dragon'); showWorldBossRaidScreen(); } },
-            { text: "⬅ Back to Lobby", class: "btn btn-back", action: renderActiveLobbyView }
-        ]);
-    }
-
-    function raidBossAction(type) {
-        if (serverRaidBoss.hp <= 0) { alert("Boss is already defeated! Respawning shortly..."); return; }
-        const champ = getActiveChampion();
-        let mult = type === "burst" ? 2.5 : 1.0;
-        if (type === "burst") {
-            if (game.stamina < 15) { alert("Not enough stamina!"); return; }
-            game.stamina -= 15;
-            saveGame(); updateUI();
-        }
-        let dmg = Math.floor((champ.power || 25) * mult + Math.random() * 15);
-        if (socket) socket.emit('attackRaidBoss', { damage: dmg, trainerName: game.playerName, championName: champ.name });
-    }
-
-    // --- ROSTER & HERO MANAGEMENT ---
     function showRosterMenu() {
         clearConsole("flex-start", "#100028", "#ff00ff");
+        if (!game.staff) game.staff = [];
         let totalPower = game.staff.reduce((acc, c) => acc + (c.power || 25), 0);
         let html = `
             <h2 style="color:#ff66ff; font-size:16px; margin: 2px 0;">👥 TEAM ROSTER & HEROES</h2>
@@ -686,13 +552,12 @@
     function setActiveChampion(idx) {
         game.activeChampionIndex = idx;
         saveGame(); updateUI();
-        alert(`⭐ Active Champion switched to ${game.staff[idx].name}!`);
         showRosterMenu();
     }
 
     function trainCompanion(idx, cost) {
         let member = game.staff[idx];
-        if (game.funds >= cost) {
+        if ((game.funds || 0) >= cost) {
             game.funds -= cost;
             member.level = (member.level || 1) + 1;
             member.power = (member.power || 25) + 6;
@@ -702,6 +567,23 @@
             alert(`🎉 ${member.name} reached Level ${member.level}! Power is now ${member.power}!`);
             showRosterMenu();
         } else { alert(`❌ Need $${cost} to train!`); }
+    }
+
+    function limitBreakEvolve(idx) {
+        let member = game.staff[idx];
+        if ((member.level || 1) < 5 || (member.loyalty || 0) < 50) {
+            alert(`❌ Requirements: Level 5+ & 50+ Loyalty!\n(Current: Lv. ${member.level || 1}, Loyalty: ${member.loyalty || 0})`);
+            return;
+        }
+        if (member.evolved) { alert("✨ This hero is already Ascended!"); return; }
+        member.name = `Ascended ${member.name} ⚡`;
+        member.power = (member.power || 25) * 2;
+        member.maxHp = (member.maxHp || 100) * 2;
+        member.hp = member.maxHp;
+        member.evolved = true;
+        saveGame(); updateUI();
+        alert(`🌟 EVOLUTION SUCCESS! ${member.name} base stats are DOUBLED!`);
+        showRosterMenu();
     }
 
     function toggleLockCompanion(idx) {
@@ -716,7 +598,7 @@
         if (confirm(`⚠️ Release ${member.name}?`)) {
             game.staff.splice(idx, 1);
             if (game.activeChampionIndex >= game.staff.length) game.activeChampionIndex = 0;
-            game.funds += 150;
+            game.funds = (game.funds || 0) + 150;
             saveGame(); updateUI();
             showRosterMenu();
         }
@@ -729,17 +611,17 @@
             <h2 style="color:#ff66ff; font-size:16px;">💬 BONDING: ${member.name.toUpperCase()}</h2>
             <p style="color:#00ffff; font-size:12px;">Loyalty: <strong style="color:#ffff00;">${member.loyalty || 0} / 100</strong></p>
             <div class="dex-card" style="margin: 8px 0; text-align:center;">
-                <em>"Trainer ${game.playerName}, let's conquer the Spire and take down the Void Titan together!"</em>
+                <em>"Trainer ${game.playerName || 'Trainer'}, let's conquer the Spire together!"</em>
             </div>
         `;
         renderButtons([
             { text: "🎁 Gift Diamond (+15 Loyalty)", class: "btn btn-farm", action: () => {
-                if (game.inventory.includes("Diamond")) {
+                if (game.inventory && game.inventory.includes("Diamond")) {
                     game.inventory.splice(game.inventory.indexOf("Diamond"), 1);
                     member.loyalty = Math.min(100, (member.loyalty || 0) + 15);
                     member.power = (member.power || 25) + 4;
                     saveGame(); updateUI();
-                    alert(`🎁 Gave Diamond! Loyalty rose to ${member.loyalty}!`);
+                    alert(`🎁 Gave Diamond! Loyalty is now ${member.loyalty}!`);
                     talkToCompanion(idx);
                 } else { alert("❌ No Diamond in inventory!"); }
             }},
@@ -747,13 +629,136 @@
         ]);
     }
 
-    // --- OTHER CORE GAME MENUS ---
+    function showCasinoHubMenu() {
+        clearConsole("center", "#333300", "#ffff00");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#ffff00; font-size:16px;">🎰 NEXUS CASINO</h2>
+            <div style="font-size:32px; margin:4px 0;">🎲 🃏 🎡</div>
+            <p style="color:#aaa; font-size:11.5px;">Test your luck:</p>
+        `;
+        renderButtons([
+            { text: "🎡 Lucky Wheel ($100)", class: "btn btn-spin", action: showLuckyWheelScreen },
+            { text: "🃏 Blackjack 21 ($250 Bet)", class: "btn btn-sys", action: playBlackjackMinigame },
+            { text: "🪙 Coin Flip ($200)", class: "btn btn-farm", action: playCoinFlipMinigame },
+            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
+        ]);
+    }
+
+    function playBlackjackMinigame() {
+        if ((game.funds || 0) < 250) { alert("❌ Need $250 to play!"); return; }
+        game.funds -= 250;
+        let pTotal = Math.floor(4 + Math.random() * 16);
+        let dTotal = Math.floor(14 + Math.random() * 8);
+
+        if (pTotal > dTotal || dTotal > 21) {
+            game.funds += 600; saveGame(); updateUI();
+            alert(`🃏 WINNER! You: ${pTotal} | Dealer: ${dTotal}! Won $600!`);
+        } else {
+            saveGame(); updateUI();
+            alert(`💀 Dealer wins! You: ${pTotal} | Dealer: ${dTotal}!`);
+        }
+        showCasinoHubMenu();
+    }
+
+    function playCoinFlipMinigame() {
+        if ((game.funds || 0) < 200) { alert("❌ Need $200 for Coin Flip!"); return; }
+        game.funds -= 200;
+        if (Math.random() > 0.48) {
+            game.funds += 400; saveGame(); updateUI();
+            alert("🪙 HEADS! Won $400!");
+        } else {
+            saveGame(); updateUI();
+            alert("🪙 TAILS! Lost $200.");
+        }
+        showCasinoHubMenu();
+    }
+
+    function showLiveMarketBoard() {
+        clearConsole("flex-start", "#002b1b", "#00ff88");
+        let html = `
+            <h2 style="color:#00ff88; font-size:16px; margin: 2px 0;">🏪 GLOBAL TRADE BOARD</h2>
+            <div style="width:100%; max-width:380px; max-height:160px; overflow-y:auto; margin-bottom: 6px;">
+        `;
+        if (!globalMarketListings || !globalMarketListings.length) {
+            html += `<p style="color:#777;">No active listings on server.</p>`;
+        } else {
+            globalMarketListings.forEach(l => {
+                let isMine = l.sellerId === (socket ? socket.id : '');
+                html += `
+                    <div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                        <div><strong>📦 ${l.item}</strong><br><span style="font-size:10px; color:#aaa;">Seller: ${l.sellerName} ${isMine ? '(You)' : ''}</span></div>
+                        <div><span style="color:#ffff00; font-size:11px; margin-right:4px;">$${l.price}</span>${!isMine ? `<button class="btn btn-farm" style="padding:2px 6px; font-size:10px;" onclick="buyMarketItem('${l.id}', ${l.price})">Buy</button>` : ''}</div>
+                    </div>
+                `;
+            });
+        }
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([
+            { text: "📤 Post Item For Sale", class: "btn btn-sys", action: createMarketItemListing },
+            { text: "⬅ Back to Market", class: "btn btn-back", action: showMarketMenu }
+        ]);
+    }
+
+    function createMarketItemListing() {
+        if (!game.inventory || !game.inventory.length) { alert("Backpack empty!"); return; }
+        let itemToSell = prompt(`Enter item from bag:\n${game.inventory.join(', ')}`, game.inventory[0]);
+        if (itemToSell && game.inventory.includes(itemToSell)) {
+            let price = parseInt(prompt("Enter sale price ($):", "400"));
+            if (!isNaN(price) && price > 0) {
+                let idx = game.inventory.indexOf(itemToSell);
+                game.inventory.splice(idx, 1);
+                saveGame(); updateUI();
+                if (socket) socket.emit('createMarketListing', { item: itemToSell, price: price, sellerName: game.playerName });
+                showLiveMarketBoard();
+            }
+        }
+    }
+
+    function buyMarketItem(listingId, price) {
+        if ((game.funds || 0) < price) { alert("❌ Not enough funds!"); return; }
+        game.funds -= price;
+        saveGame(); updateUI();
+        if (socket) socket.emit('buyMarketListing', { listingId, buyerName: game.playerName });
+    }
+
+    function showWorldBossRaidScreen() {
+        clearConsole("flex-start", "#2b0008", "#ff0055");
+        let percent = Math.max(0, (serverRaidBoss.hp / serverRaidBoss.maxHp) * 100);
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#ff0055; font-size:16px; margin: 2px 0;">👹 WORLD BOSS</h2>
+            <strong style="color:#fff; font-size:13px;">${serverRaidBoss.name}</strong>
+            <div style="width:90%; max-width:360px; height:12px; background:#111; border:1px solid #ff0055; border-radius:8px; margin:4px 0; overflow:hidden;">
+                <div id="boss-hp-fill" style="width:${percent}%; height:100%; background:linear-gradient(90deg, #ff0033, #ff5500); transition: width 0.3s ease;"></div>
+            </div>
+            <p style="color:#aaa; font-size:11px;">Boss Health: <span id="boss-hp-text" style="color:#ff5555; font-weight:bold;">${serverRaidBoss.hp} / ${serverRaidBoss.maxHp}</span></p>
+            <div id="raid-boss-combat-log" style="width:95%; max-width:380px; height:70px; background:#050005; border:1px solid #ff005555; border-radius:4px; padding:6px; overflow-y:auto; margin-bottom:4px;"></div>
+        `;
+        renderButtons([
+            { text: "⚔️ Strike Boss", class: "btn btn-combat", action: () => raidBossAction("strike") },
+            { text: "⚡ Burst Raid (15 Stm)", class: "btn btn-boss", action: () => raidBossAction("burst") },
+            { text: "🐉 Switch to Dragon", class: "btn btn-dlc", action: () => { if(socket) socket.emit('selectRaidTier', 'dragon'); showWorldBossRaidScreen(); } },
+            { text: "⬅ Back to Lobby", class: "btn btn-back", action: renderActiveLobbyView }
+        ]);
+    }
+
+    function raidBossAction(type) {
+        if (serverRaidBoss.hp <= 0) { alert("Boss defeated! Respawning soon..."); return; }
+        const champ = getActiveChampion();
+        let mult = type === "burst" ? 2.5 : 1.0;
+        if (type === "burst") {
+            if ((game.stamina || 0) < 15) { alert("Not enough stamina!"); return; }
+            game.stamina -= 15;
+            saveGame(); updateUI();
+        }
+        let dmg = Math.floor((champ.power || 25) * mult + Math.random() * 15);
+        if (socket) socket.emit('attackRaidBoss', { damage: dmg, trainerName: game.playerName, championName: champ.name });
+    }
+
     function showCropGardenMenu() {
         clearConsole("flex-start", "#00200a", "#00ff88");
-        let html = `
-            <h2 style="color:#00ff88; font-size:16px; margin: 2px 0;">🌱 CROP GARDEN</h2>
-            <div style="width:100%; max-width:380px;">
-        `;
+        if (!game.farm || !game.farm.plots) game.farm = { plots: [{ crop: null, stage: 0, ready: false }, { crop: null, stage: 0, ready: false }, { crop: null, stage: 0, ready: false }] };
+        let html = `<h2 style="color:#00ff88; font-size:16px; margin: 2px 0;">🌱 CROP GARDEN</h2><div style="width:100%; max-width:380px;">`;
         game.farm.plots.forEach((p, idx) => {
             html += `
                 <div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
@@ -767,7 +772,7 @@
         document.getElementById("console").innerHTML = html;
         renderButtons([
             { text: "💤 Sleep & Advance Crops", class: "btn btn-sys", action: () => {
-                game.stamina = 100; game.day++;
+                game.stamina = 100; game.day = (game.day || 1) + 1;
                 game.farm.plots.forEach(p => { if (p.crop) p.ready = true; });
                 saveGame(); updateUI(); alert("🌅 New day arrived! Crops ready!"); showCropGardenMenu();
             }},
@@ -776,7 +781,7 @@
     }
 
     function plantPlot(idx) {
-        if (game.funds >= 150) {
+        if ((game.funds || 0) >= 150) {
             game.funds -= 150;
             game.farm.plots[idx] = { crop: "Stamina Berries", stage: 1, ready: false };
             saveGame(); updateUI(); showCropGardenMenu();
@@ -785,7 +790,8 @@
 
     function harvestPlot(idx) {
         game.farm.plots[idx] = { crop: null, stage: 0, ready: false };
-        game.inventory.push("Energy Core"); game.funds += 400;
+        if (!game.inventory) game.inventory = [];
+        game.inventory.push("Energy Core"); game.funds = (game.funds || 0) + 400;
         saveGame(); updateUI(); alert("🌾 Harvested crop for 1x Energy Core & $400 gold!");
         showCropGardenMenu();
     }
@@ -795,8 +801,8 @@
         document.getElementById("console").innerHTML = `<h2 style="color: #ffaa00; font-size:16px;">🏪 MARKET DISTRICT</h2>`;
         renderButtons([
             { text: "📜 Global Trade Board", class: "btn btn-farm", action: showLiveMarketBoard },
-            { text: "💰 Doug's Ores", class: "btn btn-mine", action: () => { game.funds += 300; game.inventory.push("Copper Ore"); saveGame(); updateUI(); alert("Sold ores for $300!"); showMarketMenu(); } },
-            { text: "🛍️ Don's Store", class: "btn btn-sys", action: () => { if(game.funds >= 150) { game.funds -= 150; game.inventory.push("Healing Potion"); saveGame(); updateUI(); alert("Bought Potion!"); } else { alert("Not enough funds!"); } showMarketMenu(); } },
+            { text: "💰 Doug's Ores", class: "btn btn-mine", action: () => { game.funds = (game.funds || 0) + 300; if(!game.inventory) game.inventory = []; game.inventory.push("Copper Ore"); saveGame(); updateUI(); alert("Sold ores for $300!"); showMarketMenu(); } },
+            { text: "🛍️ Don's Store", class: "btn btn-sys", action: () => { if((game.funds || 0) >= 150) { game.funds -= 150; if(!game.inventory) game.inventory = []; game.inventory.push("Healing Potion"); saveGame(); updateUI(); alert("Bought Potion!"); } else { alert("Not enough funds!"); } showMarketMenu(); } },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
@@ -806,8 +812,9 @@
         document.getElementById("console").innerHTML = `<h2 style="color: #ffff00; font-size:16px;">🎰 LUCKY WHEEL</h2><p style="color: #aaa; font-size:11.5px;">Spin for rewards! (Cost: $100)</p>`;
         renderButtons([
             { text: "🔄 Spin ($100)", class: "btn btn-spin", action: () => {
-                if (game.funds >= 100) {
+                if ((game.funds || 0) >= 100) {
                     game.funds -= 100;
+                    if (!game.inventory) game.inventory = [];
                     if (Math.random() > 0.5) { game.funds += 400; alert("Jackpot! Won $400!"); }
                     else { game.inventory.push("Diamond"); alert("Won a rare Diamond!"); }
                     saveGame(); updateUI(); showLuckyWheelScreen();
@@ -849,7 +856,7 @@
             <div style="width:100%; max-width:380px; max-height:130px; overflow-y:auto; margin-bottom:6px;">
         `;
         if (!onlineRoomPlayers.length) {
-            html += `<div class="dex-card" style="font-size:12px; padding:6px;">👤 ${game.playerName} (You) - Host</div>`;
+            html += `<div class="dex-card" style="font-size:12px; padding:6px;">👤 ${game.playerName || 'Trainer'} (You) - Host</div>`;
         } else {
             onlineRoomPlayers.forEach(p => {
                 let isMe = p.id === socket.id || p.name === game.playerName;
@@ -886,6 +893,7 @@
     }
 
     function initiateItemTrade(targetId, targetName) {
+        if (!game.inventory || !game.inventory.length) { alert("Backpack empty!"); return; }
         let itemToTrade = prompt(`Select item to trade:\n${game.inventory.join(', ')}`, game.inventory[0]);
         if (itemToTrade && game.inventory.includes(itemToTrade)) {
             let idx = game.inventory.indexOf(itemToTrade);
@@ -897,7 +905,7 @@
     }
 
     function initiateCharacterTrade(targetId, targetName) {
-        if (game.staff.length <= 1) { alert("❌ Need more than 1 companion!"); return; }
+        if (!game.staff || game.staff.length <= 1) { alert("❌ Need more than 1 companion!"); return; }
         let listStr = game.staff.map((c, i) => `${i + 1}. ${c.name}`).join('\n');
         let sel = parseInt(prompt(`Select hero number:\n${listStr}`)) - 1;
         if (!isNaN(sel) && game.staff[sel] && !game.staff[sel].locked) {
@@ -944,7 +952,7 @@
     function executePvPAction(actionType) {
         if (!activePvPSession) return;
         if (actionType === "special") {
-            if (game.stamina < 15) { alert("❌ Not enough stamina!"); return; }
+            if ((game.stamina || 0) < 15) { alert("❌ Not enough stamina!"); return; }
             game.stamina -= 15;
             saveGame(); updateUI();
         }
@@ -1027,6 +1035,7 @@
     function showInventoryMenu() {
         clearConsole("flex-start", "#1a0f00", "#33ccff");
         let html = `<h2 style="color: #33ccff; font-size:15px;">🎒 INVENTORY</h2>`;
+        if (!game.inventory) game.inventory = [];
         game.inventory.forEach((item, idx) => {
             let useBtn = item === "Energy Core" ? `<button class="btn btn-sys" style="padding:2px 6px; font-size:10px;" onclick="useEnergyCore(${idx})">Use (+50 Stm)</button>` : '';
             html += `<div class="dex-card" style="font-size:12px; display:flex; justify-content:space-between; align-items:center;"><span>📦 ${item}</span>${useBtn}</div>`;
@@ -1036,9 +1045,9 @@
     }
 
     function useEnergyCore(idx) {
-        if (game.inventory[idx] === "Energy Core") {
+        if (game.inventory && game.inventory[idx] === "Energy Core") {
             game.inventory.splice(idx, 1);
-            game.stamina += 50; saveGame(); updateUI();
+            game.stamina = (game.stamina || 0) + 50; saveGame(); updateUI();
             log("⚡ Energy Core used! Gained +50 Stamina!", "color-cyan");
             showInventoryMenu();
         }
@@ -1048,8 +1057,8 @@
         clearConsole("center", "#4d004d", "#ff00ff");
         document.getElementById("console").innerHTML = `<h2 style="color: #ff00ff; font-size:16px;">🌌 FREE PORTALS</h2>`;
         renderButtons([
-            { text: "🎀 Astolfo Portal", class: "btn btn-maid", action: () => { game.staff.push({ name: "Astolfo", origin: "Fate", power: 30, maxHp: 120, hp: 120, level: 1, locked: false, loyalty: 10, evolved: false }); saveGame(); alert("Recruited Astolfo!"); showRosterMenu(); } },
-            { text: "🖤 Felix Portal", class: "btn btn-maid", action: () => { game.staff.push({ name: "Felix Argyle", origin: "Re:Zero", power: 28, maxHp: 110, hp: 110, level: 1, locked: false, loyalty: 10, evolved: false }); saveGame(); alert("Recruited Felix!"); showRosterMenu(); } },
+            { text: "🎀 Astolfo Portal", class: "btn btn-maid", action: () => { if(!game.staff) game.staff = []; game.staff.push({ name: "Astolfo", origin: "Fate", power: 30, maxHp: 120, hp: 120, level: 1, locked: false, loyalty: 10, evolved: false }); saveGame(); alert("Recruited Astolfo!"); showRosterMenu(); } },
+            { text: "🖤 Felix Portal", class: "btn btn-maid", action: () => { if(!game.staff) game.staff = []; game.staff.push({ name: "Felix Argyle", origin: "Re:Zero", power: 28, maxHp: 110, hp: 110, level: 1, locked: false, loyalty: 10, evolved: false }); saveGame(); alert("Recruited Felix!"); showRosterMenu(); } },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
@@ -1072,29 +1081,8 @@
         clearConsole("center", "#4d004d", "#ff00ff");
         document.getElementById("console").innerHTML = `<h2 style="color: #ff00ff; font-size:16px;">🌟 PREMIUM SECTORS</h2>`;
         renderButtons([
-            { text: "🥞 Goth Raven Portal", class: "btn btn-maid", action: () => { game.staff.push({ name: "Goth Raven", origin: "DC", power: 35, maxHp: 130, hp: 130, level: 1, locked: false, loyalty: 10, evolved: false }); saveGame(); alert("Recruited Goth Raven!"); showRosterMenu(); } },
+            { text: "🥞 Goth Raven Portal", class: "btn btn-maid", action: () => { if(!game.staff) game.staff = []; game.staff.push({ name: "Goth Raven", origin: "DC", power: 35, maxHp: 130, hp: 130, level: 1, locked: false, loyalty: 10, evolved: false }); saveGame(); alert("Recruited Goth Raven!"); showRosterMenu(); } },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
-        ]);
-    }
-
-    function showMainMenu() {
-        clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #1a1500 0%, #080702 85%)", "#ffaa00");
-        document.getElementById("stats-bar").style.display = "flex";
-        updateUI();
-        log(`--- NEXUS HQ (Slot ${currentSaveSlot}) | WELCOME, TRAINER ${game.playerName.toUpperCase()} ---`, "color-cyan");
-        renderButtons([
-            { text: "🏰 Spire of Trials", class: "btn btn-combat", action: showSpireDungeonMenu },
-            { text: "🔨 Blacksmith Forge", class: "btn btn-forge", action: showBlacksmithForgeMenu },
-            { text: "👥 Team Roster", class: "btn btn-maid", action: showRosterMenu },
-            { text: "🌱 Crop Garden", class: "btn btn-farm", action: showCropGardenMenu },
-            { text: "🏪 Market & Trades", class: "btn btn-farm", action: showMarketMenu },
-            { text: "🎰 Casino Hub", class: "btn btn-spin", action: showCasinoHubMenu },
-            { text: "🎒 Inventory", class: "btn btn-gear", action: showInventoryMenu },
-            { text: "🌌 Free Portals", class: "btn btn-sys", action: showFreePortalsMenu },
-            { text: "🔒 Premium DLC", class: "btn btn-dlc", action: showDLCMenu },
-            { text: "🌐 Online Hub", class: "btn btn-sys", action: showOnlineHubMenu },
-            { text: "💤 Sleep (Next Day)", action: () => { game.stamina = 100; game.day++; saveGame(); updateUI(); alert("Rested for the night!"); showMainMenu(); } },
-            { text: "📁 Switch Slot", class: "btn btn-back", action: showIntroScreen }
         ]);
     }
 
