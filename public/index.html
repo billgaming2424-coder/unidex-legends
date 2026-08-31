@@ -237,6 +237,7 @@
         .clickable-portrait { cursor: pointer; transition: transform 0.2s ease, border-color 0.2s ease; border: 3px solid transparent; border-radius: 10px; padding: 4px; background: rgba(0,0,0,0.4); }
         .clickable-portrait:hover { transform: scale(1.05); border-color: #00ffff; box-shadow: 0 0 12px rgba(0,255,255,0.4); }
         .dex-card { background: #08080f; border: 1px solid #222238; border-radius: 6px; padding: 8px; margin: 4px 0; width: 98%; text-align: left; position: relative; z-index: 3; box-shadow: 0 2px 6px rgba(0,0,0,0.6); display: flex; align-items: center; gap: 10px; }
+        .dex-caught-badge { margin-left: auto; width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 2px rgba(255,60,60,0.6)); }
     </style>
 </head>
 <body>
@@ -270,6 +271,15 @@
 
     let REAL_CHARACTERS_DB = [];
     let currentSaveSlot = 1;
+
+    // Small inline Poké Ball icon shown next to UniDex entries the player has captured.
+    const POKEBALL_SVG = `<svg class="dex-caught-badge" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" title="Captured">
+        <circle cx="16" cy="16" r="14" fill="#fff" stroke="#111" stroke-width="2"/>
+        <path d="M2 16a14 14 0 0 1 28 0z" fill="#ff3b3b" stroke="#111" stroke-width="2"/>
+        <rect x="2" y="14.5" width="28" height="3" fill="#111"/>
+        <circle cx="16" cy="16" r="5" fill="#fff" stroke="#111" stroke-width="2.5"/>
+        <circle cx="16" cy="16" r="2" fill="#fff" stroke="#111" stroke-width="1.5"/>
+    </svg>`;
     let currentRoomId = null;
     let onlineRoomPlayers = [];
     let globalActiveTrainers = [];
@@ -1321,6 +1331,15 @@
         renderEncounterScreen();
     }
 
+    // Pulls a random character straight from the 2000-strong UniDex roster (characters.json)
+    // so that entries #1-2000 are actually reachable in gameplay, not just listed in the dex.
+    function spawnWildUniDexEncounter() {
+        if (!REAL_CHARACTERS_DB || REAL_CHARACTERS_DB.length === 0) { showMainMenu(); return; }
+        let chosen = REAL_CHARACTERS_DB[Math.floor(Math.random() * REAL_CHARACTERS_DB.length)];
+        activeEncounter = { name: chosen.name, origin: chosen.origin, power: 42, dexId: chosen.id, baseChance: 0.50 };
+        renderEncounterScreen();
+    }
+
     function renderEncounterScreen() {
         clearConsole("center", "radial-gradient(circle at 50% 50%, #4d004d 0%, #1a001a 80%)", "#ff00ff");
         document.getElementById("console").innerHTML = `
@@ -1604,7 +1623,7 @@
         slice.forEach(e => {
             let caught = game.pokedex && game.pokedex[String(e.id)];
             let icon = caught ? `<img src="${getCharacterPortrait(e.name)}" style="width:26px;height:26px;object-fit:contain;border-radius:4px;border:1px solid #0ff;" onerror="this.style.display='none'"/>` : '⚪';
-            html += `<div class="dex-card" style="font-size:11.5px;">${icon} <span>#${e.id} - ${caught ? e.name : '????????'}</span></div>`;
+            html += `<div class="dex-card" style="font-size:11.5px;">${icon} <span>#${e.id} - ${caught ? e.name : '????????'}</span>${caught ? POKEBALL_SVG : ''}</div>`;
         });
         html += `</div>`;
         document.getElementById("console").innerHTML = html;
@@ -1806,7 +1825,11 @@
                 updateUI(); saveGame();
                 clearConsole("center", "radial-gradient(circle,#003300,#000)", "#00ff88");
                 document.getElementById("console").innerHTML = `<h2 style="font-size:18px;">🎉 BATTLE WON!</h2><p style="font-size:12px;">Earned $${s.rewardCash || 1000}!</p>`;
-                renderButtons([{ text: "Return to HQ", class: "btn btn-back", action: showMainMenu }]);
+                if (REAL_CHARACTERS_DB.length > 0 && Math.random() < 0.5) {
+                    renderButtons([{ text: "👀 Something's rustling nearby...", class: "btn btn-start", action: spawnWildUniDexEncounter }]);
+                } else {
+                    renderButtons([{ text: "Return to HQ", class: "btn btn-back", action: showMainMenu }]);
+                }
             }, 1200);
         } else {
             setTimeout(() => {
@@ -1824,4 +1847,4 @@
     window.onload = async () => { await loadCharacterDatabase(); showIntroScreen(); };
 </script>
 </body>
-</html>
+</html>
