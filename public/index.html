@@ -30,24 +30,23 @@
         
         #controls {
             display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px;
-            flex-shrink: 0; width: 100%; max-height: 52vh; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 12px;
+            flex-shrink: 0; width: 100%; max-height: 48vh; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 10px;
         }
         @media (min-width: 650px) { #controls { grid-template-columns: repeat(4, 1fr); max-height: 250px; } }
         
         .btn {
-            background: #12121c; color: #00ff66; border: 1px solid #00ff6666; padding: 10px 6px;
-            font-family: 'Courier New'; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; min-height: 42px; display: flex; align-items: center; justify-content: center;
+            background: #12121c; color: #00ff66; border: 1px solid #00ff6666; padding: 8px 4px;
+            font-family: 'Courier New'; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; min-height: 38px; display: flex; align-items: center; justify-content: center;
         }
         .btn-sys { border-color: #00ffff; color: #00ffff; }
-        .btn-dlc { border-color: #ff00ff; color: #ff00ff; background: #220022; }
-        .btn-back { border-color: #ff3333; color: #ff3333; background: #2b0011; }
+        .btn-dlc { border-color: #ff00ff; color: #ff00ff; }
+        .btn-back { border-color: #ff3333; color: #ff3333; }
         .btn-farm { border-color: #00ff88; color: #00ff88; background: #001f0c; }
-        .btn-gear { border-color: #33ccff; color: #33ccff; background: #001122; }
+        .btn-gear { border-color: #33ccff; color: #33ccff; }
         .btn-map { border-color: #00ffcc; color: #00ffcc; background: #002222; }
         .btn-mine { border-color: #ffaa00; color: #ffaa00; background: #221500; }
-        .btn-dex { border-color: #ffff00; color: #ffff00; background: #222200; }
+        .btn-dex { border-color: #ffff00; color: #ffff00; }
         .btn-spin { border-color: #ffff00; color: #ffff00; background: #333300; }
-        .btn-maid { border-color: #ff66ff; color: #ff66ff; background: #220022; }
         .dex-card { background: #08080f; border: 1px solid #222238; border-radius: 6px; padding: 8px; margin: 4px 0; width: 98%; text-align: left; display: flex; align-items: center; gap: 10px; }
     </style>
 </head>
@@ -75,7 +74,7 @@
 
     let globalActiveTrainers = [];
     let globalChatMessages = [];
-    let game = { playerName: "Trainer", funds: 5000, stamina: 100, day: 1, location: "Nexus HQ", inventory: ["Energy Core", "Pokéball"], pokedex: {} };
+    let game = { playerName: "Trainer", funds: 5000, stamina: 100, day: 1, location: "Nexus HQ", inventory: ["Energy Core", "Pokéball"] };
 
     function syncTrainerPresence() {
         if (socket && socket.connected) {
