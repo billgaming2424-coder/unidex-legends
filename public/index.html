@@ -28,7 +28,6 @@
         }
         .log-entry { margin-bottom: 5px; border-bottom: 1px solid #14141e; padding-bottom: 3px; width: 100%; text-align: left; }
         
-        /* Fixed mobile control panel height so all tabs/portals are reachable */
         #controls {
             display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px;
             flex-shrink: 0; width: 100%; max-height: 48vh; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 10px;
@@ -52,6 +51,7 @@
     </style>
 </head>
 <body>
+    <div id="save-toast" style="position:fixed; bottom:20px; right:20px; background:#002211; border:1px solid #00ff66; color:#00ff66; padding:6px 12px; border-radius:4px; font-size:12px; z-index:9999; display:none;">💾 Game Saved</div>
     <div id="stats-bar">
         <div>🌍 <span id="loc-display">Nexus HQ</span> | Trainer: <span class="stat-highlight" id="player-name-display">Trainer</span></div>
         <div>
@@ -87,7 +87,8 @@
 
     if (socket) {
         socket.on('globalOnlineUpdate', (data) => {
-            document.getElementById("global-online-count").innerText = data.totalOnline;
+            const countEl = document.getElementById("global-online-count");
+            if (countEl) countEl.innerText = data.totalOnline;
             globalActiveTrainers = data.activePlayers || [];
         });
 
