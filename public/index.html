@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>UniDex Legends</title>
+    <title>UniDex Legends - Mega Expansion</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         * { box-sizing: border-box; }
@@ -15,28 +15,28 @@
         #stats-bar {
             background: linear-gradient(180deg, #12121c 0%, #08080f 100%);
             border: 1px solid #00ffff55; padding: 4px 8px; margin-bottom: 6px; border-radius: 6px;
-            font-size: 11.5px; flex-shrink: 0; display: none; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;
+            font-size: 11px; flex-shrink: 0; display: none; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;
         }
         .stat-highlight { color: #ff00ff; font-weight: bold; }
         .stat-money { color: #ffff00; font-weight: bold; }
         #screen-wrapper { position: relative; flex: 1 1 auto; min-height: 100px; display: flex; width: 100%; margin-bottom: 6px; overflow: hidden; }
         #console {
             flex: 1 1 100%; min-height: 0; background-color: #020204; border: 2px solid #222233;
-            padding: 10px; overflow-y: auto; border-radius: 8px; font-size: 13.5px; line-height: 1.4;
+            padding: 10px; overflow-y: auto; border-radius: 8px; font-size: 13px; line-height: 1.4;
             display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center; position: relative;
             -webkit-overflow-scrolling: touch;
         }
         .log-entry { margin-bottom: 5px; border-bottom: 1px solid #14141e; padding-bottom: 3px; width: 100%; text-align: left; }
         
         #controls {
-            display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px;
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px;
             flex-shrink: 0; width: 100%; max-height: 48vh; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 12px;
         }
         @media (min-width: 650px) { #controls { grid-template-columns: repeat(4, 1fr); max-height: 250px; } }
         
         .btn {
-            background: #12121c; color: #00ff66; border: 1px solid #00ff6666; padding: 10px 6px;
-            font-family: 'Courier New'; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; min-height: 40px; display: flex; align-items: center; justify-content: center;
+            background: #12121c; color: #00ff66; border: 1px solid #00ff6666; padding: 9px 4px;
+            font-family: 'Courier New'; font-size: 11.5px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; min-height: 38px; display: flex; align-items: center; justify-content: center;
         }
         .btn:hover { background: #1c1c2e; outline: 2px solid #00ffff; }
         .btn-sys { border-color: #00ffff; color: #00ffff; }
@@ -49,21 +49,24 @@
         .btn-combat { border-color: #ff0033; color: #ff0033; background: #33000a; }
         .btn-spin { border-color: #ffff00; color: #ffff00; background: #333300; }
         .btn-maid { border-color: #ff66ff; color: #ff66ff; background: #220022; }
-        .dex-card { background: #08080f; border: 1px solid #222238; border-radius: 6px; padding: 8px; margin: 4px 0; width: 98%; text-align: left; display: flex; align-items: center; gap: 10px; }
+        .btn-boss { border-color: #ff0055; color: #fff; background: #550011; box-shadow: 0 0 8px #ff0055; }
+        .btn-forge { border-color: #ff8800; color: #ff8800; background: #2b1100; }
+        .dex-card { background: #08080f; border: 1px solid #222238; border-radius: 6px; padding: 7px; margin: 4px 0; width: 98%; text-align: left; display: flex; align-items: center; gap: 8px; }
     </style>
 </head>
 <body>
     <div id="save-toast" style="position:fixed; bottom:20px; right:20px; background:#002211; border:1px solid #00ff66; color:#00ff66; padding:6px 12px; border-radius:4px; font-size:12px; z-index:9999; display:none;">💾 Game Saved</div>
     <div id="stats-bar">
         <div>🌍 <span id="loc-display">Nexus HQ</span> | Trainer: <span class="stat-highlight" id="player-name-display">Trainer</span></div>
-        <div style="display: flex; align-items: center; gap: 6px;">
-            <span onclick="showLivePlayersModal()" style="cursor: pointer; color: #00ff88; background: #002211; border: 1px solid #00ff88; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Click to view online players">
-                🟢 Online: <span id="global-online-count">1</span>
+        <div style="display: flex; align-items: center; gap: 5px;">
+            <span onclick="showLivePlayersModal()" style="cursor: pointer; color: #00ff88; background: #002211; border: 1px solid #00ff88; padding: 2px 5px; border-radius: 4px; font-weight: bold;">
+                🟢 <span id="global-online-count">1</span>
             </span>
-            <span onclick="showLeaderboardModal()" style="cursor: pointer; color: #ffff00; background: #222200; border: 1px solid #ffff00; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Click to view Leaderboard">
-                🏆 Top Rank
+            <span onclick="showLeaderboardModal()" style="cursor: pointer; color: #ffff00; background: #222200; border: 1px solid #ffff00; padding: 2px 5px; border-radius: 4px; font-weight: bold;">
+                🏆 Rank
             </span>
-            ⭐ Champion: <span id="active-champ-display" style="color:#00ffff; font-weight:bold;">Astolfo</span> |
+            ⭐ <span id="active-champ-display" style="color:#00ffff; font-weight:bold;">Astolfo</span> |
+            🏰 Spire: <span id="spire-floor-display" style="color:#ffaa00; font-weight:bold;">F1</span> |
             💰 $<span class="stat-money" id="funds-display">5000</span> | Day <span id="day-display">1</span> | ⚡ <span id="stamina-display">100</span>
         </div>
     </div>
@@ -82,26 +85,30 @@
     let globalLeaderboard = [];
     let globalChatMessages = [];
     let roomChatMessages = [];
+    let globalMarketListings = [];
     let currentSaveSlot = 1;
     let currentRoomId = null;
     let onlineRoomPlayers = [];
     let activePvPSession = null;
-    let singlePlayerCombatSession = null;
+    let serverRaidBoss = { name: "Void Titan Chronos", hp: 5000, maxHp: 5000 };
+    let activeRaidKey = "titan";
 
     let game = {
         playerName: "Trainer", funds: 5000, stamina: 100, day: 1, location: "Nexus HQ",
-        activeChampionIndex: 0,
+        activeChampionIndex: 0, spireFloor: 1,
+        equippedGear: { weapon: "None (+0 ATK)", armor: "None (+0 DEF)" },
         inventory: ["Energy Core", "Pokéball", "Copper Ore", "Diamond", "Healing Potion"],
         staff: [
-            { name: "Astolfo", origin: "Fate", power: 30, maxHp: 120, hp: 120 },
-            { name: "Felix Argyle", origin: "Re:Zero", power: 28, maxHp: 110, hp: 110 }
+            { name: "Astolfo", origin: "Fate", power: 30, maxHp: 120, hp: 120, level: 1, locked: true, loyalty: 10, evolved: false },
+            { name: "Felix Argyle", origin: "Re:Zero", power: 28, maxHp: 110, hp: 110, level: 1, locked: false, loyalty: 5, evolved: false }
         ],
+        farm: { plots: [{ crop: null, stage: 0, ready: false }, { crop: null, stage: 0, ready: false }, { crop: null, stage: 0, ready: false }] },
         pokedex: {}, dlcUnlocked: false
     };
 
     function getActiveChampion() {
         if (!game.staff || game.staff.length === 0) {
-            game.staff = [{ name: "Starter Partner", origin: "Midnoria", power: 25, maxHp: 100, hp: 100 }];
+            game.staff = [{ name: "Starter Partner", origin: "Midnoria", power: 25, maxHp: 100, hp: 100, level: 1, locked: true, loyalty: 10, evolved: false }];
         }
         if (game.activeChampionIndex >= game.staff.length) game.activeChampionIndex = 0;
         return game.staff[game.activeChampionIndex];
@@ -144,6 +151,39 @@
             if (countEl) countEl.innerText = data.totalOnline;
             globalActiveTrainers = data.activePlayers || [];
             globalLeaderboard = data.leaderboard || [];
+            if (data.raidBoss) serverRaidBoss = data.raidBoss;
+            if (data.marketListings) globalMarketListings = data.marketListings;
+        });
+
+        socket.on('marketUpdate', (listings) => { globalMarketListings = listings; });
+        socket.on('itemSoldNotification', ({ item, price, buyer }) => {
+            game.funds += price; saveGame(); updateUI();
+            alert(`💰 [MARKET SALE]: Sold [${item}] to Trainer ${buyer} for $${price}!`);
+        });
+        socket.on('itemPurchasedSuccess', (itemObj) => {
+            game.inventory.push(itemObj.item); saveGame(); updateUI();
+            alert(`🎉 [MARKET BOUGHT]: Successfully purchased [${itemObj.item}] from ${itemObj.sellerName}!`);
+            showLiveMarketBoard();
+        });
+
+        socket.on('raidBossUpdate', (boss) => { serverRaidBoss = boss; });
+        socket.on('raidBossHit', (data) => {
+            serverRaidBoss.hp = data.bossHp;
+            let logEl = document.getElementById("raid-boss-combat-log");
+            if (logEl) {
+                logEl.innerHTML += `<div style="color:#00ffff; font-size:11px;">${data.log}</div>`;
+                logEl.scrollTop = logEl.scrollHeight;
+                let hpBar = document.getElementById("boss-hp-fill");
+                if (hpBar) hpBar.style.width = `${Math.max(0, (data.bossHp / data.bossMaxHp) * 100)}%`;
+                let hpText = document.getElementById("boss-hp-text");
+                if (hpText) hpText.innerText = `${data.bossHp} / ${data.bossMaxHp}`;
+            }
+            if (data.isDefeated) {
+                game.funds += data.reward || 3000;
+                game.inventory.push("Diamond");
+                saveGame(); updateUI();
+                alert(`🏆 WORLD BOSS SLAIN by ${data.slayer}! You claimed $${data.reward || 3000} & 1x Diamond!`);
+            }
         });
 
         socket.on('chatHistory', (history) => { globalChatMessages = history || []; });
@@ -173,19 +213,16 @@
             if (currentRoomId === roomId) renderActiveLobbyView();
         });
 
-        // Item Trade Listener
         socket.on('receiveTradeOffer', ({ senderId, senderName, item }) => {
-            if (confirm(`🤝 [ITEM TRADE OFFER]: ${senderName} offered 1x [${item}]! Trade an item back?`)) {
-                let tradeItem = prompt(`Enter item name from bag to give ${senderName}:\nAvailable: ${game.inventory.join(', ')}`, game.inventory[0] || "Copper Ore");
+            if (confirm(`🤝 [ITEM TRADE]: ${senderName} offered 1x [${item}]! Trade an item back?`)) {
+                let tradeItem = prompt(`Enter item from bag:\n${game.inventory.join(', ')}`, game.inventory[0]);
                 if (tradeItem && game.inventory.includes(tradeItem)) {
                     let idx = game.inventory.indexOf(tradeItem);
                     game.inventory.splice(idx, 1);
                     game.inventory.push(item);
                     saveGame(); updateUI();
                     socket.emit('acceptTradeOffer', { targetId: senderId, targetItem: item, myItem: tradeItem, senderName: game.playerName });
-                    alert(`✅ Item Trade Completed! Sent [${tradeItem}] and got [${item}]!`);
-                } else {
-                    alert("❌ Trade cancelled or item not found!");
+                    alert(`✅ Trade done! Received [${item}]!`);
                 }
             }
         });
@@ -193,44 +230,35 @@
         socket.on('tradeCompleted', ({ receivedItem, partnerName }) => {
             game.inventory.push(receivedItem);
             saveGame(); updateUI();
-            alert(`🎉 Trade Success! Received item [${receivedItem}] from ${partnerName}!`);
+            alert(`🎉 Received [${receivedItem}] from ${partnerName}!`);
             showInventoryMenu();
         });
 
-        // Character / Companion Trade Listener
         socket.on('receiveCharacterTradeOffer', ({ senderId, senderName, character }) => {
-            if (confirm(`🎭 [CHARACTER TRADE OFFER]: ${senderName} offered companion [${character.name} (Origin: ${character.origin})]! Trade one of your characters back?`)) {
-                if (game.staff.length <= 1) {
-                    alert("❌ You cannot trade your only companion! Recruit more from Portals first.");
-                    return;
-                }
+            if (confirm(`🎭 [HERO TRADE]: ${senderName} offered [${character.name}]! Trade back?`)) {
+                if (game.staff.length <= 1) { alert("❌ Cannot trade your only hero!"); return; }
                 let charNames = game.staff.map((c, i) => `${i + 1}. ${c.name}`).join('\n');
-                let selection = prompt(`Enter the number of the character you want to send to ${senderName}:\n${charNames}`);
-                let selectIdx = parseInt(selection) - 1;
-
-                if (!isNaN(selectIdx) && game.staff[selectIdx]) {
-                    let mySentChar = game.staff.splice(selectIdx, 1)[0];
+                let sel = parseInt(prompt(`Enter hero number to trade:\n${charNames}`)) - 1;
+                if (!isNaN(sel) && game.staff[sel] && !game.staff[sel].locked) {
+                    let sent = game.staff.splice(sel, 1)[0];
                     game.staff.push(character);
-                    if (game.activeChampionIndex >= game.staff.length) game.activeChampionIndex = 0;
                     saveGame(); updateUI();
-                    socket.emit('acceptCharacterTradeOffer', { targetId: senderId, targetCharacter: character, myCharacter: mySentChar, senderName: game.playerName });
-                    alert(`🎉 Character Trade Completed! Sent [${mySentChar.name}] and received [${character.name}]!`);
-                    showChampionSelectMenu();
-                } else {
-                    alert("❌ Invalid character selection. Trade cancelled.");
-                }
+                    socket.emit('acceptCharacterTradeOffer', { targetId: senderId, targetCharacter: character, myCharacter: sent, senderName: game.playerName });
+                    alert(`🎉 Sent [${sent.name}] & recruited [${character.name}]!`);
+                    showRosterMenu();
+                } else { alert("❌ Hero is locked or invalid choice!"); }
             }
         });
 
         socket.on('characterTradeCompleted', ({ receivedCharacter, partnerName }) => {
             game.staff.push(receivedCharacter);
             saveGame(); updateUI();
-            alert(`🎉 Character Trade Success! Recruited [${receivedCharacter.name}] from ${partnerName}!`);
-            showChampionSelectMenu();
+            alert(`🎉 Recruited [${receivedCharacter.name}] from ${partnerName}!`);
+            showRosterMenu();
         });
 
         socket.on('pvpChallengeReceived', ({ challengerId, challengerName, champion }) => {
-            if (confirm(`⚔️ [LIVE PVP CHALLENGE]: Trainer ${challengerName} with champion [${champion}] challenged you to a duel! Accept?`)) {
+            if (confirm(`⚔️ [LIVE DUEL]: ${challengerName} (${champion}) challenged you! Accept?`)) {
                 const myChamp = getActiveChampion();
                 socket.emit('acceptPvP', { challengerId, accepterName: game.playerName, champion: myChamp.name });
             }
@@ -238,15 +266,9 @@
 
         socket.on('startLivePvP', (data) => {
             activePvPSession = {
-                battleId: data.battleId,
-                p1Id: data.p1Id,
-                p2Id: data.p2Id,
-                turn: data.p1Id,
-                p1Hp: data.p1Max,
-                p2Hp: data.p2Max,
-                p1Max: data.p1Max,
-                p2Max: data.p2Max,
-                log: "⚔️ Live match started! Make your move!"
+                battleId: data.battleId, p1Id: data.p1Id, p2Id: data.p2Id, turn: data.p1Id,
+                p1Hp: data.p1Max, p2Hp: data.p2Max, p1Max: data.p1Max, p2Max: data.p2Max,
+                log: "⚔️ Live match started!"
             };
             renderLivePvPScreen();
         });
@@ -260,11 +282,10 @@
 
             if (data.isOver) {
                 if (socket.id === data.winnerId) {
-                    game.funds += 1000;
-                    saveGame(); updateUI();
-                    alert("🏆 VICTORY! You won the live PvP duel and claimed $1000!");
+                    game.funds += 1200; saveGame(); updateUI();
+                    alert("🏆 VICTORY! Won duel and claimed $1200!");
                 } else {
-                    alert("💀 DEFEAT! Your champion was knocked out in the duel!");
+                    alert("💀 DEFEAT! Knocked out in live duel!");
                 }
                 activePvPSession = null;
                 renderActiveLobbyView();
@@ -320,6 +341,7 @@
         document.getElementById("day-display").innerText = game.day || 1;
         document.getElementById("player-name-display").innerText = game.playerName || "Trainer";
         document.getElementById("loc-display").innerText = game.location || "Nexus HQ";
+        document.getElementById("spire-floor-display").innerText = `F${game.spireFloor || 1}`;
         const champ = getActiveChampion();
         document.getElementById("active-champ-display").innerText = champ.name;
         syncTrainerPresence();
@@ -355,9 +377,14 @@
         } else {
             game = {
                 playerName: "Trainer", funds: 5000, stamina: 100, day: 1, location: "Nexus HQ",
-                activeChampionIndex: 0,
+                activeChampionIndex: 0, spireFloor: 1,
+                equippedGear: { weapon: "None (+0 ATK)", armor: "None (+0 DEF)" },
                 inventory: ["Energy Core", "Pokéball", "Copper Ore", "Diamond"],
-                staff: [{ name: "Astolfo", origin: "Fate", power: 30, maxHp: 120, hp: 120 }],
+                staff: [
+                    { name: "Astolfo", origin: "Fate", power: 30, maxHp: 120, hp: 120, level: 1, locked: true, loyalty: 10, evolved: false },
+                    { name: "Felix Argyle", origin: "Re:Zero", power: 28, maxHp: 110, hp: 110, level: 1, locked: false, loyalty: 5, evolved: false }
+                ],
+                farm: { plots: [{ crop: null, stage: 0, ready: false }, { crop: null, stage: 0, ready: false }, { crop: null, stage: 0, ready: false }] },
                 pokedex: {}, dlcUnlocked: false
             };
             saveGame();
@@ -365,89 +392,437 @@
         showMainMenu();
     }
 
-    function showLivePlayersModal() {
-        clearConsole("center", "#001f3f", "#00ffff");
-        let html = `
-            <h2 style="color: #00ffff; font-size: 16px;">🌐 ACTIVE MULTIVERSE TRAINERS</h2>
-            <p style="color: #aaa; font-size: 12px;">Total Connected Online: <strong>${globalActiveTrainers.length}</strong></p>
-            <div style="width: 95%; max-width: 360px; max-height: 160px; overflow-y: auto; margin-bottom: 8px;">
+    // --- INFINITE SPIRE OF TRIALS (DUNGEON) ---
+    function showSpireDungeonMenu() {
+        clearConsole("center", "#150030", "#ff00ff");
+        let currentF = game.spireFloor || 1;
+        let enemyHp = 80 + currentF * 25;
+        let enemyDmg = 10 + currentF * 4;
+        let floorReward = 300 + currentF * 150;
+
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#ff00ff; font-size:16px;">🏰 SPIRE OF TRIALS (FLOOR ${currentF})</h2>
+            <div style="font-size:32px; margin: 4px 0;">⚡ 🗿 ⚡</div>
+            <p style="color:#00ffff; font-size:11.5px;">Guardian: <strong>Spire Golem MK-${currentF}</strong></p>
+            <p style="color:#aaa; font-size:11px;">Guardian HP: ${enemyHp} | Reward: $${floorReward}</p>
         `;
-        globalActiveTrainers.forEach(t => {
-            html += `
-                <div class="dex-card" style="font-size: 12px; padding: 6px; display:flex; justify-content:space-between;">
-                    <span>👤 <strong>${t.name}</strong> (${t.champion || 'Partner'})</span>
-                    <span style="color:#ffaa00;">📍 ${t.location}</span>
-                </div>
-            `;
-        });
-        html += `</div>`;
-        document.getElementById("console").innerHTML = html;
-        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
+        renderButtons([
+            { text: `⚔️ Challenge Floor ${currentF}`, class: "btn btn-combat", action: () => executeSpireFight(currentF, enemyHp, enemyDmg, floorReward) },
+            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
+        ]);
     }
 
-    function showLeaderboardModal() {
-        clearConsole("center", "#1a1500", "#ffff00");
-        let html = `
-            <h2 style="color: #ffff00; font-size: 16px;">🏆 GLOBAL TRAINER LEADERBOARD</h2>
-            <p style="color: #aaa; font-size: 12px;">Ranked by Wealth & Champion Power:</p>
-            <div style="width: 95%; max-width: 380px; max-height: 160px; overflow-y: auto; margin-bottom: 8px;">
-        `;
-        if (!globalLeaderboard.length) {
-            html += `<p style="color:#aaa;">No online data yet.</p>`;
+    function executeSpireFight(floor, mobHp, mobDmg, reward) {
+        const champ = getActiveChampion();
+        let champHp = champ.maxHp || 120;
+        let turnLog = "";
+
+        while (mobHp > 0 && champHp > 0) {
+            let dmg = Math.floor((champ.power || 25) + Math.random() * 10);
+            mobHp -= dmg;
+            if (mobHp <= 0) break;
+            champHp -= Math.max(1, mobDmg - (game.equippedGear.armor.includes("Aegis") ? 8 : 0));
+        }
+
+        if (champHp > 0) {
+            game.spireFloor = floor + 1;
+            game.funds += reward;
+            if (floor % 3 === 0) game.inventory.push("Diamond");
+            saveGame(); updateUI();
+            alert(`🎉 CLEARED FLOOR ${floor}! Claimed $${reward} and advanced to Floor ${game.spireFloor}!`);
+            showSpireDungeonMenu();
         } else {
-            globalLeaderboard.forEach((user, idx) => {
-                let badge = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`;
+            alert(`💀 Champion was defeated on Floor ${floor}! Train your team or upgrade gear at the Forge!`);
+            showMainMenu();
+        }
+    }
+
+    // --- BLACKSMITH / FORGE SYSTEM ---
+    function showBlacksmithForgeMenu() {
+        clearConsole("flex-start", "#2b1100", "#ff8800");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#ff8800; font-size:16px;">🔨 MULTIVERSE FORGE</h2>
+            <p style="color:#aaa; font-size:11px;">Equipped Weapon: <strong style="color:#00ffff;">${game.equippedGear.weapon}</strong> | Armor: <strong style="color:#00ff66;">${game.equippedGear.armor}</strong></p>
+            <p style="color:#ffff00; font-size:11.5px;">Combine minerals to craft permanent power gear:</p>
+        `;
+        renderButtons([
+            { text: "🗡️ Craft Dragon Edge (+25 ATK)", class: "btn btn-forge", action: () => craftGear("Dragon Edge (+25 ATK)", "weapon", "Copper Ore", "Diamond", 500, 25) },
+            { text: "🛡️ Craft Aegis Shield (+40 HP & DEF)", class: "btn btn-forge", action: () => craftGear("Aegis Shield (+40 HP)", "armor", "Copper Ore", "Energy Core", 400, 0, 40) },
+            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
+        ]);
+    }
+
+    function craftGear(gearName, slot, reqItem1, reqItem2, goldCost, atkBoost=0, hpBoost=0) {
+        if (game.funds < goldCost || !game.inventory.includes(reqItem1) || !game.inventory.includes(reqItem2)) {
+            alert(`❌ Missing materials! Need: 1x ${reqItem1}, 1x ${reqItem2}, and $${goldCost}!`);
+            return;
+        }
+        game.funds -= goldCost;
+        game.inventory.splice(game.inventory.indexOf(reqItem1), 1);
+        game.inventory.splice(game.inventory.indexOf(reqItem2), 1);
+        game.equippedGear[slot] = gearName;
+
+        game.staff.forEach(c => {
+            c.power = (c.power || 25) + atkBoost;
+            c.maxHp = (c.maxHp || 100) + hpBoost;
+            c.hp = c.maxHp;
+        });
+        saveGame(); updateUI();
+        alert(`🔨 Successfully forged and equipped [${gearName}]! All heroes gained stat buffs!`);
+        showBlacksmithForgeMenu();
+    }
+
+    // --- EVOLUTION & LIMIT BREAK ---
+    function limitBreakEvolve(idx) {
+        let member = game.staff[idx];
+        if ((member.level || 1) < 5 || (member.loyalty || 0) < 50) {
+            alert(`❌ Evolution Requirements Not Met:\n- Level: ${member.level || 1}/5\n- Loyalty: ${member.loyalty || 0}/50\n(Level up in Roster & gift Diamonds to raise Loyalty!)`);
+            return;
+        }
+        if (member.evolved) { alert("✨ This champion is already in their Ascended form!"); return; }
+
+        member.name = `Ascended ${member.name} ⚡`;
+        member.power = (member.power || 25) * 2;
+        member.maxHp = (member.maxHp || 100) * 2;
+        member.hp = member.maxHp;
+        member.evolved = true;
+        saveGame(); updateUI();
+        alert(`🌟 EVOLUTION SUCCESS! ${member.name} has unlocked Limit Break! Base stats are DOUBLED!`);
+        showRosterMenu();
+    }
+
+    // --- CASINO HUB (BLACKJACK & WHEEL) ---
+    function showCasinoHubMenu() {
+        clearConsole("center", "#333300", "#ffff00");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#ffff00; font-size:16px;">🎰 NEXUS CASINO & RESORT</h2>
+            <div style="font-size:32px; margin:4px 0;">🎲 🃏 🎡</div>
+            <p style="color:#aaa; font-size:11.5px;">Place your bets to multiply your wealth:</p>
+        `;
+        renderButtons([
+            { text: "🎡 Lucky Wheel ($100)", class: "btn btn-spin", action: showLuckyWheelScreen },
+            { text: "🃏 Blackjack 21 ($250 Bet)", class: "btn btn-sys", action: playBlackjackMinigame },
+            { text: "🪙 Coin Flip Double ($200)", class: "btn btn-farm", action: playCoinFlipMinigame },
+            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
+        ]);
+    }
+
+    function playBlackjackMinigame() {
+        if (game.funds < 250) { alert("❌ Need $250 to play Blackjack!"); return; }
+        game.funds -= 250;
+        let pCard1 = Math.floor(2 + Math.random() * 9);
+        let pCard2 = Math.floor(2 + Math.random() * 9);
+        let pTotal = pCard1 + pCard2;
+        let dTotal = Math.floor(14 + Math.random() * 8);
+
+        if (pTotal > dTotal || dTotal > 21) {
+            game.funds += 600; saveGame(); updateUI();
+            alert(`🃏 WINNER! Your total: ${pTotal} | Dealer: ${dTotal}! Won $600!`);
+        } else {
+            saveGame(); updateUI();
+            alert(`💀 Dealer wins! Your total: ${pTotal} | Dealer: ${dTotal}! Lost $250.`);
+        }
+        showCasinoHubMenu();
+    }
+
+    function playCoinFlipMinigame() {
+        if (game.funds < 200) { alert("❌ Need $200 for Coin Flip!"); return; }
+        game.funds -= 200;
+        if (Math.random() > 0.48) {
+            game.funds += 400; saveGame(); updateUI();
+            alert("🪙 HEADS! You doubled your bet and won $400!");
+        } else {
+            saveGame(); updateUI();
+            alert("🪙 TAILS! Lost $200.");
+        }
+        showCasinoHubMenu();
+    }
+
+    // --- LIVE PLAYER MARKET / TRADE BOARD ---
+    function showLiveMarketBoard() {
+        clearConsole("flex-start", "#002b1b", "#00ff88");
+        let html = `
+            <h2 style="color:#00ff88; font-size:16px; margin: 2px 0;">🏪 GLOBAL TRADE BOARD</h2>
+            <p style="color:#aaa; font-size:11px; margin-bottom: 6px;">Buy & sell items with trainers across all dimensions:</p>
+            <div style="width:100%; max-width:380px; max-height:160px; overflow-y:auto; margin-bottom: 6px;">
+        `;
+        if (!globalMarketListings.length) {
+            html += `<p style="color:#777;">No active listings on the server. List an item below!</p>`;
+        } else {
+            globalMarketListings.forEach(l => {
+                let isMine = l.sellerId === (socket ? socket.id : '');
                 html += `
-                    <div class="dex-card" style="font-size: 12px; padding: 6px; display:flex; justify-content:space-between; border-color:#ffff0055;">
-                        <span><strong>${badge} ${user.name}</strong> (⭐ ${user.champion || 'Partner'})</span>
-                        <span style="color:#00ff66;">💰 $${Math.floor(user.funds || 0)}</span>
+                    <div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <strong>📦 ${l.item}</strong><br>
+                            <span style="font-size:10px; color:#aaa;">Seller: ${l.sellerName} ${isMine ? '(You)' : ''}</span>
+                        </div>
+                        <div>
+                            <span style="color:#ffff00; font-size:11px; margin-right:4px;">$${l.price}</span>
+                            ${!isMine ? `<button class="btn btn-farm" style="padding:2px 6px; font-size:10px;" onclick="buyMarketItem('${l.id}', ${l.price})">Buy</button>` : ''}
+                        </div>
                     </div>
                 `;
             });
         }
         html += `</div>`;
         document.getElementById("console").innerHTML = html;
-        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
+        renderButtons([
+            { text: "📤 Post Item For Sale", class: "btn btn-sys", action: createMarketItemListing },
+            { text: "⬅ Back to Market", class: "btn btn-back", action: showMarketMenu }
+        ]);
     }
 
-    function showChampionSelectMenu() {
-        clearConsole("flex-start", "#100028", "#ff00ff");
-        let html = `
-            <h2 style="color:#ff66ff; font-size:16px;">⭐ COMPANIONS & ACTIVE CHAMPION</h2>
-            <p style="color:#aaa; font-size:11.5px;">Designate who fights for you in battles, PvP duels, and multiplayer rooms:</p>
-            <div style="width:100%; max-width:380px;">
+    function createMarketItemListing() {
+        let itemToSell = prompt(`Enter item from bag to sell:\n${game.inventory.join(', ')}`, game.inventory[0]);
+        if (itemToSell && game.inventory.includes(itemToSell)) {
+            let price = parseInt(prompt("Enter sale price in gold ($):", "400"));
+            if (!isNaN(price) && price > 0) {
+                let idx = game.inventory.indexOf(itemToSell);
+                game.inventory.splice(idx, 1);
+                saveGame(); updateUI();
+                if (socket) socket.emit('createMarketListing', { item: itemToSell, price: price, sellerName: game.playerName });
+                alert(`📤 Listed 1x [${itemToSell}] on the Trade Board for $${price}!`);
+                showLiveMarketBoard();
+            }
+        } else { alert("❌ Invalid item or not in inventory!"); }
+    }
+
+    function buyMarketItem(listingId, price) {
+        if (game.funds < price) { alert("❌ Not enough funds to buy this item!"); return; }
+        game.funds -= price;
+        saveGame(); updateUI();
+        if (socket) socket.emit('buyMarketListing', { listingId, buyerName: game.playerName });
+    }
+
+    // --- WORLD RAID BOSS ---
+    function showWorldBossRaidScreen() {
+        clearConsole("flex-start", "#2b0008", "#ff0055");
+        let percent = Math.max(0, (serverRaidBoss.hp / serverRaidBoss.maxHp) * 100);
+        const champ = getActiveChampion();
+
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#ff0055; font-size:16px; margin: 2px 0;">👹 MULTIVERSE WORLD BOSS</h2>
+            <div style="font-size:30px; margin:2px 0;">⚡ 👾 ⚡</div>
+            <strong style="color:#fff; font-size:13px;">${serverRaidBoss.name}</strong>
+            <div style="width:90%; max-width:360px; height:12px; background:#111; border:1px solid #ff0055; border-radius:8px; margin:4px 0; overflow:hidden;">
+                <div id="boss-hp-fill" style="width:${percent}%; height:100%; background:linear-gradient(90deg, #ff0033, #ff5500); transition: width 0.3s ease;"></div>
+            </div>
+            <p style="color:#aaa; font-size:11px;">Boss Health: <span id="boss-hp-text" style="color:#ff5555; font-weight:bold;">${serverRaidBoss.hp} / ${serverRaidBoss.maxHp}</span></p>
+            <div id="raid-boss-combat-log" style="width:95%; max-width:380px; height:70px; background:#050005; border:1px solid #ff005555; border-radius:4px; padding:6px; overflow-y:auto; margin-bottom:4px;"></div>
         `;
+
+        renderButtons([
+            { text: "⚔️ Strike Boss", class: "btn btn-combat", action: () => raidBossAction("strike") },
+            { text: "⚡ Burst Raid (15 Stm)", class: "btn btn-boss", action: () => raidBossAction("burst") },
+            { text: "🐉 Netherfang Tier 2", class: "btn btn-dlc", action: () => { if(socket) socket.emit('selectRaidTier', 'dragon'); showWorldBossRaidScreen(); } },
+            { text: "⬅ Back to Lobby", class: "btn btn-back", action: renderActiveLobbyView }
+        ]);
+    }
+
+    function raidBossAction(type) {
+        if (serverRaidBoss.hp <= 0) { alert("Boss is already defeated! Respawning shortly..."); return; }
+        const champ = getActiveChampion();
+        let mult = type === "burst" ? 2.5 : 1.0;
+        if (type === "burst") {
+            if (game.stamina < 15) { alert("Not enough stamina!"); return; }
+            game.stamina -= 15;
+            saveGame(); updateUI();
+        }
+        let dmg = Math.floor((champ.power || 25) * mult + Math.random() * 15);
+        if (socket) socket.emit('attackRaidBoss', { damage: dmg, trainerName: game.playerName, championName: champ.name });
+    }
+
+    // --- ROSTER & HERO MANAGEMENT ---
+    function showRosterMenu() {
+        clearConsole("flex-start", "#100028", "#ff00ff");
+        let totalPower = game.staff.reduce((acc, c) => acc + (c.power || 25), 0);
+        let html = `
+            <h2 style="color:#ff66ff; font-size:16px; margin: 2px 0;">👥 TEAM ROSTER & HEROES</h2>
+            <p style="color:#aaa; font-size:11px; margin-bottom: 6px;">Total Power: <strong style="color:#00ffff;">${totalPower}</strong> | Companions: <strong style="color:#ff00ff;">${game.staff.length}</strong></p>
+            <div style="width:100%; max-width:400px; max-height: 220px; overflow-y:auto;">
+        `;
+
         game.staff.forEach((member, idx) => {
             let isActive = idx === game.activeChampionIndex;
+            let hpVal = member.hp !== undefined ? member.hp : (member.maxHp || 100);
+            let maxHpVal = member.maxHp || 100;
+            let isLocked = !!member.locked;
+            let trainCost = (member.level || 1) * 200;
+
             html += `
-                <div class="dex-card" style="display:flex; justify-content:space-between; align-items:center; border-color:${isActive ? '#00ffff' : '#333'}; background:${isActive ? '#001a22' : '#08080f'};">
-                    <div>
-                        <strong style="color:${isActive ? '#00ffff' : '#fff'};">${member.name}</strong> ${isActive ? '<span style="color:#00ff66;">[ACTIVE]</span>' : ''}<br>
-                        <span style="color:#aaa; font-size:11px;">Origin: ${member.origin || 'Multiverse'} | ⚡ Power: ${member.power || 25}</span>
+                <div class="dex-card" style="display:flex; flex-direction:column; align-items:flex-start; border-color:${isActive ? '#00ffff' : isLocked ? '#ffff0055' : '#333'}; background:${isActive ? '#001a22' : '#08080f'}; padding: 6px 8px; margin-bottom: 6px;">
+                    <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <strong style="color:${isActive ? '#00ffff' : '#fff'}; font-size:13px;">${isLocked ? '🔒 ' : ''}${member.name}</strong> 
+                            ${isActive ? '<span style="color:#00ff66; font-size:11px;">[ACTIVE]</span>' : ''}
+                        </div>
+                        <span style="color:#ffaa00; font-size:11px;">Lv. ${member.level || 1}</span>
                     </div>
-                    ${!isActive ? `<button class="btn btn-sys" style="padding:4px 8px; font-size:10px; min-height:28px;" onclick="setActiveChampion(${idx})">Set Active</button>` : ''}
+
+                    <div style="color:#aaa; font-size:11px; margin: 2px 0;">
+                        Origin: <strong>${member.origin || 'Multiverse'}</strong> | ⚡ Power: <strong style="color:#ff00ff;">${member.power || 25}</strong> | ❤️ HP: ${hpVal}/${maxHpVal} | 💖 Bond: ${member.loyalty || 0}
+                    </div>
+
+                    <div style="display:flex; flex-wrap:wrap; gap:3px; margin-top: 4px; width:100%;">
+                        ${!isActive ? `<button class="btn btn-sys" style="padding:2px 5px; font-size:9.5px; min-height:20px;" onclick="setActiveChampion(${idx})">⭐ Set Champ</button>` : ''}
+                        <button class="btn btn-farm" style="padding:2px 5px; font-size:9.5px; min-height:20px;" onclick="trainCompanion(${idx}, ${trainCost})">🏋️ Train ($${trainCost})</button>
+                        <button class="btn btn-forge" style="padding:2px 5px; font-size:9.5px; min-height:20px;" onclick="limitBreakEvolve(${idx})">⚡ Limit Break</button>
+                        <button class="btn btn-maid" style="padding:2px 5px; font-size:9.5px; min-height:20px;" onclick="talkToCompanion(${idx})">💬 Talk</button>
+                        <button class="btn btn-spin" style="padding:2px 5px; font-size:9.5px; min-height:20px;" onclick="toggleLockCompanion(${idx})">${isLocked ? '🔓' : '🔒'}</button>
+                        ${!isActive ? `<button class="btn btn-back" style="padding:2px 5px; font-size:9.5px; min-height:20px;" onclick="releaseCompanion(${idx})">🗑️</button>` : ''}
+                    </div>
                 </div>
             `;
         });
         html += `</div>`;
         document.getElementById("console").innerHTML = html;
-        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
+        renderButtons([
+            { text: "🌌 Recruit (Portals)", class: "btn btn-dlc", action: showFreePortalsMenu },
+            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
+        ]);
     }
 
     function setActiveChampion(idx) {
         game.activeChampionIndex = idx;
         saveGame(); updateUI();
         alert(`⭐ Active Champion switched to ${game.staff[idx].name}!`);
-        showChampionSelectMenu();
+        showRosterMenu();
+    }
+
+    function trainCompanion(idx, cost) {
+        let member = game.staff[idx];
+        if (game.funds >= cost) {
+            game.funds -= cost;
+            member.level = (member.level || 1) + 1;
+            member.power = (member.power || 25) + 6;
+            member.maxHp = (member.maxHp || 100) + 15;
+            member.hp = member.maxHp;
+            saveGame(); updateUI();
+            alert(`🎉 ${member.name} reached Level ${member.level}! Power is now ${member.power}!`);
+            showRosterMenu();
+        } else { alert(`❌ Need $${cost} to train!`); }
+    }
+
+    function toggleLockCompanion(idx) {
+        game.staff[idx].locked = !game.staff[idx].locked;
+        saveGame(); showRosterMenu();
+    }
+
+    function releaseCompanion(idx) {
+        let member = game.staff[idx];
+        if (game.staff.length <= 1) { alert("❌ Cannot release only companion!"); return; }
+        if (member.locked) { alert("🔒 Unlock companion first!"); return; }
+        if (confirm(`⚠️ Release ${member.name}?`)) {
+            game.staff.splice(idx, 1);
+            if (game.activeChampionIndex >= game.staff.length) game.activeChampionIndex = 0;
+            game.funds += 150;
+            saveGame(); updateUI();
+            showRosterMenu();
+        }
+    }
+
+    function talkToCompanion(idx) {
+        let member = game.staff[idx];
+        clearConsole("center", "#150020", "#ff66ff");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#ff66ff; font-size:16px;">💬 BONDING: ${member.name.toUpperCase()}</h2>
+            <p style="color:#00ffff; font-size:12px;">Loyalty: <strong style="color:#ffff00;">${member.loyalty || 0} / 100</strong></p>
+            <div class="dex-card" style="margin: 8px 0; text-align:center;">
+                <em>"Trainer ${game.playerName}, let's conquer the Spire and take down the Void Titan together!"</em>
+            </div>
+        `;
+        renderButtons([
+            { text: "🎁 Gift Diamond (+15 Loyalty)", class: "btn btn-farm", action: () => {
+                if (game.inventory.includes("Diamond")) {
+                    game.inventory.splice(game.inventory.indexOf("Diamond"), 1);
+                    member.loyalty = Math.min(100, (member.loyalty || 0) + 15);
+                    member.power = (member.power || 25) + 4;
+                    saveGame(); updateUI();
+                    alert(`🎁 Gave Diamond! Loyalty rose to ${member.loyalty}!`);
+                    talkToCompanion(idx);
+                } else { alert("❌ No Diamond in inventory!"); }
+            }},
+            { text: "⬅ Back to Roster", class: "btn btn-back", action: showRosterMenu }
+        ]);
+    }
+
+    // --- OTHER CORE GAME MENUS ---
+    function showCropGardenMenu() {
+        clearConsole("flex-start", "#00200a", "#00ff88");
+        let html = `
+            <h2 style="color:#00ff88; font-size:16px; margin: 2px 0;">🌱 CROP GARDEN</h2>
+            <div style="width:100%; max-width:380px;">
+        `;
+        game.farm.plots.forEach((p, idx) => {
+            html += `
+                <div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                    <div><strong>Plot #${idx + 1}:</strong> ${p.crop ? `<span style="color:#ffff00;">${p.crop}</span> (${p.ready ? 'READY' : 'Growing...'})` : 'Empty Plot'}</div>
+                    ${p.crop && p.ready ? `<button class="btn btn-farm" style="padding:2px 8px; font-size:10px;" onclick="harvestPlot(${idx})">🌾 Harvest</button>` : ''}
+                    ${!p.crop ? `<button class="btn btn-mine" style="padding:2px 8px; font-size:10px;" onclick="plantPlot(${idx})">🌱 Plant ($150)</button>` : ''}
+                </div>
+            `;
+        });
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([
+            { text: "💤 Sleep & Advance Crops", class: "btn btn-sys", action: () => {
+                game.stamina = 100; game.day++;
+                game.farm.plots.forEach(p => { if (p.crop) p.ready = true; });
+                saveGame(); updateUI(); alert("🌅 New day arrived! Crops ready!"); showCropGardenMenu();
+            }},
+            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
+        ]);
+    }
+
+    function plantPlot(idx) {
+        if (game.funds >= 150) {
+            game.funds -= 150;
+            game.farm.plots[idx] = { crop: "Stamina Berries", stage: 1, ready: false };
+            saveGame(); updateUI(); showCropGardenMenu();
+        } else { alert("❌ Need $150 for seeds!"); }
+    }
+
+    function harvestPlot(idx) {
+        game.farm.plots[idx] = { crop: null, stage: 0, ready: false };
+        game.inventory.push("Energy Core"); game.funds += 400;
+        saveGame(); updateUI(); alert("🌾 Harvested crop for 1x Energy Core & $400 gold!");
+        showCropGardenMenu();
+    }
+
+    function showMarketMenu() {
+        clearConsole("flex-start", "#3d1c00", "#ff8c00");
+        document.getElementById("console").innerHTML = `<h2 style="color: #ffaa00; font-size:16px;">🏪 MARKET DISTRICT</h2>`;
+        renderButtons([
+            { text: "📜 Global Trade Board", class: "btn btn-farm", action: showLiveMarketBoard },
+            { text: "💰 Doug's Ores", class: "btn btn-mine", action: () => { game.funds += 300; game.inventory.push("Copper Ore"); saveGame(); updateUI(); alert("Sold ores for $300!"); showMarketMenu(); } },
+            { text: "🛍️ Don's Store", class: "btn btn-sys", action: () => { if(game.funds >= 150) { game.funds -= 150; game.inventory.push("Healing Potion"); saveGame(); updateUI(); alert("Bought Potion!"); } else { alert("Not enough funds!"); } showMarketMenu(); } },
+            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
+        ]);
+    }
+
+    function showLuckyWheelScreen() {
+        clearConsole("center", "#333300", "#ffff00");
+        document.getElementById("console").innerHTML = `<h2 style="color: #ffff00; font-size:16px;">🎰 LUCKY WHEEL</h2><p style="color: #aaa; font-size:11.5px;">Spin for rewards! (Cost: $100)</p>`;
+        renderButtons([
+            { text: "🔄 Spin ($100)", class: "btn btn-spin", action: () => {
+                if (game.funds >= 100) {
+                    game.funds -= 100;
+                    if (Math.random() > 0.5) { game.funds += 400; alert("Jackpot! Won $400!"); }
+                    else { game.inventory.push("Diamond"); alert("Won a rare Diamond!"); }
+                    saveGame(); updateUI(); showLuckyWheelScreen();
+                } else { alert("Not enough funds!"); }
+            }},
+            { text: "⬅ Back to Casino", class: "btn btn-back", action: showCasinoHubMenu }
+        ]);
     }
 
     function showOnlineHubMenu() {
         clearConsole("center", "#003366", "#00aaff");
         document.getElementById("console").innerHTML = `
             <h2 style="color:#00ffff; font-size:16px;">🌐 ONLINE MULTIPLAYER HUB</h2>
-            <p style="color:#aaa; font-size:11.5px;">Connect with friends to trade items/characters, duel in live PvP, or chat in private rooms!</p>
-            <div style="margin: 8px 0;">
-                <input type="text" id="room-code-input" value="${currentRoomId || 'MIDNORIA'}" style="background:#111; color:#0ff; border:1px solid #0ff; padding:6px; font-family:'Courier New'; font-size:12px; border-radius:4px; text-align:center; width:160px;" />
+            <div style="margin: 6px 0;">
+                <input type="text" id="room-code-input" value="${currentRoomId || 'MIDNORIA'}" style="background:#111; color:#0ff; border:1px solid #0ff; padding:5px; font-family:'Courier New'; font-size:12px; border-radius:4px; text-align:center; width:150px;" />
             </div>
         `;
         renderButtons([
@@ -457,7 +832,7 @@
                 if (socket) socket.emit('joinRoom', { roomId: currentRoomId, player: { name: game.playerName, location: game.location, champion: champ.name, power: champ.power } });
                 renderActiveLobbyView();
             }},
-            { text: "🎲 Join Random Room", class: "btn btn-dlc", action: () => {
+            { text: "🎲 Random Room", class: "btn btn-dlc", action: () => {
                 const champ = getActiveChampion();
                 if (socket) socket.emit('joinRandomRoom', { player: { name: game.playerName, location: game.location, champion: champ.name, power: champ.power } });
             }},
@@ -470,9 +845,8 @@
     function renderActiveLobbyView() {
         clearConsole("flex-start", "#002244", "#00aaff");
         let html = `
-            <h2 style="color:#00ffff; font-size:16px; margin-bottom:2px;">📡 ROOM: ${currentRoomId}</h2>
-            <p style="color:#aaa; font-size:11px; margin-top:2px;">Connected Trainers: ${onlineRoomPlayers.length || 1}</p>
-            <div style="width:100%; max-width:380px; max-height:140px; overflow-y:auto; margin-bottom:6px;">
+            <h2 style="color:#00ffff; font-size:15px; margin-bottom:2px;">📡 ROOM: ${currentRoomId}</h2>
+            <div style="width:100%; max-width:380px; max-height:130px; overflow-y:auto; margin-bottom:6px;">
         `;
         if (!onlineRoomPlayers.length) {
             html += `<div class="dex-card" style="font-size:12px; padding:6px;">👤 ${game.playerName} (You) - Host</div>`;
@@ -480,16 +854,13 @@
             onlineRoomPlayers.forEach(p => {
                 let isMe = p.id === socket.id || p.name === game.playerName;
                 html += `
-                    <div class="dex-card" style="font-size:12px; padding:6px; display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <strong>👤 ${p.name}</strong> ${isMe ? '<span style="color:#ffaa00;">(You)</span>' : ''}<br>
-                            <span style="color:#00ffff; font-size:10.5px;">⭐ Champ: ${p.champion || 'Partner'}</span>
-                        </div>
+                    <div class="dex-card" style="font-size:11.5px; padding:5px; display:flex; justify-content:space-between; align-items:center;">
+                        <div><strong>👤 ${p.name}</strong> ${isMe ? '(You)' : ''}<br><span style="color:#00ffff; font-size:10px;">⭐ Champ: ${p.champion || 'Partner'}</span></div>
                         ${!isMe ? `
-                            <div style="display:flex; flex-direction:column; gap:3px;">
-                                <button class="btn btn-combat" style="padding:2px 4px; font-size:9.5px; min-height:20px;" onclick="sendPvPRequest('${p.id}', '${p.name}')">⚔️ Duel</button>
-                                <button class="btn btn-mine" style="padding:2px 4px; font-size:9.5px; min-height:20px;" onclick="initiateItemTrade('${p.id}', '${p.name}')">📦 Trade Item</button>
-                                <button class="btn btn-maid" style="padding:2px 4px; font-size:9.5px; min-height:20px;" onclick="initiateCharacterTrade('${p.id}', '${p.name}')">🎭 Trade Hero</button>
+                            <div style="display:flex; flex-direction:column; gap:2px;">
+                                <button class="btn btn-combat" style="padding:1px 4px; font-size:9px; min-height:16px;" onclick="sendPvPRequest('${p.id}', '${p.name}')">⚔️ Duel</button>
+                                <button class="btn btn-mine" style="padding:1px 4px; font-size:9px; min-height:16px;" onclick="initiateItemTrade('${p.id}', '${p.name}')">📦 Item</button>
+                                <button class="btn btn-maid" style="padding:1px 4px; font-size:9px; min-height:16px;" onclick="initiateCharacterTrade('${p.id}', '${p.name}')">🎭 Hero</button>
                             </div>
                         ` : ''}
                     </div>
@@ -499,8 +870,9 @@
         html += `</div>`;
         document.getElementById("console").innerHTML = html;
         renderButtons([
+            { text: "👹 World Raid Boss", class: "btn btn-boss", action: showWorldBossRaidScreen },
             { text: "💬 Room Chat", class: "btn btn-sys", action: showRoomChatScreen },
-            { text: "⭐ Set Champion", class: "btn btn-maid", action: showChampionSelectMenu },
+            { text: "👥 Roster", class: "btn btn-maid", action: showRosterMenu },
             { text: "🚪 Leave Room", class: "btn btn-back", action: showOnlineHubMenu }
         ]);
     }
@@ -509,44 +881,30 @@
         const champ = getActiveChampion();
         if (socket) {
             socket.emit('requestPvP', { roomId: currentRoomId, targetId, challengerName: game.playerName, champion: champ.name });
-            alert(`⚔️ PvP challenge sent to ${targetName}! Waiting for response...`);
+            alert(`⚔️ PvP challenge sent to ${targetName}!`);
         }
     }
 
     function initiateItemTrade(targetId, targetName) {
-        let itemToTrade = prompt(`Select an item from your bag to offer to ${targetName}:\nAvailable: ${game.inventory.join(', ')}`, game.inventory[0]);
+        let itemToTrade = prompt(`Select item to trade:\n${game.inventory.join(', ')}`, game.inventory[0]);
         if (itemToTrade && game.inventory.includes(itemToTrade)) {
             let idx = game.inventory.indexOf(itemToTrade);
             game.inventory.splice(idx, 1);
             saveGame(); updateUI();
-            if (socket) {
-                socket.emit('offerTradeItem', { roomId: currentRoomId, targetId, item: itemToTrade, senderName: game.playerName });
-                alert(`🤝 Offered 1x [${itemToTrade}] to ${targetName}!`);
-            }
-        } else {
-            alert("❌ Invalid item or item not in backpack!");
+            if (socket) socket.emit('offerTradeItem', { roomId: currentRoomId, targetId, item: itemToTrade, senderName: game.playerName });
+            alert(`🤝 Offered [${itemToTrade}]!`);
         }
     }
 
     function initiateCharacterTrade(targetId, targetName) {
-        if (game.staff.length <= 1) {
-            alert("❌ You only have 1 companion! Recruit more characters from Portals before trading.");
-            return;
-        }
-        let listStr = game.staff.map((c, i) => `${i + 1}. ${c.name} (${c.origin})`).join('\n');
-        let sel = prompt(`Select the number of the character you want to trade with ${targetName}:\n${listStr}`);
-        let idx = parseInt(sel) - 1;
-
-        if (!isNaN(idx) && game.staff[idx]) {
-            let chosenChar = game.staff.splice(idx, 1)[0];
-            if (game.activeChampionIndex >= game.staff.length) game.activeChampionIndex = 0;
+        if (game.staff.length <= 1) { alert("❌ Need more than 1 companion!"); return; }
+        let listStr = game.staff.map((c, i) => `${i + 1}. ${c.name}`).join('\n');
+        let sel = parseInt(prompt(`Select hero number:\n${listStr}`)) - 1;
+        if (!isNaN(sel) && game.staff[sel] && !game.staff[sel].locked) {
+            let chosen = game.staff.splice(sel, 1)[0];
             saveGame(); updateUI();
-            if (socket) {
-                socket.emit('offerTradeCharacter', { roomId: currentRoomId, targetId, character: chosenChar, senderName: game.playerName });
-                alert(`🎭 Offered [${chosenChar.name}] to ${targetName}! Waiting for their response...`);
-            }
-        } else {
-            alert("❌ Invalid selection or cancelled.");
+            if (socket) socket.emit('offerTradeCharacter', { roomId: currentRoomId, targetId, character: chosen, senderName: game.playerName });
+            alert(`🎭 Offered [${chosen.name}]!`);
         }
     }
 
@@ -558,26 +916,25 @@
         const champ = getActiveChampion();
 
         document.getElementById("console").innerHTML = `
-            <h2 style="color:#ff0055; font-size:16px;">⚔️ LIVE MULTIPLAYER DUEL</h2>
+            <h2 style="color:#ff0055; font-size:16px;">⚔️ LIVE PVP DUEL</h2>
             <div style="display:flex; justify-content:space-around; width:100%; margin: 6px 0;">
-                <div class="dex-card" style="width:48%; display:block; border-color:#00ff66; text-align:center;">
-                    <strong style="color:#00ffff;">${champ.name} (You)</strong><br>
+                <div class="dex-card" style="width:48%; display:block; text-align:center;">
+                    <strong style="color:#00ffff;">${champ.name}</strong><br>
                     ❤️ HP: <span style="color:#33ff33;">${socket.id === s.p1Id ? s.p1Hp : s.p2Hp} / 120</span>
                 </div>
-                <div class="dex-card" style="width:48%; display:block; border-color:#ff0055; text-align:center;">
+                <div class="dex-card" style="width:48%; display:block; text-align:center;">
                     <strong style="color:#ff0055;">Opponent</strong><br>
                     ❤️ HP: <span style="color:#ff3333;">${socket.id === s.p1Id ? s.p2Hp : s.p1Hp} / 120</span>
                 </div>
             </div>
             <p style="color:#ffff00; font-size:12px;">${s.log}</p>
-            <p style="color:${isMyTurn ? '#00ff88' : '#aaa'}; font-weight:bold; font-size:12px;">${isMyTurn ? '▶ YOUR TURN! Choose an action:' : '⏳ Opponent is deciding their move...'}</p>
         `;
 
         if (isMyTurn) {
             renderButtons([
                 { text: "⚔️ Strike", class: "btn btn-combat", action: () => executePvPAction("strike") },
-                { text: "🛡️ Guard (-50% DMG)", class: "btn btn-sys", action: () => executePvPAction("guard") },
-                { text: "⚡ Special Attack (15 Stm)", class: "btn btn-dlc", action: () => executePvPAction("special") }
+                { text: "🛡️ Guard (-50%)", class: "btn btn-sys", action: () => executePvPAction("guard") },
+                { text: "⚡ Special (15 Stm)", class: "btn btn-dlc", action: () => executePvPAction("special") }
             ]);
         } else {
             renderButtons([]);
@@ -587,7 +944,7 @@
     function executePvPAction(actionType) {
         if (!activePvPSession) return;
         if (actionType === "special") {
-            if (game.stamina < 15) { alert("❌ Not enough stamina for special move!"); return; }
+            if (game.stamina < 15) { alert("❌ Not enough stamina!"); return; }
             game.stamina -= 15;
             saveGame(); updateUI();
         }
@@ -602,97 +959,37 @@
         }
     }
 
-    function startSinglePlayerCombat(mobName, mobHp, mobDmg, reward) {
-        const champ = getActiveChampion();
-        singlePlayerCombatSession = {
-            enemyName: mobName,
-            enemyHp: mobHp,
-            enemyMaxHp: mobHp,
-            enemyDmg: mobDmg,
-            reward: reward,
-            champHp: champ.maxHp || 100,
-            champMaxHp: champ.maxHp || 100,
-            guarding: false,
-            log: `Battle started against ${mobName}!`
-        };
-        renderSinglePlayerCombat();
+    function showLivePlayersModal() {
+        clearConsole("center", "#001f3f", "#00ffff");
+        let html = `<h2 style="color: #00ffff; font-size: 15px;">🌐 ONLINE TRAINERS</h2><div style="width: 95%; max-width: 360px; max-height: 160px; overflow-y: auto;">`;
+        globalActiveTrainers.forEach(t => {
+            html += `<div class="dex-card" style="font-size: 12px; padding: 5px; display:flex; justify-content:space-between;"><span>👤 <strong>${t.name}</strong> (${t.champion || 'Partner'})</span><span style="color:#ffaa00;">📍 ${t.location}</span></div>`;
+        });
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
     }
 
-    function renderSinglePlayerCombat() {
-        const c = singlePlayerCombatSession;
-        const champ = getActiveChampion();
-        clearConsole("center", "#20000a", "#ff0033");
-        document.getElementById("console").innerHTML = `
-            <h2 style="color:#ff0033; font-size:16px;">⚔️ BATTLE vs ${c.enemyName.toUpperCase()}</h2>
-            <div style="display:flex; justify-content:space-around; width:100%; margin: 6px 0;">
-                <div class="dex-card" style="width:48%; display:block; border-color:#00ff66; text-align:center;">
-                    <strong style="color:#00ffff;">${champ.name}</strong><br>
-                    ❤️ <span style="color:#33ff33;">${c.champHp} / ${c.champMaxHp}</span>
-                </div>
-                <div class="dex-card" style="width:48%; display:block; border-color:#ff0055; text-align:center;">
-                    <strong style="color:#ff0055;">${c.enemyName}</strong><br>
-                    ❤️ <span style="color:#ff3333;">${c.enemyHp} / ${c.enemyMaxHp}</span>
-                </div>
-            </div>
-            <p style="color:#ffff00; font-size:12px;">${c.log}</p>
-        `;
-        renderButtons([
-            { text: "⚔️ Strike", class: "btn btn-combat", action: () => executeSinglePlayerAction("strike") },
-            { text: "🛡️ Guard", class: "btn btn-sys", action: () => executeSinglePlayerAction("guard") },
-            { text: "⚡ Special (10 Stm)", class: "btn btn-dlc", action: () => executeSinglePlayerAction("special") },
-            { text: "🏃 Flee", class: "btn btn-back", action: showMainMenu }
-        ]);
-    }
-
-    function executeSinglePlayerAction(type) {
-        const c = singlePlayerCombatSession;
-        const champ = getActiveChampion();
-        if (type === "special") {
-            if (game.stamina < 10) { alert("Not enough stamina!"); return; }
-            game.stamina -= 10;
-            saveGame(); updateUI();
-        }
-
-        if (type === "guard") {
-            c.guarding = true;
-            c.log = `${champ.name} prepares to block incoming damage!`;
-        } else {
-            let mult = type === "special" ? 1.8 : 1.0;
-            let dmg = Math.floor((champ.power || 25) * mult + Math.random() * 8);
-            c.enemyHp = Math.max(0, c.enemyHp - dmg);
-            c.log = `${champ.name} hit ${c.enemyName} for ${dmg} damage!`;
-        }
-
-        if (c.enemyHp <= 0) {
-            game.funds += c.reward;
-            saveGame(); updateUI();
-            alert(`🎉 Won battle! Earned $${c.reward}!`);
-            showMainMenu();
-            return;
-        }
-
-        setTimeout(() => {
-            let enemyHit = c.enemyDmg;
-            if (c.guarding) { enemyHit = Math.floor(enemyHit * 0.5); c.guarding = false; }
-            c.champHp = Math.max(0, c.champHp - enemyHit);
-            c.log += ` ${c.enemyName} retaliated for ${enemyHit} damage!`;
-            if (c.champHp <= 0) {
-                alert("💀 Champion was knocked out! Returning to HQ...");
-                showMainMenu();
-            } else {
-                renderSinglePlayerCombat();
-            }
-        }, 600);
+    function showLeaderboardModal() {
+        clearConsole("center", "#1a1500", "#ffff00");
+        let html = `<h2 style="color: #ffff00; font-size: 15px;">🏆 GLOBAL TOP TRAINERS</h2><div style="width: 95%; max-width: 380px; max-height: 160px; overflow-y: auto;">`;
+        globalLeaderboard.forEach((user, idx) => {
+            let badge = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`;
+            html += `<div class="dex-card" style="font-size: 12px; padding: 5px; display:flex; justify-content:space-between;"><span><strong>${badge} ${user.name}</strong></span><span style="color:#00ff66;">💰 $${Math.floor(user.funds || 0)}</span></div>`;
+        });
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
     }
 
     function showGlobalChatScreen() {
         clearConsole("flex-start", "#001a22", "#00ffff");
         document.getElementById("console").innerHTML = `
-            <h2 style="color: #00ffff; font-size: 15px; margin: 4px 0;">💬 GLOBAL MULTIVERSE CHAT</h2>
-            <div id="global-chat-box" style="width:100%; max-width:400px; height:130px; background:#05050a; border:1px solid #00ffff55; border-radius:4px; padding:8px; overflow-y:auto; font-size:12px; margin-bottom:8px;"></div>
+            <h2 style="color: #00ffff; font-size: 15px; margin: 3px 0;">💬 GLOBAL CHAT</h2>
+            <div id="global-chat-box" style="width:100%; max-width:400px; height:130px; background:#05050a; border:1px solid #00ffff55; border-radius:4px; padding:8px; overflow-y:auto; font-size:12px; margin-bottom:6px;"></div>
             <div style="display:flex; gap:6px; width:100%; max-width:400px;">
-                <input type="text" id="chat-input-text" placeholder="Type a message..." style="flex:1; background:#111; color:#0f0; border:1px solid #0ff; padding:6px; font-family:'Courier New'; font-size:12px; border-radius:4px;" />
-                <button class="btn btn-sys" style="padding:6px 12px;" onclick="sendGlobalChatMsg()">Send</button>
+                <input type="text" id="chat-input-text" placeholder="Message..." style="flex:1; background:#111; color:#0f0; border:1px solid #0ff; padding:6px; font-family:'Courier New'; font-size:12px; border-radius:4px;" />
+                <button class="btn btn-sys" style="padding:6px 10px;" onclick="sendGlobalChatMsg()">Send</button>
             </div>
         `;
         refreshChatBoxes();
@@ -702,20 +999,18 @@
     function sendGlobalChatMsg() {
         let input = document.getElementById("chat-input-text");
         if (!input || !input.value.trim()) return;
-        if (socket && socket.connected) {
-            socket.emit('sendGlobalMessage', { name: game.playerName || "Trainer", text: input.value.trim() });
-        }
+        if (socket && socket.connected) socket.emit('sendGlobalMessage', { name: game.playerName || "Trainer", text: input.value.trim() });
         input.value = "";
     }
 
     function showRoomChatScreen() {
         clearConsole("flex-start", "#002022", "#ffaa00");
         document.getElementById("console").innerHTML = `
-            <h2 style="color: #ffaa00; font-size: 15px; margin: 4px 0;">💬 ROOM CHAT [${currentRoomId}]</h2>
-            <div id="room-chat-box" style="width:100%; max-width:400px; height:130px; background:#05050a; border:1px solid #ffaa0055; border-radius:4px; padding:8px; overflow-y:auto; font-size:12px; margin-bottom:8px;"></div>
+            <h2 style="color: #ffaa00; font-size: 15px; margin: 3px 0;">💬 ROOM CHAT [${currentRoomId}]</h2>
+            <div id="room-chat-box" style="width:100%; max-width:400px; height:130px; background:#05050a; border:1px solid #ffaa0055; border-radius:4px; padding:8px; overflow-y:auto; font-size:12px; margin-bottom:6px;"></div>
             <div style="display:flex; gap:6px; width:100%; max-width:400px;">
-                <input type="text" id="room-chat-input" placeholder="Room message..." style="flex:1; background:#111; color:#ffaa00; border:1px solid #ffaa00; padding:6px; font-family:'Courier New'; font-size:12px; border-radius:4px;" />
-                <button class="btn btn-mine" style="padding:6px 12px;" onclick="sendRoomChatMsg()">Send</button>
+                <input type="text" id="room-chat-input" placeholder="Message..." style="flex:1; background:#111; color:#ffaa00; border:1px solid #ffaa00; padding:6px; font-family:'Courier New'; font-size:12px; border-radius:4px;" />
+                <button class="btn btn-mine" style="padding:6px 10px;" onclick="sendRoomChatMsg()">Send</button>
             </div>
         `;
         refreshChatBoxes();
@@ -725,21 +1020,16 @@
     function sendRoomChatMsg() {
         let input = document.getElementById("room-chat-input");
         if (!input || !input.value.trim()) return;
-        if (socket && socket.connected) {
-            socket.emit('sendRoomMessage', { roomId: currentRoomId, name: game.playerName || "Trainer", text: input.value.trim() });
-        }
+        if (socket && socket.connected) socket.emit('sendRoomMessage', { roomId: currentRoomId, name: game.playerName || "Trainer", text: input.value.trim() });
         input.value = "";
     }
 
     function showInventoryMenu() {
         clearConsole("flex-start", "#1a0f00", "#33ccff");
-        let html = `<h2 style="color: #33ccff; font-size:16px;">🎒 INVENTORY & ITEMS</h2><p style="font-size:11px; color:#aaa;">Click usable items to consume them:</p>`;
+        let html = `<h2 style="color: #33ccff; font-size:15px;">🎒 INVENTORY</h2>`;
         game.inventory.forEach((item, idx) => {
-            let useBtn = item === "Energy Core" ? `<button class="btn btn-sys" style="padding:2px 6px; font-size:10px; min-height:24px;" onclick="useEnergyCore(${idx})">Use (+50 Stm)</button>` : '';
-            html += `<div class="dex-card" style="font-size:12px; display:flex; justify-content:space-between; align-items:center;">
-                <span>📦 ${item}</span>
-                ${useBtn}
-            </div>`;
+            let useBtn = item === "Energy Core" ? `<button class="btn btn-sys" style="padding:2px 6px; font-size:10px;" onclick="useEnergyCore(${idx})">Use (+50 Stm)</button>` : '';
+            html += `<div class="dex-card" style="font-size:12px; display:flex; justify-content:space-between; align-items:center;"><span>📦 ${item}</span>${useBtn}</div>`;
         });
         document.getElementById("console").innerHTML = html;
         renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
@@ -748,45 +1038,18 @@
     function useEnergyCore(idx) {
         if (game.inventory[idx] === "Energy Core") {
             game.inventory.splice(idx, 1);
-            game.stamina += 50;
-            saveGame(); updateUI();
-            log("⚡ Energy Core activated! Gained +50 Stamina!", "color-cyan");
+            game.stamina += 50; saveGame(); updateUI();
+            log("⚡ Energy Core used! Gained +50 Stamina!", "color-cyan");
             showInventoryMenu();
         }
     }
 
-    function showMarketMenu() {
-        clearConsole("flex-start", "#3d1c00", "#ff8c00");
-        document.getElementById("console").innerHTML = `<h2 style="color: #ffaa00; font-size:16px;">🏪 MARKET DISTRICT</h2><p style="color: #aaa; font-size:11.5px;">Trade ores and buy utilities.</p>`;
-        renderButtons([
-            { text: "💰 Doug's Ores", class: "btn btn-mine", action: () => { game.funds += 300; game.inventory.push("Copper Ore"); saveGame(); updateUI(); alert("Sold ores to Doug for $300!"); showMarketMenu(); } },
-            { text: "🛍️ Don's Store", class: "btn btn-farm", action: () => { if(game.funds >= 150) { game.funds -= 150; game.inventory.push("Healing Potion"); saveGame(); updateUI(); alert("Bought Healing Potion!"); } else { alert("Not enough funds!"); } showMarketMenu(); } },
-            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
-        ]);
-    }
-
-    function showLuckyWheelScreen() {
-        clearConsole("center", "#333300", "#ffff00");
-        document.getElementById("console").innerHTML = `<div style="font-size: 36px; margin-bottom: 4px;">🎡</div><h2 style="color: #ffff00; font-size:16px;">🎰 LUCKY WHEEL</h2><p style="color: #aaa; font-size:11.5px;">Spin for rewards! (Cost: $100)</p>`;
-        renderButtons([
-            { text: "🔄 Spin ($100)", class: "btn btn-spin", action: () => {
-                if (game.funds >= 100) {
-                    game.funds -= 100;
-                    if (Math.random() > 0.5) { game.funds += 400; alert("Jackpot! Won $400!"); }
-                    else { game.inventory.push("Diamond"); alert("Won a rare Diamond!"); }
-                    saveGame(); updateUI(); showLuckyWheelScreen();
-                } else { alert("Not enough funds to spin!"); }
-            }},
-            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
-        ]);
-    }
-
     function showFreePortalsMenu() {
         clearConsole("center", "#4d004d", "#ff00ff");
-        document.getElementById("console").innerHTML = `<h2 style="color: #ff00ff; font-size:16px;">🌌 FREE PORTALS</h2><p style="color: #aaa; font-size:11.5px;">Open dimensions to recruit characters!</p>`;
+        document.getElementById("console").innerHTML = `<h2 style="color: #ff00ff; font-size:16px;">🌌 FREE PORTALS</h2>`;
         renderButtons([
-            { text: "🎀 Astolfo Portal", class: "btn btn-maid", action: () => { game.staff.push({ name: "Astolfo", origin: "Fate", power: 30, maxHp: 120, hp: 120 }); saveGame(); alert("Recruited Astolfo!"); showMainMenu(); } },
-            { text: "🖤 Felix Portal", class: "btn btn-maid", action: () => { game.staff.push({ name: "Felix Argyle", origin: "Re:Zero", power: 28, maxHp: 110, hp: 110 }); saveGame(); alert("Recruited Felix!"); showMainMenu(); } },
+            { text: "🎀 Astolfo Portal", class: "btn btn-maid", action: () => { game.staff.push({ name: "Astolfo", origin: "Fate", power: 30, maxHp: 120, hp: 120, level: 1, locked: false, loyalty: 10, evolved: false }); saveGame(); alert("Recruited Astolfo!"); showRosterMenu(); } },
+            { text: "🖤 Felix Portal", class: "btn btn-maid", action: () => { game.staff.push({ name: "Felix Argyle", origin: "Re:Zero", power: 28, maxHp: 110, hp: 110, level: 1, locked: false, loyalty: 10, evolved: false }); saveGame(); alert("Recruited Felix!"); showRosterMenu(); } },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
@@ -794,7 +1057,7 @@
     function showDLCMenu() {
         if (game.dlcUnlocked) { showPremiumSectors(); return; }
         clearConsole("center", "#4d004d", "#ff00ff");
-        document.getElementById("console").innerHTML = `<h2 style="color: #ff00ff; font-size:16px;">🔒 PREMIUM DLC PORTALS</h2><p style="color: #00ffff; font-size:11.5px;">Enter Passcode (MULTIVERSE):</p><input type="text" id="dlc-code" placeholder="Passcode..." style="background:#111; color:#0f0; border:1px solid #0ff; padding:6px; font-family:'Courier New'; font-size:12px; border-radius:4px; text-align:center; margin-top:6px;" />`;
+        document.getElementById("console").innerHTML = `<h2 style="color: #ff00ff; font-size:16px;">🔒 PREMIUM DLC PORTALS</h2><input type="text" id="dlc-code" placeholder="Passcode (MULTIVERSE)..." style="background:#111; color:#0f0; border:1px solid #0ff; padding:6px; font-family:'Courier New'; font-size:12px; border-radius:4px; text-align:center; margin-top:6px;" />`;
         renderButtons([
             { text: "🔓 Unlock", class: "btn btn-dlc", action: () => {
                 let val = document.getElementById("dlc-code").value.trim().toUpperCase();
@@ -807,9 +1070,9 @@
 
     function showPremiumSectors() {
         clearConsole("center", "#4d004d", "#ff00ff");
-        document.getElementById("console").innerHTML = `<h2 style="color: #ff00ff; font-size:16px;">🌟 PREMIUM SECTORS</h2><p style="color: #aaa; font-size:11.5px;">VIP dimensions unlocked!</p>`;
+        document.getElementById("console").innerHTML = `<h2 style="color: #ff00ff; font-size:16px;">🌟 PREMIUM SECTORS</h2>`;
         renderButtons([
-            { text: "🥞 Goth IHOP Portal", class: "btn btn-maid", action: () => { game.staff.push({ name: "Goth Raven", origin: "DC", power: 35, maxHp: 130, hp: 130 }); saveGame(); alert("Recruited Goth Raven!"); showMainMenu(); } },
+            { text: "🥞 Goth Raven Portal", class: "btn btn-maid", action: () => { game.staff.push({ name: "Goth Raven", origin: "DC", power: 35, maxHp: 130, hp: 130, level: 1, locked: false, loyalty: 10, evolved: false }); saveGame(); alert("Recruited Goth Raven!"); showRosterMenu(); } },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
@@ -820,16 +1083,17 @@
         updateUI();
         log(`--- NEXUS HQ (Slot ${currentSaveSlot}) | WELCOME, TRAINER ${game.playerName.toUpperCase()} ---`, "color-cyan");
         renderButtons([
-            { text: "🗺️ World Map", class: "btn btn-map", action: () => startSinglePlayerCombat("Wild Treant", 90, 14, 600) },
-            { text: "⛏️ Stardew Mines", class: "btn btn-mine", action: () => startSinglePlayerCombat("Cave Bat", 75, 12, 450) },
-            { text: "⭐ Set Champion", class: "btn btn-maid", action: showChampionSelectMenu },
-            { text: "🛍️ Market District", class: "btn btn-farm", action: showMarketMenu },
-            { text: "🎰 Lucky Wheel", class: "btn btn-spin", action: showLuckyWheelScreen },
+            { text: "🏰 Spire of Trials", class: "btn btn-combat", action: showSpireDungeonMenu },
+            { text: "🔨 Blacksmith Forge", class: "btn btn-forge", action: showBlacksmithForgeMenu },
+            { text: "👥 Team Roster", class: "btn btn-maid", action: showRosterMenu },
+            { text: "🌱 Crop Garden", class: "btn btn-farm", action: showCropGardenMenu },
+            { text: "🏪 Market & Trades", class: "btn btn-farm", action: showMarketMenu },
+            { text: "🎰 Casino Hub", class: "btn btn-spin", action: showCasinoHubMenu },
             { text: "🎒 Inventory", class: "btn btn-gear", action: showInventoryMenu },
             { text: "🌌 Free Portals", class: "btn btn-sys", action: showFreePortalsMenu },
             { text: "🔒 Premium DLC", class: "btn btn-dlc", action: showDLCMenu },
             { text: "🌐 Online Hub", class: "btn btn-sys", action: showOnlineHubMenu },
-            { text: "💤 Sleep", action: () => { game.stamina = 100; game.day++; saveGame(); updateUI(); alert("Rested for the night!"); showMainMenu(); } },
+            { text: "💤 Sleep (Next Day)", action: () => { game.stamina = 100; game.day++; saveGame(); updateUI(); alert("Rested for the night!"); showMainMenu(); } },
             { text: "📁 Switch Slot", class: "btn btn-back", action: showIntroScreen }
         ]);
     }
