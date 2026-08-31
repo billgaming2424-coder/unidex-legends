@@ -4,7 +4,7 @@
     
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>UniDex Legends</title>
-    <script src="file:///D:/socket.io/socket.io.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
     <style>
         * { box-sizing: border-box; }
         html, body {
@@ -148,6 +148,7 @@
         .btn-halloween { border-color: #ff6600; color: #ff6600; background: #1a0d00; }
         .btn-hooters { border-color: #ff5500; color: #ff9955; background: #331100; }
         .btn-spin { border-color: #ffff00; color: #ffff00; background: #333300; }
+        .btn-raid { border-color: #ff0055; color: #ffffff; background: #4a001a; font-weight: bold; }
         
         .clickable-portrait { cursor: pointer; transition: transform 0.2s ease, border-color 0.2s ease; border: 3px solid transparent; border-radius: 10px; padding: 5px; background: rgba(0,0,0,0.4); }
         .clickable-portrait:hover { transform: scale(1.08); border-color: #00ffff; box-shadow: 0 0 15px rgba(0,255,255,0.4); }
@@ -403,7 +404,7 @@
         }
     }
 
-    // --- GAMEPAD & CONTROLLER NAVIGATION ENGINE ---
+    // --- GAMEPAD ENGINE ---
     function updateGamepadFocus() {
         const btns = Array.from(document.querySelectorAll("#controls .btn"));
         if (!btns.length) return;
@@ -449,7 +450,6 @@
                     }
                 }
 
-                // Button A (index 0) = Confirm / Select
                 if (gp.buttons[0] && gp.buttons[0].pressed) {
                     if (!window._gpA_pressed) {
                         window._gpA_pressed = true;
@@ -457,7 +457,6 @@
                     }
                 } else { window._gpA_pressed = false; }
 
-                // Button B (index 1) = Back / Cancel
                 if (gp.buttons[1] && gp.buttons[1].pressed) {
                     if (!window._gpB_pressed) {
                         window._gpB_pressed = true;
@@ -510,6 +509,7 @@
     let game = defaultGameState();
     let activeEncounter = null;
     let activeCombatSession = null;
+    let activeRaidSession = null;
 
     function showSaveToast() {
         let toast = document.getElementById("save-toast");
@@ -847,7 +847,7 @@
             { text: "📖 UniDex (1-2000)", class: "btn btn-dex", action: () => showDexMenu(1) },
             { text: "🌌 Free Portals", class: "btn btn-sys", action: showFreePortalsMenu },
             { text: "🔒 Premium DLC Portals", class: "btn btn-dlc", action: openDLCDispatch },
-            { text: "🌐 Online Hub", class: "btn btn-sys", action: showOnlineLobbyGate },
+            { text: "🌐 Online Hub & Co-Op", class: "btn btn-sys", action: showOnlineLobbyGate },
             { text: "📜 Credits", class: "btn btn-sys", action: showCreditsMenu },
             { text: "💤 Sleep (Next Day)", action: triggerRestCycleAnimation },
             { text: "📁 Switch Slot", class: "btn btn-back", action: showIntroScreen }
@@ -887,7 +887,7 @@
         setTimeout(() => {
             if (icon) icon.className = "";
             let prizes = [
-                { text: "💰 Jackpoot! Won $500!", action: () => { game.funds += 500; } },
+                { text: "💰 Jackpot! Won $500!", action: () => { game.funds += 500; } },
                 { text: "💎 Won a rare Diamond Gem!", action: () => { game.inventory.push("Diamond"); } },
                 { text: "⚡ Gained +50 Bonus Stamina!", action: () => { game.stamina += 50; } },
                 { text: "🔴 Won 2x Pokéballs!", action: () => { game.inventory.push("Pokéball", "Pokéball"); } },
@@ -1254,19 +1254,19 @@
         ]);
     }
 
-    // --- ONLINE HUB TAB ---
+    // --- MULTIPLAYER ONLINE HUB, TRADING, PVP & CO-OP RAIDS ---
     function showOnlineLobbyGate() {
         playBGM('trade');
         clearConsole("center", "radial-gradient(circle at 50% 30%, #003366 0%, #000c14 85%)", "#00aaff");
         document.getElementById("console").innerHTML = `
-            <h2 style="color:#00ffff;">🌐 ONLINE NETWORK LOBBY</h2>
-            <p style="color:#aaa;">Connect to the room server to trade or view live players.</p>
-            <input type="text" id="room-code-input" value="LOBBY1" style="background:#111;color:#0ff;border:1px solid #0ff;padding:8px;font-family:'Courier New';font-size:14px;border-radius:4px;width:70%;max-width:200px;text-align:center;margin-top:10px;" />
+            <h2 style="color:#00ffff;">🌐 ONLINE MULTIPLAYER HUB</h2>
+            <p style="color:#aaa; max-width:400px; font-size:13px;">Join a shared timeline room with your friends to view rosters, trade, fight PvP duels, or tackle Co-Op Raid Bosses!</p>
+            <input type="text" id="room-code-input" value="${currentRoomId || 'MIDNORIA'}" style="background:#111;color:#0ff;border:1px solid #0ff;padding:8px;font-family:'Courier New';font-size:14px;border-radius:4px;width:70%;max-width:200px;text-align:center;margin-top:10px;" />
         `;
         renderButtons([
-            { text: "Connect to Lobby", class: "btn btn-sys", action: () => {
-                currentRoomId = document.getElementById("room-code-input").value.trim().toUpperCase();
-                if (socket) socket.emit('joinRoom', { roomId: currentRoomId, player: { name: game.playerName, staff: game.staff } });
+            { text: "Connect to Room", class: "btn btn-sys", action: () => {
+                currentRoomId = document.getElementById("room-code-input").value.trim().toUpperCase() || "MIDNORIA";
+                if (socket) socket.emit('joinRoom', { roomId: currentRoomId, player: { name: game.playerName, staff: game.staff, power: game.managerPower } });
                 renderActiveLobbyView();
             }},
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
@@ -1274,15 +1274,122 @@
     }
 
     function renderActiveLobbyView() {
-        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #003366 0%, #000c14 85%)", "#00aaff");
+        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #002244 0%, #000814 85%)", "#00aaff");
+        let html = `
+            <h2 style="color:#00ffff; margin-bottom:2px;">📡 ROOM: ${currentRoomId}</h2>
+            <p style="color:#aaa; font-size:12px; margin-top:2px;">Active Trainers Connected: ${onlineRoomPlayers.length || 1}</p>
+            <div style="width:100%; max-width:420px; max-height:160px; overflow-y:auto; margin-bottom:8px;">
+        `;
+
+        if (!onlineRoomPlayers.length) {
+            html += `<div class="dex-card">👤 ${game.playerName} (You) - Host</div>`;
+        } else {
+            onlineRoomPlayers.forEach(p => {
+                let isMe = p.name === game.playerName;
+                html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                    <div><strong>👤 ${p.name}</strong> ${isMe ? '<span style="color:#ffaa00;">(You)</span>' : ''}</div>
+                    ${!isMe ? `<button class="btn btn-combat" style="padding:3px 8px; font-size:11px;" onclick="challengePlayerPvP('${p.name}')">⚔️ Duel</button>` : ''}
+                </div>`;
+            });
+        }
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+
+        renderButtons([
+            { text: "🐲 Start Co-Op Raid Boss", class: "btn btn-raid", action: startCoopRaidSession },
+            { text: "🤝 Trade Partner", class: "btn btn-dex", action: showMultiplayerTradeScreen },
+            { text: "⬅ Leave Room", class: "btn btn-back", action: showMainMenu }
+        ]);
+    }
+
+    function showMultiplayerTradeScreen() {
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #201a00 0%, #050400 85%)", "#ffaa00");
         document.getElementById("console").innerHTML = `
-            <h2 style="color:#00ffff;">📡 LOBBY: ${currentRoomId}</h2>
-            <p style="color:#aaa;">Active players in this timeline network:</p>
-            <div id="lobby-players-box" style="width:100%;max-width:400px;">
-                ${onlineRoomPlayers.map(p => `<div class="dex-card" style="display:block;">👤 ${p.name}</div>`).join('') || '<div class="dex-card" style="display:block;">Waiting for other players...</div>'}
+            <h2 style="color:#ffaa00;">🤝 MULTIPLAYER TRADE EXCHANGE</h2>
+            <p style="color:#aaa; font-size:13px; max-width:380px;">Trade minerals, items, or staff recruits across the room network.</p>
+            <div class="dex-card" style="display:block; text-align:left;">
+                <strong style="color:#00ffff;">Offer Item:</strong> Diamond / Copper Ore / Pokéball<br>
+                <span style="color:#888; font-size:12px;">Select trade item to broadcast offer to lobby.</span>
             </div>
         `;
-        renderButtons([{ text: "⬅ Leave Lobby", class: "btn btn-back", action: showMainMenu }]);
+        renderButtons([
+            { text: "💎 Broadcast Diamond Trade", class: "btn btn-mine", action: () => {
+                if (game.inventory.includes("Diamond")) {
+                    alert("Broadcasted Diamond trade offer to room members!");
+                } else { alert("You have no Diamonds to trade!"); }
+            }},
+            { text: "⬅ Back to Lobby", class: "btn btn-back", action: renderActiveLobbyView }
+        ]);
+    }
+
+    function challengePlayerPvP(opponentName) {
+        playBGM('battle');
+        let leadCompanion = (game.staff && game.staff.length > 0) ? game.staff[0] : { name: "Trainer Partner", power: 35 };
+        activeCombatSession = {
+            enemyName: `${opponentName}'s Champion`,
+            enemyHP: 160,
+            enemyMaxHP: 160,
+            enemyDmg: 18,
+            rewardCash: 1500,
+            regionKey: null,
+            companionName: leadCompanion.name,
+            companionHP: 100,
+            companionMaxHP: 100,
+            companionPower: leadCompanion.power || 35
+        };
+        renderPokemonCombatScreen();
+    }
+
+    function startCoopRaidSession() {
+        playBGM('villain');
+        let totalPartyPower = (game.managerPower || 30);
+        let partyCount = Math.max(1, onlineRoomPlayers.length);
+        activeRaidSession = {
+            bossName: "THE VOID TITAN",
+            bossHP: 500,
+            bossMaxHP: 500,
+            partyPower: totalPartyPower * partyCount,
+            partyCount: partyCount
+        };
+
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #3a0000 0%, #0a0002 85%)", "#ff0055");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#ff0055; text-shadow: 0 0 10px #ff0055;">🐲 MULTIPLAYER CO-OP RAID BOSS</h2>
+            <div class="dex-card" style="display:block; text-align:center;">
+                <strong style="color:#ff3333; font-size:18px;">${activeRaidSession.bossName}</strong><br>
+                ❤️ Raid HP: <span style="color:#ff3333;" id="raid-boss-hp">${activeRaidSession.bossHP} / ${activeRaidSession.bossMaxHP}</span><br>
+                👥 United Lobby Attackers: <span style="color:#00ffff;">${activeRaidSession.partyCount} Player(s)</span>
+            </div>
+            <p id="raid-combat-log" style="color:#ffff00; font-size:13px;">Coordinate your party strike against the raid boss!</p>
+        `;
+
+        renderButtons([
+            { text: "💥 United Party Strike!", class: "btn btn-raid", action: executeRaidStrike },
+            { text: "🏃 Flee to Lobby", class: "btn btn-back", action: renderActiveLobbyView }
+        ]);
+    }
+
+    function executeRaidStrike() {
+        let r = activeRaidSession;
+        let dmg = r.partyPower + Math.floor(Math.random() * 40) + 20;
+        r.bossHP = Math.max(0, r.bossHP - dmg);
+        document.getElementById("raid-boss-hp").innerText = `${r.bossHP} / ${r.bossMaxHP}`;
+        document.getElementById("raid-combat-log").innerHTML = `<span style="color:#00ffff;">United party dealt ${dmg} multi-strike damage!</span>`;
+
+        if (r.bossHP <= 0) {
+            setTimeout(() => {
+                let reward = 3000;
+                game.funds += reward;
+                game.inventory.push("Diamond");
+                updateUI(); saveGame();
+                clearConsole("center", "radial-gradient(circle, #003300, #000)", "#00ff88");
+                document.getElementById("console").innerHTML = `
+                    <h2 style="color:#00ff88;">🏆 RAID BOSS DEFEATED!</h2>
+                    <p style="color:#fff;">The entire party claimed $${reward} and a rare Diamond!</p>
+                `;
+                renderButtons([{ text: "✔ Return to Lobby", class: "btn btn-start", action: renderActiveLobbyView }]);
+            }, 1200);
+        }
     }
 
     if (socket) {
