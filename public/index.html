@@ -30,23 +30,24 @@
         
         #controls {
             display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px;
-            flex-shrink: 0; width: 100%; max-height: 48vh; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 10px;
+            flex-shrink: 0; width: 100%; max-height: 52vh; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 12px;
         }
         @media (min-width: 650px) { #controls { grid-template-columns: repeat(4, 1fr); max-height: 250px; } }
         
         .btn {
-            background: #12121c; color: #00ff66; border: 1px solid #00ff6666; padding: 8px 4px;
-            font-family: 'Courier New'; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; min-height: 38px; display: flex; align-items: center; justify-content: center;
+            background: #12121c; color: #00ff66; border: 1px solid #00ff6666; padding: 10px 6px;
+            font-family: 'Courier New'; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; min-height: 42px; display: flex; align-items: center; justify-content: center;
         }
         .btn-sys { border-color: #00ffff; color: #00ffff; }
-        .btn-dlc { border-color: #ff00ff; color: #ff00ff; }
-        .btn-back { border-color: #ff3333; color: #ff3333; }
+        .btn-dlc { border-color: #ff00ff; color: #ff00ff; background: #220022; }
+        .btn-back { border-color: #ff3333; color: #ff3333; background: #2b0011; }
         .btn-farm { border-color: #00ff88; color: #00ff88; background: #001f0c; }
-        .btn-gear { border-color: #33ccff; color: #33ccff; }
+        .btn-gear { border-color: #33ccff; color: #33ccff; background: #001122; }
         .btn-map { border-color: #00ffcc; color: #00ffcc; background: #002222; }
         .btn-mine { border-color: #ffaa00; color: #ffaa00; background: #221500; }
-        .btn-dex { border-color: #ffff00; color: #ffff00; }
+        .btn-dex { border-color: #ffff00; color: #ffff00; background: #222200; }
         .btn-spin { border-color: #ffff00; color: #ffff00; background: #333300; }
+        .btn-maid { border-color: #ff66ff; color: #ff66ff; background: #220022; }
         .dex-card { background: #08080f; border: 1px solid #222238; border-radius: 6px; padding: 8px; margin: 4px 0; width: 98%; text-align: left; display: flex; align-items: center; gap: 10px; }
     </style>
 </head>
@@ -74,7 +75,7 @@
 
     let globalActiveTrainers = [];
     let globalChatMessages = [];
-    let game = { playerName: "Trainer", funds: 5000, stamina: 100, day: 1, location: "Nexus HQ", inventory: ["Energy Core", "Pokéball"] };
+    let game = { playerName: "Trainer", funds: 5000, stamina: 100, day: 1, location: "Nexus HQ", inventory: ["Energy Core", "Pokéball"], pokedex: {} };
 
     function syncTrainerPresence() {
         if (socket && socket.connected) {
@@ -209,6 +210,65 @@
         }
     }
 
+    function showLuckyWheelScreen() {
+        clearConsole("center", "#333300", "#ffff00");
+        document.getElementById("console").innerHTML = `
+            <div style="font-size: 40px; margin-bottom: 6px;">🎡</div>
+            <h2 style="color: #ffff00; font-size:16px;">🎰 LUCKY WHEEL</h2>
+            <p style="color: #aaa; font-size:11.5px;">Spend $100 to spin for cash or gems!</p>
+        `;
+        renderButtons([
+            { text: "🔄 Spin ($100)", class: "btn btn-spin", action: () => {
+                if (game.funds >= 100) {
+                    game.funds -= 100;
+                    let roll = Math.random();
+                    if (roll > 0.5) { game.funds += 300; alert("Won $300!"); }
+                    else { game.inventory.push("Diamond"); alert("Won a Diamond!"); }
+                    updateUI(); showLuckyWheelScreen();
+                } else { alert("Not enough funds!"); }
+            }},
+            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
+        ]);
+    }
+
+    function showPortalsMenu() {
+        clearConsole("center", "#4d004d", "#ff00ff");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color: #ff00ff; font-size:16px;">🌌 MULTIVERSE PORTALS</h2>
+            <p style="color: #aaa; font-size:11.5px;">Travel across dimensions to recruit legends!</p>
+        `;
+        renderButtons([
+            { text: "🌌 Standard Portal", class: "btn btn-sys", action: () => alert("Standard portal opened!") },
+            { text: "🦉 Femboy Hooters", class: "btn btn-maid", action: () => alert("Hooters portal opened!") },
+            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
+        ]);
+    }
+
+    function showMarketMenu() {
+        clearConsole("flex-start", "#3d1c00", "#ff8c00");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color: #ffaa00; font-size:16px;">🏪 MARKET DISTRICT</h2>
+            <p style="color: #aaa; font-size:11.5px;">Trade ores and buy utilities.</p>
+        `;
+        renderButtons([
+            { text: "💰 Doug's Ores", class: "btn btn-mine", action: () => alert("Doug's shop opened!") },
+            { text: "🛍️ Don's Store", class: "btn btn-farm", action: () => alert("Don's store opened!") },
+            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
+        ]);
+    }
+
+    function showOnlineHubMenu() {
+        clearConsole("center", "#003366", "#00aaff");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#00ffff; font-size:16px;">🌐 ONLINE HUB</h2>
+            <p style="color:#aaa; font-size:11.5px;">Multiplayer lobby and rooms.</p>
+        `;
+        renderButtons([
+            { text: "📡 Join Room", class: "btn btn-sys", action: () => alert("Joined room!") },
+            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
+        ]);
+    }
+
     function showMainMenu() {
         clearConsole("flex-start", "#1a1500", "#ffaa00");
         document.getElementById("stats-bar").style.display = "flex";
@@ -217,12 +277,12 @@
         renderButtons([
             { text: "🗺️ World Map", class: "btn btn-map", action: () => { game.location = "Whispering Forest"; updateUI(); showMainMenu(); } },
             { text: "⛏️ Stardew Mines", class: "btn btn-mine", action: () => { game.location = "Stardew Mines"; updateUI(); showMainMenu(); } },
-            { text: "🛍️ Market District", class: "btn btn-farm", action: () => { alert("Market District opened!"); } },
-            { text: "🎰 Lucky Wheel", class: "btn btn-spin", action: () => { alert("Lucky Wheel opened!"); } },
+            { text: "🛍️ Market District", class: "btn btn-farm", action: showMarketMenu },
+            { text: "🎰 Lucky Wheel", class: "btn btn-spin", action: showLuckyWheelScreen },
             { text: "💬 Global Chat", class: "btn btn-sys", action: showGlobalChatScreen },
             { text: "🎒 Inventory", class: "btn btn-gear", action: showInventoryMenu },
-            { text: "🌌 Free Portals", class: "btn btn-sys", action: () => { alert("Portals opened!"); } },
-            { text: "🌐 Online Hub", class: "btn btn-sys", action: () => { alert("Online Hub opened!"); } },
+            { text: "🌌 Free Portals", class: "btn btn-dlc", action: showPortalsMenu },
+            { text: "🌐 Online Hub", class: "btn btn-sys", action: showOnlineHubMenu },
             { text: "💤 Sleep", action: () => { game.stamina = 100; game.day++; updateUI(); showMainMenu(); } },
             { text: "📁 Switch Slot", class: "btn btn-back", action: () => { location.reload(); } }
         ]);
