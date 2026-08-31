@@ -12,6 +12,7 @@
             font-family: 'Courier New', Courier, monospace;
             margin: 0; padding: 10px; width: 100vw; height: 100vh;
             overflow: hidden; display: flex; flex-direction: column;
+            user-select: none;
         }
 
         /* Top HUD Bar */
@@ -54,7 +55,6 @@
         }
         .travel-animation { animation: travelSlide 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; z-index: 3; }
 
-        /* Custom Region & Mining Animations */
         @keyframes desertSandstorm {
             0% { background-position: 0 0; filter: sepia(0.8) brightness(1.1); transform: translateX(-4px); }
             50% { background-position: 100px 50px; filter: sepia(1) brightness(1.3); transform: translateX(4px); }
@@ -93,6 +93,13 @@
 
         @keyframes saveToastFade { 0% { opacity: 0; transform: translateY(10px); } 20% { opacity: 1; transform: translateY(0); } 80% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-10px); } }
         #save-toast { position: fixed; bottom: 20px; right: 20px; background: #002211; border: 1px solid #00ff66; color: #00ff66; padding: 6px 12px; border-radius: 4px; font-size: 12px; z-index: 9999; display: none; box-shadow: 0 0 10px rgba(0,255,100,0.4); pointer-events: none; }
+
+        @keyframes wheelSpinAnim {
+            0% { transform: rotate(0deg) scale(0.9); }
+            50% { transform: rotate(1080deg) scale(1.1); filter: hue-rotate(90deg); }
+            100% { transform: rotate(2160deg) scale(1); filter: hue-rotate(0deg); }
+        }
+        .wheel-spinning { animation: wheelSpinAnim 2.2s cubic-bezier(0.15, 0.85, 0.35, 1.05) forwards; }
 
         @keyframes ballToss {
             0% { transform: translateY(80px) scale(0.4) rotate(0deg); opacity: 0; }
@@ -140,6 +147,7 @@
         .btn-bikini { border-color: #ffcc00; color: #ffcc00; background: #221800; }
         .btn-halloween { border-color: #ff6600; color: #ff6600; background: #1a0d00; }
         .btn-hooters { border-color: #ff5500; color: #ff9955; background: #331100; }
+        .btn-spin { border-color: #ffff00; color: #ffff00; background: #333300; }
         
         .clickable-portrait { cursor: pointer; transition: transform 0.2s ease, border-color 0.2s ease; border: 3px solid transparent; border-radius: 10px; padding: 5px; background: rgba(0,0,0,0.4); }
         .clickable-portrait:hover { transform: scale(1.08); border-color: #00ffff; box-shadow: 0 0 15px rgba(0,255,255,0.4); }
@@ -831,6 +839,7 @@
             { text: "🗺️ World Map & Regions", class: "btn btn-map", action: showWorldMap },
             { text: "⛏️ Stardew Mines", class: "btn btn-mine", action: showMiningHub },
             { text: "🛍️ Market District", class: "btn btn-farm", action: showExploreMenu },
+            { text: "🎰 Lucky Wheel", class: "btn btn-spin", action: showLuckyWheelScreen },
             { text: "🎒 Inventory & Gear", class: "btn btn-gear", action: showInventoryMenu },
             { text: "🏠 Home & Decor", class: "btn btn-sys", action: showHomeDecorMenu },
             { text: "🌱 Greenhouse Farm", class: "btn btn-farm", action: showFarmMenu },
@@ -843,6 +852,57 @@
             { text: "💤 Sleep (Next Day)", action: triggerRestCycleAnimation },
             { text: "📁 Switch Slot", class: "btn btn-back", action: showIntroScreen }
         ]);
+    }
+
+    // --- MULTIVERSE LUCKY WHEEL MECHANIC ---
+    function showLuckyWheelScreen() {
+        playBGM('shop');
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #333300 0%, #080800 85%)", "#ffff00");
+        document.getElementById("console").innerHTML = `
+            <div id="wheel-icon" style="font-size: 70px; margin-bottom: 10px;">🎡</div>
+            <h2 style="color: #ffff00;">🎰 MULTIVERSE LUCKY WHEEL</h2>
+            <p style="color: #aaa; font-size:13px; max-width: 380px;">Spin the wheel for a chance to win bonus cash, rare gems, stamina, or Pokéballs! (Cost: $100)</p>
+            <p id="wheel-result" style="color: #00ffff; font-size: 14px;"></p>
+        `;
+        renderButtons([
+            { text: "🔄 Spin the Wheel ($100)", class: "btn btn-spin", action: triggerWheelSpin },
+            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
+        ]);
+    }
+
+    function triggerWheelSpin() {
+        if (game.funds < 100) {
+            log("❌ You need at least $100 to spin!", "color-red");
+            return;
+        }
+        game.funds -= 100;
+        updateUI(); saveGame();
+
+        renderButtons([]);
+        const icon = document.getElementById("wheel-icon");
+        const resText = document.getElementById("wheel-result");
+        if (icon) icon.className = "wheel-spinning";
+        if (resText) resText.innerHTML = "Spinning the multiversal wheel...";
+
+        setTimeout(() => {
+            if (icon) icon.className = "";
+            let prizes = [
+                { text: "💰 Jackpoot! Won $500!", action: () => { game.funds += 500; } },
+                { text: "💎 Won a rare Diamond Gem!", action: () => { game.inventory.push("Diamond"); } },
+                { text: "⚡ Gained +50 Bonus Stamina!", action: () => { game.stamina += 50; } },
+                { text: "🔴 Won 2x Pokéballs!", action: () => { game.inventory.push("Pokéball", "Pokéball"); } },
+                { text: "🪙 Consolation prize: $50 back.", action: () => { game.funds += 50; } }
+            ];
+            let roll = prizes[Math.floor(Math.random() * prizes.length)];
+            roll.action();
+            updateUI(); saveGame();
+
+            if (resText) resText.innerHTML = `<strong style="color: #00ff66;">🎉 ${roll.text}</strong>`;
+            renderButtons([
+                { text: "🔄 Spin Again ($100)", class: "btn btn-spin", action: triggerWheelSpin },
+                { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
+            ]);
+        }, 2200);
     }
 
     // --- EXPLORE & SHOPS (DOUG, DON, FR3XIOUS) ---
@@ -1156,7 +1216,7 @@
         }, 2200);
     }
 
-    // --- PREMIUM DLC PORTALS WITH PASSCODE FIX ---
+    // --- PREMIUM DLC PORTALS ---
     function openDLCDispatch() {
         if (game.dlcUnlocked) { showPremiumDLCMenu(); return; }
         playBGM('dlcHub');
