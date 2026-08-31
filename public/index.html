@@ -2,7 +2,7 @@
 <html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>UniDex Legends</title>
-    <script src="/socket.io/socket.io.js"></script>
+    <script type="text/javascript" nonce="e2be24dea8e240ff8b8fc24df61" src="//local.adguard.org?ts=1788141549065&amp;type=content-script&amp;dmn=chatgpt.com&amp;url=https%3A%2F%2Fchatgpt.com%2Fbackend-api%2Festuary%2Fcontent%3Fid%3Dfile_00000000b7e881f7a41ce0797e59e5ea%26fn%3Dindex_fixed.html%26cd%3Dattachment%26ts%3D496704%26p%3Dfs%26cid%3D1%26sig%3Dc61127895a2f4602e1a890e35f2365dd7d970de0ba53e81a312a94b5db08fce8%26v%3D0&amp;app=chrome.exe&amp;css=2&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=0&amp;stealth=1&amp;st-dnt"></script><script type="text/javascript" nonce="e2be24dea8e240ff8b8fc24df61" src="//local.adguard.org?ts=1788141549065&amp;name=AdGuard%20Extra&amp;name=AdGuard%20Popup%20Blocker&amp;type=user-script"></script><script src="/socket.io/socket.io.js"></script>
     <style>
         * { box-sizing: border-box; }
         html, body {
@@ -75,6 +75,7 @@
 
     let globalActiveTrainers = [];
     let globalChatMessages = [];
+    let currentSocketId = null;
     let currentSaveSlot = 1;
     let game = { playerName: "Trainer", funds: 5000, stamina: 100, day: 1, location: "Nexus HQ", inventory: ["Energy Core", "Pokéball"], pokedex: {}, staff: [], dlcUnlocked: false };
 
@@ -89,6 +90,15 @@
     };
 
     function getSaveKey(slot) { return `unidexSave_slot_${slot}`; }
+    function normalizeGame(data = {}) {
+        const defaults = { playerName:"Trainer", funds:5000, stamina:100, day:1, location:"Nexus HQ", inventory:["Energy Core","Pokéball"], pokedex:{}, staff:[], dlcUnlocked:false };
+        const merged = { ...defaults, ...data };
+        if (!Array.isArray(merged.inventory)) merged.inventory = [...defaults.inventory];
+        if (!Array.isArray(merged.staff)) merged.staff = [];
+        if (!merged.pokedex || typeof merged.pokedex !== "object") merged.pokedex = {};
+        if (typeof merged.dlcUnlocked !== "boolean") merged.dlcUnlocked = false;
+        return merged;
+    }
     function saveGame() {
         localStorage.setItem(getSaveKey(currentSaveSlot), JSON.stringify(game));
         syncTrainerPresence();
@@ -105,6 +115,8 @@
     }
 
     if (socket) {
+        socket.on('connect', () => { currentSocketId = socket.id; syncTrainerPresence(); });
+
         socket.on('globalOnlineUpdate', (data) => {
             const countEl = document.getElementById("global-online-count");
             if (countEl) countEl.innerText = data.totalOnline;
@@ -186,27 +198,47 @@
     function selectSaveSlot(slotNum, hasData) {
         currentSaveSlot = slotNum;
         if (hasData) {
-            try { game = JSON.parse(localStorage.getItem(getSaveKey(slotNum))); } catch (err) { game = { playerName: "Trainer", funds: 5000, stamina: 100, day: 1, location: "Nexus HQ", inventory: ["Energy Core"] }; }
+            try { game = normalizeGame(JSON.parse(localStorage.getItem(getSaveKey(slotNum)))); } catch (err) { game = normalizeGame(); }
         } else {
-            game = { playerName: "Trainer", funds: 5000, stamina: 100, day: 1, location: "Nexus HQ", inventory: ["Energy Core", "Pokéball"], staff: [], dlcUnlocked: false };
+            game = normalizeGame();
             saveGame();
         }
         showMainMenu();
     }
 
     function showLivePlayersModal() {
-        clearConsole("center", "#001f3f", "#00ffff");
-        let html = `
-            <h2 style="color: #00ffff; font-size: 16px;">🌐 ACTIVE MULTIVERSE TRAINERS</h2>
-            <p style="color: #aaa; font-size: 12px;">Total Online: <strong>${globalActiveTrainers.length}</strong></p>
-            <div style="width: 95%; max-width: 360px; max-height: 160px; overflow-y: auto; margin-bottom: 8px;">
-        `;
-        globalActiveTrainers.forEach(t => {
-            html += `<div class="dex-card" style="font-size: 12px; padding: 6px;"><span>👤 <strong>${t.name}</strong></span> <span style="color:#ffaa00; margin-left:auto;">📍 ${t.location}</span></div>`;
-        });
-        html += `</div>`;
-        document.getElementById("console").innerHTML = html;
-        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
+        clearConsole("flex-start", "#001f3f", "#00ffff");
+        const otherPlayers = globalActiveTrainers.filter(t => t.id !== currentSocketId);
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#00ffff;font-size:16px;">👥 PEOPLE</h2>
+            <div style="display:flex;gap:6px;width:100%;max-width:420px;margin:6px 0;">
+                <button class="btn btn-sys" style="flex:1;" onclick="showPeopleTab('myself')">👤 Myself</button>
+                <button class="btn btn-sys" style="flex:1;" onclick="showPeopleTab('others')">👥 Other Players (${otherPlayers.length})</button>
+            </div>
+            <div id="people-tab-content" style="width:100%;max-width:420px;"></div>`;
+        showPeopleTab('myself');
+        renderButtons([{ text:"⬅ Back to HQ", class:"btn btn-back", action:showMainMenu }]);
+    }
+
+    function showPeopleTab(tab) {
+        const content = document.getElementById("people-tab-content");
+        if (!content) return;
+        if (tab === 'myself') {
+            content.innerHTML = `
+                <div class="dex-card" style="display:block;text-align:left;">
+                    <h3 style="color:#ff00ff;margin:0 0 8px;">👤 ${game.playerName || "Trainer"}</h3>
+                    <div>📍 Location: ${game.location || "Nexus HQ"}</div>
+                    <div>💰 Funds: $${Math.floor(game.funds || 0)}</div>
+                    <div>⚡ Stamina: ${game.stamina || 0}</div>
+                    <div>📅 Day: ${game.day || 1}</div>
+                    <div>👥 Recruits: ${(game.staff || []).length}</div>
+                </div>`;
+        } else {
+            const others = globalActiveTrainers.filter(t => t.id !== currentSocketId);
+            content.innerHTML = others.length ? others.map(t => `
+                <div class="dex-card"><span>👤 <strong>${t.name}</strong></span><span style="color:#ffaa00;margin-left:auto;">📍 ${t.location}</span></div>
+            `).join('') : `<p style="color:#aaa;">No other trainers are online right now.</p>`;
+        }
     }
 
     function showGlobalChatScreen() {
@@ -331,12 +363,38 @@
     }
 
     function triggerPortalCatch(poolKey) {
-        let pool = PORTAL_POOLS[poolKey] || PORTAL_POOLS['standard'];
-        let chosen = pool[Math.floor(Math.random() * pool.length)];
-        game.staff.push(chosen);
-        saveGame();
-        alert(`🎉 Captured ${chosen.name} from ${chosen.origin}!`);
-        showMainMenu();
+        const pool = PORTAL_POOLS[poolKey] || PORTAL_POOLS.standard;
+        const chosen = pool[Math.floor(Math.random() * pool.length)];
+        clearConsole("center", "#15002b", "#ff00ff");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#ff00ff;">🌌 PORTAL ENCOUNTER!</h2>
+            <div style="font-size:42px;animation:pulse 0.7s infinite;">⚾</div>
+            <p>A wild <strong>${chosen.name}</strong> appeared from <strong>${chosen.origin}</strong>!</p>
+            <p style="color:#aaa;">Capture chance: 65%</p>`;
+        renderButtons([
+            { text:"⚾ Throw Pokéball", class:"btn btn-dex", action:() => attemptCapture(chosen) },
+            { text:"🏃 Run Away", class:"btn btn-back", action:showFreePortalsMenu }
+        ]);
+    }
+
+    function attemptCapture(chosen) {
+        clearConsole("center", "#001a22", "#00ffff");
+        document.getElementById("console").innerHTML = `<h2>⚾ Pokéball thrown!</h2><div id="capture-ball" style="font-size:54px;">⚾</div><p>Shaking...</p>`;
+        setTimeout(() => {
+            const duplicate = (game.staff || []).some(x => x.id === chosen.id);
+            const success = Math.random() < 0.65;
+            if (success && !duplicate) {
+                game.staff.push(chosen);
+                game.pokedex[chosen.id] = chosen;
+                saveGame();
+                document.getElementById("console").innerHTML = `<h2 style="color:#00ff66;">🎉 CAPTURED!</h2><div style="font-size:52px;">⚾✨</div><p>${chosen.name} joined your team!</p>`;
+            } else if (duplicate) {
+                document.getElementById("console").innerHTML = `<h2 style="color:#ffff00;">Already recruited!</h2><p>You already have ${chosen.name}.</p>`;
+            } else {
+                document.getElementById("console").innerHTML = `<h2 style="color:#ff3333;">💥 It broke free!</h2><p>${chosen.name} escaped through the portal.</p>`;
+            }
+            renderButtons([{ text:"🌌 Back to Portals", class:"btn btn-sys", action:showFreePortalsMenu },{ text:"⬅ Back to HQ", class:"btn btn-back", action:showMainMenu }]);
+        }, 1400);
     }
 
     function showMarketMenu() {
@@ -359,8 +417,27 @@
             <p style="color:#aaa; font-size:11.5px;">Multiplayer lobby and rooms.</p>
         `;
         renderButtons([
-            { text: "📡 Connected", class: "btn btn-sys", action: () => alert("Connected to network!") },
+            { text: "👥 People", class: "btn btn-sys", action: showLivePlayersModal },
+            { text: "📡 Connection Status", class: "btn btn-sys", action: () => alert(socket && socket.connected ? "Connected to multiverse network!" : "Not connected. Retrying...") },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
+        ]);
+    }
+
+    function showWorldMap() {
+        clearConsole("center","#002222","#00ffcc");
+        document.getElementById("console").innerHTML=`<h2>🗺️ WORLD MAP</h2><p>Choose where to travel.</p>`;
+        renderButtons([
+            {text:"🌲 Whispering Forest",class:"btn btn-map",action:()=>{game.location="Whispering Forest";saveGame();showMainMenu();}},
+            {text:"🏠 Nexus HQ",class:"btn btn-sys",action:()=>{game.location="Nexus HQ";saveGame();showMainMenu();}},
+            {text:"⬅ Back to HQ",class:"btn btn-back",action:showMainMenu}
+        ]);
+    }
+    function showMines() {
+        clearConsole("center","#221500","#ffaa00");
+        document.getElementById("console").innerHTML=`<h2>⛏️ STARDEW MINES</h2><p>Mine for resources and earn $50.</p>`;
+        renderButtons([
+            {text:"⛏️ Mine",class:"btn btn-mine",action:()=>{game.location="Stardew Mines";game.funds+=50;game.inventory.push("Stone");saveGame();updateUI();showMines();}},
+            {text:"⬅ Back to HQ",class:"btn btn-back",action:showMainMenu}
         ]);
     }
 
@@ -370,8 +447,8 @@
         updateUI();
         log(`--- NEXUS HQ (Slot ${currentSaveSlot}) | WELCOME, TRAINER ---`, "color-cyan");
         renderButtons([
-            { text: "🗺️ World Map", class: "btn btn-map", action: () => { game.location = "Whispering Forest"; saveGame(); updateUI(); showMainMenu(); } },
-            { text: "⛏️ Stardew Mines", class: "btn btn-mine", action: () => { game.location = "Stardew Mines"; saveGame(); updateUI(); showMainMenu(); } },
+            { text: "🗺️ World Map", class: "btn btn-map", action: showWorldMap },
+            { text: "⛏️ Stardew Mines", class: "btn btn-mine", action: showMines },
             { text: "🛍️ Market District", class: "btn btn-farm", action: showMarketMenu },
             { text: "🎰 Lucky Wheel", class: "btn btn-spin", action: showLuckyWheelScreen },
             { text: "💬 Global Chat", class: "btn btn-sys", action: showGlobalChatScreen },
