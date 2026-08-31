@@ -191,10 +191,16 @@ io.on('connection', (socket) => {
     });
 
     socket.on('selectRaidTier', (tierKey) => {
-        if (raidBosses[tierKey]) {
-            activeRaidKey = tierKey;
-            io.emit('raidBossUpdate', raidBosses[activeRaidKey]);
+        if (!raidBosses[tierKey]) return;
+        const current = raidBosses[activeRaidKey];
+        // Don't let someone yank the boss out from under a fight already in progress.
+        if (tierKey !== activeRaidKey && current.hp > 0 && current.hp < current.maxHp) {
+            socket.emit('raidBossUpdate', current);
+            return;
         }
+        activeRaidKey = tierKey;
+        io.emit('raidBossUpdate', raidBosses[activeRaidKey]);
+        broadcastAdminStats();
     });
 
     socket.on('attackRaidBoss', ({ damage, trainerName, championName }) => {
@@ -249,18 +255,22 @@ io.on('connection', (socket) => {
         socket.to(targetId).emit('receiveTradeOffer', { senderId: socket.id, senderName, item });
     });
 
-    socket.on('acceptTradeOffer', ({ targetId, targetItem, myItem, senderName }) => {
+    socket.on('acceptTradeOffer', ({ targetId, targetItem, myItem, senderName, offererName }) => {
         socket.to(targetId).emit('tradeCompleted', { receivedItem: myItem, partnerName: senderName });
-        socket.emit('tradeCompleted', { receivedItem: targetItem, partnerName: "Partner" });
+        socket.emit('tradeCompleted', { receivedItem: targetItem, partnerName: offererName || "Partner" });
     });
 
     socket.on('offerTradeCharacter', ({ roomId, targetId, character, senderName }) => {
         socket.to(targetId).emit('receiveCharacterTradeOffer', { senderId: socket.id, senderName, character });
     });
 
-    socket.on('acceptCharacterTradeOffer', ({ targetId, targetCharacter, myCharacter, senderName }) => {
+    socket.on('acceptCharacterTradeOffer', ({ targetId, targetCharacter, myCharacter, senderName, offererName }) => {
         socket.to(targetId).emit('characterTradeCompleted', { receivedCharacter: myCharacter, partnerName: senderName });
-        socket.emit('characterTradeCompleted', { receivedCharacter: targetCharacter, partnerName: "Partner" });
+        socket.emit('characterTradeCompleted', { receivedCharacter: targetCharacter, partnerName: offererName || "Partner" });
+    });
+
+    socket.on('declineTradeOffer', ({ targetId, declinerName }) => {
+        socket.to(targetId).emit('tradeOfferDeclined', { declinerName: declinerName || "The trainer" });
     });
 
     socket.on('requestPvP', ({ roomId, targetId, challengerName, champion }) => {

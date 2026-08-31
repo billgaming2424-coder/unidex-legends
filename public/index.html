@@ -337,6 +337,12 @@
     let currentRoomId = null;
     let onlineRoomPlayers = [];
     let globalActiveTrainers = [];
+    let currentTradePartners = [];
+    let currentIncomingChoiceList = [];
+    let pendingOutgoingTrade = null; // { targetId, targetName, kind: 'item'|'character', item?, character?, staffIndex? }
+    let incomingTradeOffer = null;   // { senderId, senderName, kind: 'item'|'character', item?, character? }
+    let currentRaidBossState = null; // synced from the server: { name, hp, maxHp, level, reward, key }
+    let raidScreenActive = false;
     
     let masterVolume = 0.35;
     let isAudioMuted = false;
@@ -748,7 +754,6 @@
     let game = defaultGameState();
     let activeEncounter = null;
     let activeCombatSession = null;
-    let activeRaidSession = null;
 
     function showSaveToast() {
         let toast = document.getElementById("save-toast");
@@ -1662,30 +1667,188 @@
         document.getElementById("console").innerHTML = html;
 
         renderButtons([
-            { text: "🐲 Start Co-Op Raid Boss", class: "btn btn-raid", action: startCoopRaidSession },
+            { text: "🐲 Start Co-Op Raid Boss", class: "btn btn-raid", action: showRaidTierSelect },
             { text: "🤝 Trade Partner", class: "btn btn-dex", action: showMultiplayerTradeScreen },
             { text: "⬅ Leave Room", class: "btn btn-back", action: showMainMenu }
         ]);
     }
 
+    // --- LIVE PLAYER-TO-PLAYER TRADING ---
+    // Real trades: pick a partner in the room -> offer an item or a staff member ->
+    // it's actually sent to them over the socket -> they pick something to give back ->
+    // both sides' inventories/rosters update for real when the server confirms it.
     function showMultiplayerTradeScreen() {
-        clearConsole("center", "radial-gradient(circle at 50% 30%, #201a00 0%, #050400 85%)", "#ffaa00");
-        document.getElementById("console").innerHTML = `
+        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #201a00 0%, #050400 85%)", "#ffaa00");
+        currentTradePartners = onlineRoomPlayers.filter(p => !socket || p.id !== socket.id);
+        let html = `
             <h2 style="color:#ffaa00; font-size:18px;">🤝 MULTIPLAYER TRADE EXCHANGE</h2>
-            <p style="color:#aaa; font-size:12px; max-width:360px;">Trade minerals, items, or staff recruits across the room network.</p>
-            <div class="dex-card" style="display:block; text-align:left; font-size:12px;">
-                <strong style="color:#00ffff;">Offer Item:</strong> Diamond / Copper Ore / Pokéball<br>
-                <span style="color:#888; font-size:11px;">Select trade item to broadcast offer to lobby.</span>
-            </div>
+            <p style="color:#aaa; font-size:12px; max-width:360px;">Pick a trainer in this room to send a trade offer to.</p>
+            <div style="width:100%; max-width:380px;">
         `;
-        renderButtons([
-            { text: "💎 Broadcast Diamond Trade", class: "btn btn-mine", action: () => {
-                if (game.inventory.includes("Diamond")) {
-                    alert("Broadcasted Diamond trade offer to room members!");
-                } else { alert("You have no Diamonds to trade!"); }
-            }},
-            { text: "⬅ Back to Lobby", class: "btn btn-back", action: renderActiveLobbyView }
-        ]);
+        if (!currentTradePartners.length) {
+            html += `<p style="color:#888; font-size:12px;">No other trainers in this room yet. Have a friend join with the same room code!</p>`;
+        } else {
+            currentTradePartners.forEach((p, idx) => {
+                html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>👤 <strong>${p.name}</strong></span>
+                    <button class="btn btn-mine" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="showTradeOfferPicker(${idx})">🤝 Trade</button>
+                </div>`;
+            });
+        }
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([{ text: "⬅ Back to Lobby", class: "btn btn-back", action: renderActiveLobbyView }]);
+    }
+
+    function showTradeOfferPicker(partnerIdx) {
+        let partner = currentTradePartners[partnerIdx];
+        if (!partner) { showMultiplayerTradeScreen(); return; }
+        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #201a00 0%, #050400 85%)", "#ffaa00");
+        let html = `
+            <h2 style="color:#ffaa00; font-size:16px;">🤝 Offer To ${partner.name}</h2>
+            <p style="color:#aaa; font-size:11.5px;">🎒 Items</p>
+            <div style="width:100%; max-width:380px;">
+        `;
+        let counts = {};
+        (game.inventory || []).forEach(i => counts[i] = (counts[i] || 0) + 1);
+        let items = Object.keys(counts);
+        if (!items.length) {
+            html += `<p style="color:#888; font-size:12px;">You have no items to trade.</p>`;
+        } else {
+            items.forEach(item => {
+                html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>${item} (x${counts[item]})</span>
+                    <button class="btn btn-mine" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="sendTradeOffer(${partnerIdx}, 'item', '${item.replace(/'/g, "\\'")}')">Offer</button>
+                </div>`;
+            });
+        }
+        html += `</div><p style="color:#aaa; font-size:11.5px; margin-top:6px;">⚔️ Team Members</p><div style="width:100%; max-width:380px;">`;
+        if ((game.staff || []).length <= 1) {
+            html += `<p style="color:#888; font-size:12px;">You need at least one team member — recruit more before trading one away.</p>`;
+        } else {
+            game.staff.forEach((s, sIdx) => {
+                html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>${s.name} (Pwr ${s.power || 0})</span>
+                    <button class="btn btn-mine" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="sendTradeOffer(${partnerIdx}, 'character', ${sIdx})">Offer</button>
+                </div>`;
+            });
+        }
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([{ text: "⬅ Back", class: "btn btn-back", action: showMultiplayerTradeScreen }]);
+    }
+
+    function sendTradeOffer(partnerIdx, kind, payload) {
+        let partner = currentTradePartners[partnerIdx];
+        if (!partner || !socket) return;
+        if (kind === 'item') {
+            pendingOutgoingTrade = { targetId: partner.id, targetName: partner.name, kind, item: payload };
+            socket.emit('offerTradeItem', { roomId: currentRoomId, targetId: partner.id, item: payload, senderName: game.playerName });
+        } else {
+            let member = game.staff[payload];
+            if (!member) return;
+            if (game.staff.length <= 1) { alert("You need at least one team member!"); return; }
+            pendingOutgoingTrade = { targetId: partner.id, targetName: partner.name, kind, character: member, staffIndex: payload };
+            socket.emit('offerTradeCharacter', { roomId: currentRoomId, targetId: partner.id, character: member, senderName: game.playerName });
+        }
+        showTradeWaitingScreen();
+    }
+
+    function showTradeWaitingScreen() {
+        if (!pendingOutgoingTrade) { renderActiveLobbyView(); return; }
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #201a00 0%, #050400 85%)", "#ffaa00");
+        let what = pendingOutgoingTrade.kind === 'item' ? pendingOutgoingTrade.item : pendingOutgoingTrade.character.name;
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#ffaa00; font-size:16px;">🤝 Offer Sent</h2>
+            <p style="color:#aaa; font-size:12px;">Waiting for <strong>${pendingOutgoingTrade.targetName}</strong> to respond to your offer of <strong>${what}</strong>...</p>
+        `;
+        renderButtons([{ text: "❌ Cancel Offer", class: "btn btn-back", action: () => { pendingOutgoingTrade = null; renderActiveLobbyView(); } }]);
+    }
+
+    function showIncomingTradeOffer() {
+        if (!incomingTradeOffer) { showMainMenu(); return; }
+        let o = incomingTradeOffer;
+        playBGM('trade');
+        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #201a00 0%, #050400 85%)", "#ffaa00");
+        let offeredName = o.kind === 'item' ? o.item : o.character.name;
+        let html = `
+            <h2 style="color:#ffaa00; font-size:16px;">🤝 Incoming Trade Offer!</h2>
+            <p style="color:#fff; font-size:12.5px;"><strong>${o.senderName}</strong> wants to trade you their <strong>${offeredName}</strong>!</p>
+            <p style="color:#aaa; font-size:11.5px;">Choose what to give in return:</p>
+            <div style="width:100%; max-width:380px;">
+        `;
+        currentIncomingChoiceList = [];
+        if (o.kind === 'item') {
+            let counts = {};
+            (game.inventory || []).forEach(i => counts[i] = (counts[i] || 0) + 1);
+            let items = Object.keys(counts);
+            currentIncomingChoiceList = items;
+            if (!items.length) {
+                html += `<p style="color:#888; font-size:12px;">You have nothing to trade back!</p>`;
+            } else {
+                items.forEach((item, idx) => {
+                    html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                        <span>${item} (x${counts[item]})</span>
+                        <button class="btn btn-mine" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="finalizeIncomingTrade('item', ${idx})">Give This</button>
+                    </div>`;
+                });
+            }
+        } else {
+            if ((game.staff || []).length <= 1) {
+                html += `<p style="color:#888; font-size:12px;">You need at least one team member — recruit more before trading a character back!</p>`;
+            } else {
+                game.staff.forEach((s, idx) => {
+                    html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                        <span>${s.name} (Pwr ${s.power || 0})</span>
+                        <button class="btn btn-mine" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="finalizeIncomingTrade('character', ${idx})">Give This</button>
+                    </div>`;
+                });
+            }
+        }
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([{ text: "❌ Decline Offer", class: "btn btn-back", action: declineIncomingTrade }]);
+    }
+
+    function finalizeIncomingTrade(kind, choiceIdx) {
+        if (!incomingTradeOffer || !socket) return;
+        let o = incomingTradeOffer;
+
+        if (kind === 'item') {
+            let myItem = currentIncomingChoiceList[choiceIdx];
+            if (!myItem) return;
+            let idx = game.inventory.indexOf(myItem);
+            if (idx !== -1) game.inventory.splice(idx, 1);
+            game.inventory.push(o.item);
+            socket.emit('acceptTradeOffer', { targetId: o.senderId, targetItem: o.item, myItem: myItem, senderName: game.playerName, offererName: o.senderName });
+            finishTradeUI(`You gave your ${myItem} and received ${o.item} from ${o.senderName}!`);
+        } else {
+            if ((game.staff || []).length <= 1) { alert("You need at least one team member!"); return; }
+            let myCharacter = game.staff[choiceIdx];
+            if (!myCharacter) return;
+            game.staff.splice(choiceIdx, 1);
+            game.staff.push(o.character);
+            if (o.character.dexId != null) recordDex(o.character.dexId, false);
+            socket.emit('acceptCharacterTradeOffer', { targetId: o.senderId, targetCharacter: o.character, myCharacter: myCharacter, senderName: game.playerName, offererName: o.senderName });
+            finishTradeUI(`You gave ${myCharacter.name} and received ${o.character.name} from ${o.senderName}!`);
+        }
+
+        saveGame(); updateUI();
+        incomingTradeOffer = null;
+    }
+
+    function declineIncomingTrade() {
+        if (incomingTradeOffer && socket) {
+            socket.emit('declineTradeOffer', { targetId: incomingTradeOffer.senderId, declinerName: game.playerName });
+        }
+        incomingTradeOffer = null;
+        showMainMenu();
+    }
+
+    function finishTradeUI(message) {
+        clearConsole("center", "radial-gradient(circle, #002200, #000)", "#00ff88");
+        document.getElementById("console").innerHTML = `<h2 style="color:#00ff88; font-size:16px;">✅ Trade Complete!</h2><p style="color:#fff; font-size:12px; max-width:360px;">${message}</p>`;
+        renderButtons([{ text: "✔ Return to Lobby", class: "btn btn-start", action: renderActiveLobbyView }]);
     }
 
     function challengePlayerPvP(opponentName) {
@@ -1706,60 +1869,132 @@
         renderPokemonCombatScreen();
     }
 
-    function startCoopRaidSession() {
+    // --- LIVE CO-OP RAID BOSS ---
+    // The raid boss is genuinely shared server-wide: every currently-connected
+    // player is hitting the exact same HP pool in real time, and everyone who's
+    // watching the fight when it dies gets credited the reward.
+    function showRaidTierSelect() {
         playBGM('villain');
-        let totalPartyPower = (game.managerPower || 30);
-        let partyCount = Math.max(1, onlineRoomPlayers.length);
-        activeRaidSession = {
-            bossName: "THE VOID TITAN",
-            bossHP: 500,
-            bossMaxHP: 500,
-            partyPower: totalPartyPower * partyCount,
-            partyCount: partyCount
-        };
-
         clearConsole("center", "radial-gradient(circle at 50% 30%, #3a0000 0%, #0a0002 85%)", "#ff0055");
         document.getElementById("console").innerHTML = `
-            <h2 style="color:#ff0055; text-shadow: 0 0 10px #ff0055; font-size:18px;">🐲 MULTIPLAYER CO-OP RAID BOSS</h2>
-            <div class="dex-card" style="display:block; text-align:center; font-size:12px;">
-                <strong style="color:#ff3333; font-size:16px;">${activeRaidSession.bossName}</strong><br>
-                ❤️ Raid HP: <span style="color:#ff3333;" id="raid-boss-hp">${activeRaidSession.bossHP} / ${activeRaidSession.bossMaxHP}</span><br>
-                👥 United Lobby Attackers: <span style="color:#00ffff;">${activeRaidSession.partyCount} Player(s)</span>
-            </div>
-            <p id="raid-combat-log" style="color:#ffff00; font-size:12px;">Coordinate your party strike against the raid boss!</p>
+            <h2 style="color:#ff0055; text-shadow: 0 0 10px #ff0055; font-size:18px;">🐲 CHOOSE YOUR RAID BOSS</h2>
+            <p style="color:#aaa; font-size:12px; max-width:360px;">Every trainer online right now fights the SAME boss - team up and strike together in real time!</p>
         `;
-
         renderButtons([
-            { text: "💥 United Party Strike!", class: "btn btn-raid", action: executeRaidStrike },
-            { text: "🏃 Flee to Lobby", class: "btn btn-back", action: renderActiveLobbyView }
+            { text: "🐉 Void Titan Chronos (Lv. 50)", class: "btn btn-raid", action: () => selectRaidBossTier('titan') },
+            { text: "🐲 Shadow Dragon Netherfang (Lv. 90)", class: "btn btn-raid", action: () => selectRaidBossTier('dragon') },
+            { text: "⬅ Back to Lobby", class: "btn btn-back", action: renderActiveLobbyView }
+        ]);
+    }
+
+    function selectRaidBossTier(tierKey) {
+        if (socket) socket.emit('selectRaidTier', tierKey);
+        startCoopRaidSession();
+    }
+
+    function startCoopRaidSession() {
+        raidScreenActive = true;
+        renderRaidBossScreen();
+    }
+
+    function renderRaidBossScreen() {
+        playBGM('villain');
+        let boss = currentRaidBossState || { name: "Contacting raid server...", hp: 0, maxHp: 1, level: 1, reward: 0 };
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #3a0000 0%, #0a0002 85%)", "#ff0055");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#ff0055; text-shadow: 0 0 10px #ff0055; font-size:18px;">🐲 CO-OP RAID BOSS</h2>
+            <div class="dex-card" style="display:block; text-align:center; font-size:12px;">
+                <strong style="color:#ff3333; font-size:16px;">${boss.name}</strong> (Lv. ${boss.level})<br>
+                ❤️ Raid HP: <span style="color:#ff3333;" id="raid-boss-hp">${boss.hp} / ${boss.maxHp}</span>
+            </div>
+            <p id="raid-combat-log" style="color:#ffff00; font-size:12px;">Every trainer online can strike this SAME boss right now - your hits (and theirs) land live!</p>
+        `;
+        renderButtons([
+            { text: "💥 Strike the Boss!", class: "btn btn-raid", action: executeRaidStrike },
+            { text: "🏃 Leave Raid", class: "btn btn-back", action: () => { raidScreenActive = false; renderActiveLobbyView(); } }
         ]);
     }
 
     function executeRaidStrike() {
-        let r = activeRaidSession;
-        let dmg = r.partyPower + Math.floor(Math.random() * 40) + 20;
-        r.bossHP = Math.max(0, r.bossHP - dmg);
-        document.getElementById("raid-boss-hp").innerText = `${r.bossHP} / ${r.bossMaxHP}`;
-        document.getElementById("raid-combat-log").innerHTML = `<span style="color:#00ffff;">United party dealt ${dmg} multi-strike damage!</span>`;
-
-        if (r.bossHP <= 0) {
-            setTimeout(() => {
-                let reward = 3000;
-                game.funds += reward;
-                game.inventory.push("Diamond");
-                updateUI(); saveGame();
-                clearConsole("center", "radial-gradient(circle, #003300, #000)", "#00ff88");
-                document.getElementById("console").innerHTML = `
-                    <h2 style="color:#00ff88; font-size:18px;">🏆 RAID BOSS DEFEATED!</h2>
-                    <p style="color:#fff; font-size:12px;">The entire party claimed $${reward} and a rare Diamond!</p>
-                `;
-                renderButtons([{ text: "✔ Return to Lobby", class: "btn btn-start", action: renderActiveLobbyView }]);
-            }, 1200);
-        }
+        if (!socket || !socket.connected) { alert("Not connected to the server - can't reach the raid boss right now."); return; }
+        let lead = (game.staff && game.staff.length > 0) ? game.staff[0] : { name: "Trainer Partner", power: 35 };
+        let dmg = (lead.power || 35) + Math.floor(Math.random() * 20);
+        socket.emit('attackRaidBoss', { damage: dmg, trainerName: game.playerName, championName: lead.name });
     }
 
     if (socket) {
         socket.on('roomUpdate', ({ roomId, players }) => { onlineRoomPlayers = players; if (currentRoomId === roomId) renderActiveLobbyView(); });
+
+        socket.on('raidBossUpdate', (boss) => {
+            currentRaidBossState = boss;
+            if (raidScreenActive) renderRaidBossScreen();
+        });
+
+        socket.on('raidBossHit', (data) => {
+            if (currentRaidBossState) {
+                currentRaidBossState.hp = data.bossHp;
+                currentRaidBossState.maxHp = data.bossMaxHp;
+            }
+            if (raidScreenActive) {
+                let hpEl = document.getElementById("raid-boss-hp");
+                if (hpEl) hpEl.innerText = `${data.bossHp} / ${data.bossMaxHp}`;
+                let logEl = document.getElementById("raid-combat-log");
+                if (logEl) logEl.innerHTML = `<span style="color:#00ffff;">${data.log}</span>`;
+            }
+            if (data.isDefeated && raidScreenActive) {
+                raidScreenActive = false;
+                setTimeout(() => {
+                    game.funds += (data.reward || 0);
+                    updateUI(); saveGame();
+                    clearConsole("center", "radial-gradient(circle, #003300, #000)", "#00ff88");
+                    document.getElementById("console").innerHTML = `
+                        <h2 style="color:#00ff88; font-size:18px;">🏆 RAID BOSS DEFEATED!</h2>
+                        <p style="color:#fff; font-size:12px;">${data.slayer} landed the final blow! Everyone who joined the fight claims $${data.reward}!</p>
+                    `;
+                    renderButtons([{ text: "✔ Return to Lobby", class: "btn btn-start", action: renderActiveLobbyView }]);
+                }, 900);
+            }
+        });
+
+        socket.on('receiveTradeOffer', (data) => {
+            incomingTradeOffer = { senderId: data.senderId, senderName: data.senderName, kind: 'item', item: data.item };
+            showIncomingTradeOffer();
+        });
+
+        socket.on('receiveCharacterTradeOffer', (data) => {
+            incomingTradeOffer = { senderId: data.senderId, senderName: data.senderName, kind: 'character', character: data.character };
+            showIncomingTradeOffer();
+        });
+
+        socket.on('tradeCompleted', (data) => {
+            if (!pendingOutgoingTrade || pendingOutgoingTrade.kind !== 'item') return;
+            let idx = game.inventory.indexOf(pendingOutgoingTrade.item);
+            if (idx !== -1) game.inventory.splice(idx, 1);
+            game.inventory.push(data.receivedItem);
+            saveGame(); updateUI();
+            finishTradeUI(`You gave your ${pendingOutgoingTrade.item} and received ${data.receivedItem} from ${data.partnerName}!`);
+            pendingOutgoingTrade = null;
+        });
+
+        socket.on('characterTradeCompleted', (data) => {
+            if (!pendingOutgoingTrade || pendingOutgoingTrade.kind !== 'character') return;
+            let removeIdx = game.staff.findIndex(s => s === pendingOutgoingTrade.character);
+            if (removeIdx === -1) removeIdx = pendingOutgoingTrade.staffIndex;
+            if (removeIdx >= 0 && removeIdx < game.staff.length) game.staff.splice(removeIdx, 1);
+            game.staff.push(data.receivedCharacter);
+            if (data.receivedCharacter.dexId != null) recordDex(data.receivedCharacter.dexId, false);
+            saveGame(); updateUI();
+            finishTradeUI(`You gave ${pendingOutgoingTrade.character.name} and received ${data.receivedCharacter.name} from ${data.partnerName}!`);
+            pendingOutgoingTrade = null;
+        });
+
+        socket.on('tradeOfferDeclined', (data) => {
+            if (pendingOutgoingTrade) {
+                alert(`${data.declinerName || "The trainer"} declined your trade offer.`);
+                pendingOutgoingTrade = null;
+                renderActiveLobbyView();
+            }
+        });
     }
 
     function showCreditsMenu() {
