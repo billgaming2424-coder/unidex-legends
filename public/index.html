@@ -1,9 +1,7 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>UniDex Legends - Mega Multiverse Edition</title>
+    <title>UniDex Legends - Mega Expansion</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         * { box-sizing: border-box; }
@@ -14,15 +12,6 @@
             overflow: hidden; display: flex; flex-direction: column; user-select: none; touch-action: manipulation;
             padding-bottom: max(6px, env(safe-area-inset-bottom));
         }
-
-        /* Top Bar with Audio & Fullscreen Utilities */
-        #top-utility-bar {
-            display: flex; justify-content: space-between; align-items: center;
-            background: #080811; border: 1px solid #00ffff44; border-radius: 4px;
-            padding: 3px 6px; margin-bottom: 4px; font-size: 11px; flex-shrink: 0;
-        }
-        .util-group { display: flex; align-items: center; gap: 6px; }
-
         #stats-bar {
             background: linear-gradient(180deg, #12121c 0%, #08080f 100%);
             border: 1px solid #00ffff55; padding: 4px 8px; margin-bottom: 6px; border-radius: 6px;
@@ -30,7 +19,6 @@
         }
         .stat-highlight { color: #ff00ff; font-weight: bold; }
         .stat-money { color: #ffff00; font-weight: bold; }
-
         #screen-wrapper { position: relative; flex: 1 1 auto; min-height: 100px; display: flex; width: 100%; margin-bottom: 6px; overflow: hidden; }
         #console {
             flex: 1 1 100%; min-height: 0; background-color: #020204; border: 2px solid #222233;
@@ -67,21 +55,7 @@
     </style>
 </head>
 <body>
-    <audio id="bg-audio" loop src="/music/theme.mp3"></audio>
     <div id="save-toast" style="position:fixed; bottom:20px; right:20px; background:#002211; border:1px solid #00ff66; color:#00ff66; padding:6px 12px; border-radius:4px; font-size:12px; z-index:9999; display:none;">💾 Game Saved</div>
-
-    <!-- Top Utility: Volume & Fullscreen -->
-    <div id="top-utility-bar">
-        <div class="util-group">
-            <button onclick="toggleAudioPlayback()" class="btn btn-sys" style="padding: 2px 6px; min-height: 22px; font-size: 10px;">🎵 Audio</button>
-            <label style="color:#aaa; font-size: 10px;">Vol:</label>
-            <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="0.5" onchange="adjustAudioVolume(this.value)" style="width: 70px; height: 12px; cursor: pointer;" />
-        </div>
-        <div class="util-group">
-            <button onclick="toggleGameFullscreen()" class="btn btn-sys" style="padding: 2px 6px; min-height: 22px; font-size: 10px;">⛶ Fullscreen</button>
-        </div>
-    </div>
-
     <div id="stats-bar">
         <div>🌍 <span id="loc-display">Nexus HQ</span> | Trainer: <span class="stat-highlight" id="player-name-display">Trainer</span></div>
         <div style="display: flex; align-items: center; gap: 5px;">
@@ -116,6 +90,7 @@
     let currentRoomId = null;
     let onlineRoomPlayers = [];
     let activePvPSession = null;
+    let singlePlayerCombatSession = null;
     let serverRaidBoss = { name: "Void Titan Chronos", hp: 5000, maxHp: 5000 };
 
     let defaultGameState = {
@@ -132,31 +107,6 @@
     };
 
     let game = JSON.parse(JSON.stringify(defaultGameState));
-
-    // Audio & Fullscreen Utilities
-    function toggleAudioPlayback() {
-        const audio = document.getElementById("bg-audio");
-        if (audio) {
-            if (audio.paused) {
-                audio.play().catch(() => {});
-            } else {
-                audio.pause();
-            }
-        }
-    }
-
-    function adjustAudioVolume(val) {
-        const audio = document.getElementById("bg-audio");
-        if (audio) audio.volume = parseFloat(val);
-    }
-
-    function toggleGameFullscreen() {
-        if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(() => {});
-        } else {
-            if (document.exitFullscreen) document.exitFullscreen();
-        }
-    }
 
     function getActiveChampion() {
         if (!game.staff || !Array.isArray(game.staff) || game.staff.length === 0) {
@@ -444,12 +394,98 @@
         showMainMenu();
     }
 
+    // --- MISSING SINGLE PLAYER COMBAT ---
+    function startSinglePlayerCombat(mobName, mobHp, mobDmg, reward) {
+        const champ = getActiveChampion();
+        singlePlayerCombatSession = {
+            enemyName: mobName,
+            enemyHp: mobHp,
+            enemyMaxHp: mobHp,
+            enemyDmg: mobDmg,
+            reward: reward,
+            champHp: champ.maxHp || 100,
+            champMaxHp: champ.maxHp || 100,
+            guarding: false,
+            log: `Battle started against ${mobName}!`
+        };
+        renderSinglePlayerCombat();
+    }
+
+    function renderSinglePlayerCombat() {
+        const c = singlePlayerCombatSession;
+        const champ = getActiveChampion();
+        clearConsole("center", "#20000a", "#ff0033");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#ff0033; font-size:16px;">⚔️ BATTLE vs ${c.enemyName.toUpperCase()}</h2>
+            <div style="display:flex; justify-content:space-around; width:100%; margin: 6px 0;">
+                <div class="dex-card" style="width:48%; display:block; border-color:#00ff66; text-align:center;">
+                    <strong style="color:#00ffff;">${champ.name}</strong><br>
+                    ❤️ <span style="color:#33ff33;">${c.champHp} / ${c.champMaxHp}</span>
+                </div>
+                <div class="dex-card" style="width:48%; display:block; border-color:#ff0055; text-align:center;">
+                    <strong style="color:#ff0055;">${c.enemyName}</strong><br>
+                    ❤️ <span style="color:#ff3333;">${c.enemyHp} / ${c.enemyMaxHp}</span>
+                </div>
+            </div>
+            <p style="color:#ffff00; font-size:12px;">${c.log}</p>
+        `;
+        renderButtons([
+            { text: "⚔️ Strike", class: "btn btn-combat", action: () => executeSinglePlayerAction("strike") },
+            { text: "🛡️ Guard", class: "btn btn-sys", action: () => executeSinglePlayerAction("guard") },
+            { text: "⚡ Special (10 Stm)", class: "btn btn-dlc", action: () => executeSinglePlayerAction("special") },
+            { text: "🏃 Flee", class: "btn btn-back", action: showMainMenu }
+        ]);
+    }
+
+    function executeSinglePlayerAction(type) {
+        const c = singlePlayerCombatSession;
+        const champ = getActiveChampion();
+        if (type === "special") {
+            if ((game.stamina || 0) < 10) { alert("Not enough stamina!"); return; }
+            game.stamina -= 10;
+            saveGame(); updateUI();
+        }
+
+        if (type === "guard") {
+            c.guarding = true;
+            c.log = `${champ.name} prepares to block incoming damage!`;
+        } else {
+            let mult = type === "special" ? 1.8 : 1.0;
+            let dmg = Math.floor((champ.power || 25) * mult + Math.random() * 8);
+            c.enemyHp = Math.max(0, c.enemyHp - dmg);
+            c.log = `${champ.name} hit ${c.enemyName} for ${dmg} damage!`;
+        }
+
+        if (c.enemyHp <= 0) {
+            game.funds = (game.funds || 0) + c.reward;
+            saveGame(); updateUI();
+            alert(`🎉 Won battle! Earned $${c.reward}!`);
+            showMainMenu();
+            return;
+        }
+
+        setTimeout(() => {
+            let enemyHit = c.enemyDmg;
+            if (c.guarding) { enemyHit = Math.floor(enemyHit * 0.5); c.guarding = false; }
+            c.champHp = Math.max(0, c.champHp - enemyHit);
+            c.log += ` ${c.enemyName} retaliated for ${enemyHit} damage!`;
+            if (c.champHp <= 0) {
+                alert("💀 Champion was knocked out! Returning to HQ...");
+                showMainMenu();
+            } else {
+                renderSinglePlayerCombat();
+            }
+        }, 600);
+    }
+
     function showMainMenu() {
         clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #1a1500 0%, #080702 85%)", "#ffaa00");
         document.getElementById("stats-bar").style.display = "flex";
         updateUI();
         log(`--- NEXUS HQ (Slot ${currentSaveSlot}) | WELCOME, TRAINER ${(game.playerName || "Trainer").toUpperCase()} ---`, "color-cyan");
         renderButtons([
+            { text: "🗺️ World Map", class: "btn btn-map", action: () => startSinglePlayerCombat("Wild Treant", 90, 14, 600) },
+            { text: "⛏️ Stardew Mines", class: "btn btn-mine", action: () => startSinglePlayerCombat("Cave Bat", 75, 12, 450) },
             { text: "🏰 Spire of Trials", class: "btn btn-combat", action: showSpireDungeonMenu },
             { text: "🔨 Blacksmith Forge", class: "btn btn-forge", action: showBlacksmithForgeMenu },
             { text: "👥 Team Roster", class: "btn btn-maid", action: showRosterMenu },
@@ -962,6 +998,8 @@
             saveGame(); updateUI();
             if (socket) socket.emit('offerTradeCharacter', { roomId: currentRoomId, targetId, character: chosen, senderName: game.playerName });
             alert(`🎭 Offered [${chosen.name}]!`);
+        } else {
+            alert("❌ Invalid selection or hero is locked!");
         }
     }
 
