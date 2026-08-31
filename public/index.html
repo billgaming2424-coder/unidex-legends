@@ -24,7 +24,7 @@
             flex: 1 1 100%; min-height: 0; background-color: #020204; border: 2px solid #222233;
             padding: 10px; overflow-y: auto; border-radius: 8px; font-size: 13px; line-height: 1.4;
             display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center; position: relative;
-            -webkit-overflow-scrolling: touch;
+            -webkit-overflow-scrolling: touch; transition: background 0.5s ease;
         }
         .log-entry { margin-bottom: 5px; border-bottom: 1px solid #14141e; padding-bottom: 3px; width: 100%; text-align: left; }
         
@@ -51,7 +51,65 @@
         .btn-maid { border-color: #ff66ff; color: #ff66ff; background: #220022; }
         .btn-boss { border-color: #ff0055; color: #fff; background: #550011; box-shadow: 0 0 8px #ff0055; }
         .btn-forge { border-color: #ff8800; color: #ff8800; background: #2b1100; }
-        .dex-card { background: #08080f; border: 1px solid #222238; border-radius: 6px; padding: 7px; margin: 4px 0; width: 98%; text-align: left; display: flex; align-items: center; gap: 8px; }
+        .dex-card { background: #08080f; border: 1px solid #222238; border-radius: 6px; padding: 7px; margin: 4px 0; width: 98%; text-align: left; display: flex; align-items: center; gap: 8px; z-index: 3; position: relative; }
+
+        /* --- RESTORED ANIMATIONS --- */
+        @keyframes travelSlide {
+            0% { transform: scale(0.2) rotate(-15deg); opacity: 0; filter: blur(8px); }
+            50% { transform: scale(1.2) rotate(5deg); opacity: 1; filter: blur(0px); }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        .travel-animation { animation: travelSlide 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
+        @keyframes mineRumble {
+            0% { transform: translate(0, 0); filter: brightness(0.9); }
+            20% { transform: translate(-4px, 3px); filter: brightness(1.2) hue-rotate(15deg); }
+            40% { transform: translate(4px, -2px); filter: brightness(0.85); }
+            60% { transform: translate(-3px, -4px); filter: brightness(1.15); }
+            80% { transform: translate(4px, 4px); filter: brightness(0.9); }
+            100% { transform: translate(0, 0); filter: brightness(1); }
+        }
+        .mining-animation { animation: mineRumble 0.25s ease-in-out infinite; }
+
+        @keyframes restNightSequence {
+            0% { background: #000; opacity: 0; transform: scale(0.95); }
+            30% { background: #050515; opacity: 1; transform: scale(1); }
+            70% { background: #02020a; opacity: 1; transform: scale(1.02); }
+            100% { background: #000; opacity: 0; transform: scale(1.05); }
+        }
+        .rest-scene { animation: restNightSequence 2s ease-in-out forwards; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; z-index: 3; width: 100%; height: 100%; }
+        .zzz-1 { animation: zFloat 1.5s infinite ease-in; display: inline-block; font-size: 20px; color: #00ffff; }
+        .zzz-2 { animation: zFloat 1.5s infinite ease-in 0.5s; display: inline-block; font-size: 26px; color: #ff00ff; }
+        .zzz-3 { animation: zFloat 1.5s infinite ease-in 1s; display: inline-block; font-size: 32px; color: #ffff00; }
+        @keyframes zFloat { 0% { transform: translateY(0px) translateX(0px); opacity: 0; } 50% { opacity: 1; } 100% { transform: translateY(-30px) translateX(15px); opacity: 0; } }
+
+        @keyframes wheelSpinAnim {
+            0% { transform: rotate(0deg) scale(0.9); }
+            50% { transform: rotate(1080deg) scale(1.1); filter: hue-rotate(90deg); }
+            100% { transform: rotate(2160deg) scale(1); filter: hue-rotate(0deg); }
+        }
+        .wheel-spinning { animation: wheelSpinAnim 2.2s cubic-bezier(0.15, 0.85, 0.35, 1.05) forwards; display: inline-block; }
+
+        @keyframes ballToss {
+            0% { transform: translateY(60px) scale(0.4) rotate(0deg); opacity: 0; }
+            40% { transform: translateY(-20px) scale(1.1) rotate(360deg); opacity: 1; }
+            100% { transform: translateY(0px) scale(1) rotate(720deg); opacity: 1; }
+        }
+        @keyframes ballWobble {
+            0%, 100% { transform: rotate(0deg) scale(1); }
+            15% { transform: rotate(-28deg) scale(1.05); }
+            30% { transform: rotate(28deg) scale(1.05); }
+            45% { transform: rotate(-18deg) scale(1.02); }
+            60% { transform: rotate(18deg) scale(1.02); }
+            75% { transform: rotate(-8deg) scale(1); }
+            85% { transform: rotate(8deg) scale(1); }
+        }
+        .pokeball-container { display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; z-index: 3; margin: 10px 0; }
+        .pokeball-sprite { width: 60px; height: 60px; border-radius: 50%; position: relative; box-shadow: inset 0 0 8px rgba(0,0,0,0.8), 0 0 15px rgba(255,255,255,0.4); border: 3px solid #111; overflow: hidden; animation: ballToss 0.6s ease-out forwards, ballWobble 1.2s ease-in-out 0.6s 2; }
+        .ball-top { width: 100%; height: 50%; background: #ff1a1a; }
+        .ball-bottom { width: 100%; height: 50%; background: #ffffff; }
+        .ball-center-band { position: absolute; top: 46%; left: 0; width: 100%; height: 8%; background: #111; z-index: 4; }
+        .ball-center-btn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 16px; height: 16px; border-radius: 50%; background: #ffffff; border: 2px solid #111; z-index: 5; box-shadow: 0 0 4px #fff; }
     </style>
 </head>
 <body>
@@ -176,6 +234,8 @@
             serverRaidBoss.hp = data.bossHp;
             let logEl = document.getElementById("raid-boss-combat-log");
             if (logEl) {
+                document.getElementById("console").className = "mining-animation";
+                setTimeout(() => document.getElementById("console").className = "", 250);
                 logEl.innerHTML += `<div style="color:#00ffff; font-size:11px;">${data.log}</div>`;
                 logEl.scrollTop = logEl.scrollHeight;
                 let hpBar = document.getElementById("boss-hp-fill");
@@ -318,6 +378,7 @@
 
     function clearConsole(align="flex-start", bgGradient="#15002b", borderColor="#00ffff") {
         const consoleDiv = document.getElementById("console");
+        consoleDiv.className = ""; // Reset animation classes
         consoleDiv.innerHTML = "";
         consoleDiv.style.justifyContent = align;
         consoleDiv.style.background = bgGradient;
@@ -394,21 +455,27 @@
         showMainMenu();
     }
 
-    // --- MISSING SINGLE PLAYER COMBAT ---
-    function startSinglePlayerCombat(mobName, mobHp, mobDmg, reward) {
-        const champ = getActiveChampion();
-        singlePlayerCombatSession = {
-            enemyName: mobName,
-            enemyHp: mobHp,
-            enemyMaxHp: mobHp,
-            enemyDmg: mobDmg,
-            reward: reward,
-            champHp: champ.maxHp || 100,
-            champMaxHp: champ.maxHp || 100,
-            guarding: false,
-            log: `Battle started against ${mobName}!`
-        };
-        renderSinglePlayerCombat();
+    // --- SINGLE PLAYER COMBAT ---
+    function startSinglePlayerCombat(mobName, mobHp, mobDmg, reward, type="travel") {
+        clearConsole("center", "#000", "#fff");
+        document.getElementById("console").innerHTML = `<div class="${type === 'mine' ? 'mining-animation' : 'travel-animation'}"><h2 style="color:#fff;">Traveling to ${mobName}...</h2></div>`;
+        renderButtons([]);
+        
+        setTimeout(() => {
+            const champ = getActiveChampion();
+            singlePlayerCombatSession = {
+                enemyName: mobName,
+                enemyHp: mobHp,
+                enemyMaxHp: mobHp,
+                enemyDmg: mobDmg,
+                reward: reward,
+                champHp: champ.maxHp || 100,
+                champMaxHp: champ.maxHp || 100,
+                guarding: false,
+                log: `Battle started against ${mobName}!`
+            };
+            renderSinglePlayerCombat();
+        }, 1200);
     }
 
     function renderSinglePlayerCombat() {
@@ -454,6 +521,8 @@
             let dmg = Math.floor((champ.power || 25) * mult + Math.random() * 8);
             c.enemyHp = Math.max(0, c.enemyHp - dmg);
             c.log = `${champ.name} hit ${c.enemyName} for ${dmg} damage!`;
+            document.getElementById("console").className = "mining-animation";
+            setTimeout(() => document.getElementById("console").className = "", 250);
         }
 
         if (c.enemyHp <= 0) {
@@ -469,6 +538,9 @@
             if (c.guarding) { enemyHit = Math.floor(enemyHit * 0.5); c.guarding = false; }
             c.champHp = Math.max(0, c.champHp - enemyHit);
             c.log += ` ${c.enemyName} retaliated for ${enemyHit} damage!`;
+            document.getElementById("console").className = "mining-animation";
+            setTimeout(() => document.getElementById("console").className = "", 250);
+
             if (c.champHp <= 0) {
                 alert("💀 Champion was knocked out! Returning to HQ...");
                 showMainMenu();
@@ -484,19 +556,26 @@
         updateUI();
         log(`--- NEXUS HQ (Slot ${currentSaveSlot}) | WELCOME, TRAINER ${(game.playerName || "Trainer").toUpperCase()} ---`, "color-cyan");
         renderButtons([
-            { text: "🗺️ World Map", class: "btn btn-map", action: () => startSinglePlayerCombat("Wild Treant", 90, 14, 600) },
-            { text: "⛏️ Stardew Mines", class: "btn btn-mine", action: () => startSinglePlayerCombat("Cave Bat", 75, 12, 450) },
+            { text: "🗺️ World Map", class: "btn btn-map", action: () => startSinglePlayerCombat("Wild Treant", 90, 14, 600, "travel") },
+            { text: "⛏️ Stardew Mines", class: "btn btn-mine", action: () => startSinglePlayerCombat("Cave Bat", 75, 12, 450, "mine") },
             { text: "🏰 Spire of Trials", class: "btn btn-combat", action: showSpireDungeonMenu },
-            { text: "🔨 Blacksmith Forge", class: "btn btn-forge", action: showBlacksmithForgeMenu },
+            { text: "🔨 Forge", class: "btn btn-forge", action: showBlacksmithForgeMenu },
             { text: "👥 Team Roster", class: "btn btn-maid", action: showRosterMenu },
             { text: "🌱 Crop Garden", class: "btn btn-farm", action: showCropGardenMenu },
-            { text: "🏪 Market & Trades", class: "btn btn-farm", action: showMarketMenu },
+            { text: "🏪 Market", class: "btn btn-farm", action: showMarketMenu },
             { text: "🎰 Casino Hub", class: "btn btn-spin", action: showCasinoHubMenu },
             { text: "🎒 Inventory", class: "btn btn-gear", action: showInventoryMenu },
-            { text: "🌌 Free Portals", class: "btn btn-sys", action: showFreePortalsMenu },
-            { text: "🔒 Premium DLC", class: "btn btn-dlc", action: showDLCMenu },
+            { text: "🌌 Portals", class: "btn btn-sys", action: showFreePortalsMenu },
+            { text: "🔒 DLC", class: "btn btn-dlc", action: showDLCMenu },
             { text: "🌐 Online Hub", class: "btn btn-sys", action: showOnlineHubMenu },
-            { text: "💤 Sleep (Next Day)", action: () => { game.stamina = 100; game.day = (game.day || 1) + 1; saveGame(); updateUI(); alert("Rested for the night! Stamina restored."); showMainMenu(); } },
+            { text: "💤 Sleep (Next Day)", action: () => { 
+                clearConsole("center", "#000", "#000");
+                document.getElementById("console").innerHTML = `<div class="rest-scene"><span class="zzz-1">z</span><span class="zzz-2">z</span><span class="zzz-3">z</span></div>`;
+                renderButtons([]);
+                setTimeout(() => {
+                    game.stamina = 100; game.day = (game.day || 1) + 1; saveGame(); updateUI(); showMainMenu();
+                }, 2000);
+            }},
             { text: "📁 Switch Slot", class: "btn btn-back", action: showIntroScreen }
         ]);
     }
@@ -523,6 +602,9 @@
     function executeSpireFight(floor, mobHp, mobDmg, reward) {
         const champ = getActiveChampion();
         let champHp = champ.maxHp || 120;
+
+        document.getElementById("console").className = "mining-animation";
+        setTimeout(() => document.getElementById("console").className = "", 300);
 
         while (mobHp > 0 && champHp > 0) {
             let dmg = Math.floor((champ.power || 25) + Math.random() * 10);
@@ -555,7 +637,7 @@
         `;
         renderButtons([
             { text: "🗡️ Craft Dragon Edge (+25 ATK)", class: "btn btn-forge", action: () => craftGear("Dragon Edge (+25 ATK)", "weapon", "Copper Ore", "Diamond", 500, 25) },
-            { text: "🛡️ Craft Aegis Shield (+40 HP & DEF)", class: "btn btn-forge", action: () => craftGear("Aegis Shield (+40 HP)", "armor", "Copper Ore", "Energy Core", 400, 0, 40) },
+            { text: "🛡️ Craft Aegis Shield (+40 HP)", class: "btn btn-forge", action: () => craftGear("Aegis Shield (+40 HP)", "armor", "Copper Ore", "Energy Core", 400, 0, 40) },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
@@ -580,6 +662,8 @@
             });
         }
         saveGame(); updateUI();
+        document.getElementById("console").className = "mining-animation";
+        setTimeout(() => document.getElementById("console").className = "", 300);
         alert(`🔨 Successfully forged and equipped [${gearName}]!`);
         showBlacksmithForgeMenu();
     }
@@ -807,39 +891,6 @@
         if (socket) socket.emit('buyMarketListing', { listingId, buyerName: game.playerName });
     }
 
-    function showWorldBossRaidScreen() {
-        clearConsole("flex-start", "#2b0008", "#ff0055");
-        let percent = Math.max(0, (serverRaidBoss.hp / serverRaidBoss.maxHp) * 100);
-        document.getElementById("console").innerHTML = `
-            <h2 style="color:#ff0055; font-size:16px; margin: 2px 0;">👹 WORLD BOSS</h2>
-            <strong style="color:#fff; font-size:13px;">${serverRaidBoss.name}</strong>
-            <div style="width:90%; max-width:360px; height:12px; background:#111; border:1px solid #ff0055; border-radius:8px; margin:4px 0; overflow:hidden;">
-                <div id="boss-hp-fill" style="width:${percent}%; height:100%; background:linear-gradient(90deg, #ff0033, #ff5500); transition: width 0.3s ease;"></div>
-            </div>
-            <p style="color:#aaa; font-size:11px;">Boss Health: <span id="boss-hp-text" style="color:#ff5555; font-weight:bold;">${serverRaidBoss.hp} / ${serverRaidBoss.maxHp}</span></p>
-            <div id="raid-boss-combat-log" style="width:95%; max-width:380px; height:70px; background:#050005; border:1px solid #ff005555; border-radius:4px; padding:6px; overflow-y:auto; margin-bottom:4px;"></div>
-        `;
-        renderButtons([
-            { text: "⚔️ Strike Boss", class: "btn btn-combat", action: () => raidBossAction("strike") },
-            { text: "⚡ Burst Raid (15 Stm)", class: "btn btn-boss", action: () => raidBossAction("burst") },
-            { text: "🐉 Switch to Dragon", class: "btn btn-dlc", action: () => { if(socket) socket.emit('selectRaidTier', 'dragon'); showWorldBossRaidScreen(); } },
-            { text: "⬅ Back to Lobby", class: "btn btn-back", action: renderActiveLobbyView }
-        ]);
-    }
-
-    function raidBossAction(type) {
-        if (serverRaidBoss.hp <= 0) { alert("Boss defeated! Respawning soon..."); return; }
-        const champ = getActiveChampion();
-        let mult = type === "burst" ? 2.5 : 1.0;
-        if (type === "burst") {
-            if ((game.stamina || 0) < 15) { alert("Not enough stamina!"); return; }
-            game.stamina -= 15;
-            saveGame(); updateUI();
-        }
-        let dmg = Math.floor((champ.power || 25) * mult + Math.random() * 15);
-        if (socket) socket.emit('attackRaidBoss', { damage: dmg, trainerName: game.playerName, championName: champ.name });
-    }
-
     function showCropGardenMenu() {
         clearConsole("flex-start", "#00200a", "#00ff88");
         if (!game.farm || !game.farm.plots) game.farm = { plots: [{ crop: null, stage: 0, ready: false }, { crop: null, stage: 0, ready: false }, { crop: null, stage: 0, ready: false }] };
@@ -894,260 +945,55 @@
 
     function showLuckyWheelScreen() {
         clearConsole("center", "#333300", "#ffff00");
-        document.getElementById("console").innerHTML = `<h2 style="color: #ffff00; font-size:16px;">🎰 LUCKY WHEEL</h2><p style="color: #aaa; font-size:11.5px;">Spin for rewards! (Cost: $100)</p>`;
+        document.getElementById("console").innerHTML = `<div id="wheel-icon" style="font-size: 36px; margin-bottom: 4px;">🎡</div><h2 style="color: #ffff00; font-size:16px;">🎰 LUCKY WHEEL</h2><p style="color: #aaa; font-size:11.5px;">Spin for rewards! (Cost: $100)</p>`;
         renderButtons([
             { text: "🔄 Spin ($100)", class: "btn btn-spin", action: () => {
                 if ((game.funds || 0) >= 100) {
                     game.funds -= 100;
-                    if (!game.inventory) game.inventory = [];
-                    if (Math.random() > 0.5) { game.funds += 400; alert("Jackpot! Won $400!"); }
-                    else { game.inventory.push("Diamond"); alert("Won a rare Diamond!"); }
-                    saveGame(); updateUI(); showLuckyWheelScreen();
+                    document.getElementById("wheel-icon").className = "wheel-spinning";
+                    setTimeout(() => {
+                        if (!game.inventory) game.inventory = [];
+                        if (Math.random() > 0.5) { game.funds += 400; alert("Jackpot! Won $400!"); }
+                        else { game.inventory.push("Diamond"); alert("Won a rare Diamond!"); }
+                        saveGame(); updateUI(); showLuckyWheelScreen();
+                    }, 2200);
                 } else { alert("Not enough funds!"); }
             }},
             { text: "⬅ Back to Casino", class: "btn btn-back", action: showCasinoHubMenu }
         ]);
     }
 
-    function showOnlineHubMenu() {
-        clearConsole("center", "#003366", "#00aaff");
-        document.getElementById("console").innerHTML = `
-            <h2 style="color:#00ffff; font-size:16px;">🌐 ONLINE MULTIPLAYER HUB</h2>
-            <div style="margin: 6px 0;">
-                <input type="text" id="room-code-input" value="${currentRoomId || 'MIDNORIA'}" style="background:#111; color:#0ff; border:1px solid #0ff; padding:5px; font-family:'Courier New'; font-size:12px; border-radius:4px; text-align:center; width:150px;" />
-            </div>
-        `;
-        renderButtons([
-            { text: "🚪 Join / Create Room", class: "btn btn-sys", action: () => {
-                currentRoomId = document.getElementById("room-code-input").value.trim().toUpperCase() || "MIDNORIA";
-                const champ = getActiveChampion();
-                if (socket) socket.emit('joinRoom', { roomId: currentRoomId, player: { name: game.playerName, location: game.location, champion: champ.name, power: champ.power } });
-                renderActiveLobbyView();
-            }},
-            { text: "🎲 Random Room", class: "btn btn-dlc", action: () => {
-                const champ = getActiveChampion();
-                if (socket) socket.emit('joinRandomRoom', { player: { name: game.playerName, location: game.location, champion: champ.name, power: champ.power } });
-            }},
-            { text: "🏆 Leaderboard", class: "btn btn-spin", action: showLeaderboardModal },
-            { text: "💬 Global Chat", class: "btn btn-sys", action: showGlobalChatScreen },
-            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
-        ]);
-    }
-
-    function renderActiveLobbyView() {
-        clearConsole("flex-start", "#002244", "#00aaff");
-        let html = `
-            <h2 style="color:#00ffff; font-size:15px; margin-bottom:2px;">📡 ROOM: ${currentRoomId}</h2>
-            <div style="width:100%; max-width:380px; max-height:130px; overflow-y:auto; margin-bottom:6px;">
-        `;
-        if (!onlineRoomPlayers.length) {
-            html += `<div class="dex-card" style="font-size:12px; padding:6px;">👤 ${game.playerName || 'Trainer'} (You) - Host</div>`;
-        } else {
-            onlineRoomPlayers.forEach(p => {
-                let isMe = p.id === socket.id || p.name === game.playerName;
-                html += `
-                    <div class="dex-card" style="font-size:11.5px; padding:5px; display:flex; justify-content:space-between; align-items:center;">
-                        <div><strong>👤 ${p.name}</strong> ${isMe ? '(You)' : ''}<br><span style="color:#00ffff; font-size:10px;">⭐ Champ: ${p.champion || 'Partner'}</span></div>
-                        ${!isMe ? `
-                            <div style="display:flex; flex-direction:column; gap:2px;">
-                                <button class="btn btn-combat" style="padding:1px 4px; font-size:9px; min-height:16px;" onclick="sendPvPRequest('${p.id}', '${p.name}')">⚔️ Duel</button>
-                                <button class="btn btn-mine" style="padding:1px 4px; font-size:9px; min-height:16px;" onclick="initiateItemTrade('${p.id}', '${p.name}')">📦 Item</button>
-                                <button class="btn btn-maid" style="padding:1px 4px; font-size:9px; min-height:16px;" onclick="initiateCharacterTrade('${p.id}', '${p.name}')">🎭 Hero</button>
-                            </div>
-                        ` : ''}
-                    </div>
-                `;
-            });
-        }
-        html += `</div>`;
-        document.getElementById("console").innerHTML = html;
-        renderButtons([
-            { text: "👹 World Raid Boss", class: "btn btn-boss", action: showWorldBossRaidScreen },
-            { text: "💬 Room Chat", class: "btn btn-sys", action: showRoomChatScreen },
-            { text: "👥 Roster", class: "btn btn-maid", action: showRosterMenu },
-            { text: "🚪 Leave Room", class: "btn btn-back", action: showOnlineHubMenu }
-        ]);
-    }
-
-    function sendPvPRequest(targetId, targetName) {
-        const champ = getActiveChampion();
-        if (socket) {
-            socket.emit('requestPvP', { roomId: currentRoomId, targetId, challengerName: game.playerName, champion: champ.name });
-            alert(`⚔️ PvP challenge sent to ${targetName}!`);
-        }
-    }
-
-    function initiateItemTrade(targetId, targetName) {
-        if (!game.inventory || !game.inventory.length) { alert("Backpack empty!"); return; }
-        let itemToTrade = prompt(`Select item to trade:\n${game.inventory.join(', ')}`, game.inventory[0]);
-        if (itemToTrade && game.inventory.includes(itemToTrade)) {
-            let idx = game.inventory.indexOf(itemToTrade);
-            game.inventory.splice(idx, 1);
-            saveGame(); updateUI();
-            if (socket) socket.emit('offerTradeItem', { roomId: currentRoomId, targetId, item: itemToTrade, senderName: game.playerName });
-            alert(`🤝 Offered [${itemToTrade}]!`);
-        }
-    }
-
-    function initiateCharacterTrade(targetId, targetName) {
-        if (!game.staff || game.staff.length <= 1) { alert("❌ Need more than 1 companion!"); return; }
-        let listStr = game.staff.map((c, i) => `${i + 1}. ${c.name}`).join('\n');
-        let sel = parseInt(prompt(`Select hero number:\n${listStr}`)) - 1;
-        if (!isNaN(sel) && game.staff[sel] && !game.staff[sel].locked) {
-            let chosen = game.staff.splice(sel, 1)[0];
-            saveGame(); updateUI();
-            if (socket) socket.emit('offerTradeCharacter', { roomId: currentRoomId, targetId, character: chosen, senderName: game.playerName });
-            alert(`🎭 Offered [${chosen.name}]!`);
-        } else {
-            alert("❌ Invalid selection or hero is locked!");
-        }
-    }
-
-    function renderLivePvPScreen() {
-        const s = activePvPSession;
-        if (!s) return;
-        clearConsole("center", "#2b000f", "#ff0055");
-        const isMyTurn = socket.id === s.turn;
-        const champ = getActiveChampion();
-
-        document.getElementById("console").innerHTML = `
-            <h2 style="color:#ff0055; font-size:16px;">⚔️ LIVE PVP DUEL</h2>
-            <div style="display:flex; justify-content:space-around; width:100%; margin: 6px 0;">
-                <div class="dex-card" style="width:48%; display:block; text-align:center;">
-                    <strong style="color:#00ffff;">${champ.name}</strong><br>
-                    ❤️ HP: <span style="color:#33ff33;">${socket.id === s.p1Id ? s.p1Hp : s.p2Hp} / 120</span>
-                </div>
-                <div class="dex-card" style="width:48%; display:block; text-align:center;">
-                    <strong style="color:#ff0055;">Opponent</strong><br>
-                    ❤️ HP: <span style="color:#ff3333;">${socket.id === s.p1Id ? s.p2Hp : s.p1Hp} / 120</span>
-                </div>
-            </div>
-            <p style="color:#ffff00; font-size:12px;">${s.log}</p>
-        `;
-
-        if (isMyTurn) {
-            renderButtons([
-                { text: "⚔️ Strike", class: "btn btn-combat", action: () => executePvPAction("strike") },
-                { text: "🛡️ Guard (-50%)", class: "btn btn-sys", action: () => executePvPAction("guard") },
-                { text: "⚡ Special (15 Stm)", class: "btn btn-dlc", action: () => executePvPAction("special") }
-            ]);
-        } else {
-            renderButtons([]);
-        }
-    }
-
-    function executePvPAction(actionType) {
-        if (!activePvPSession) return;
-        if (actionType === "special") {
-            if ((game.stamina || 0) < 15) { alert("❌ Not enough stamina!"); return; }
-            game.stamina -= 15;
-            saveGame(); updateUI();
-        }
-        const champ = getActiveChampion();
-        if (socket) {
-            socket.emit('executeLivePvPAction', {
-                battleId: activePvPSession.battleId,
-                actionType: actionType,
-                power: champ.power || 25,
-                championName: champ.name
-            });
-        }
-    }
-
-    function showLivePlayersModal() {
-        clearConsole("center", "#001f3f", "#00ffff");
-        let html = `<h2 style="color: #00ffff; font-size: 15px;">🌐 ONLINE TRAINERS</h2><div style="width: 95%; max-width: 360px; max-height: 160px; overflow-y: auto;">`;
-        globalActiveTrainers.forEach(t => {
-            html += `<div class="dex-card" style="font-size: 12px; padding: 5px; display:flex; justify-content:space-between;"><span>👤 <strong>${t.name}</strong> (${t.champion || 'Partner'})</span><span style="color:#ffaa00;">📍 ${t.location}</span></div>`;
-        });
-        html += `</div>`;
-        document.getElementById("console").innerHTML = html;
-        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
-    }
-
-    function showLeaderboardModal() {
-        clearConsole("center", "#1a1500", "#ffff00");
-        let html = `<h2 style="color: #ffff00; font-size: 15px;">🏆 GLOBAL TOP TRAINERS</h2><div style="width: 95%; max-width: 380px; max-height: 160px; overflow-y: auto;">`;
-        globalLeaderboard.forEach((user, idx) => {
-            let badge = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`;
-            html += `<div class="dex-card" style="font-size: 12px; padding: 5px; display:flex; justify-content:space-between;"><span><strong>${badge} ${user.name}</strong></span><span style="color:#00ff66;">💰 $${Math.floor(user.funds || 0)}</span></div>`;
-        });
-        html += `</div>`;
-        document.getElementById("console").innerHTML = html;
-        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
-    }
-
-    function showGlobalChatScreen() {
-        clearConsole("flex-start", "#001a22", "#00ffff");
-        document.getElementById("console").innerHTML = `
-            <h2 style="color: #00ffff; font-size: 15px; margin: 3px 0;">💬 GLOBAL CHAT</h2>
-            <div id="global-chat-box" style="width:100%; max-width:400px; height:130px; background:#05050a; border:1px solid #00ffff55; border-radius:4px; padding:8px; overflow-y:auto; font-size:12px; margin-bottom:6px;"></div>
-            <div style="display:flex; gap:6px; width:100%; max-width:400px;">
-                <input type="text" id="chat-input-text" placeholder="Message..." style="flex:1; background:#111; color:#0f0; border:1px solid #0ff; padding:6px; font-family:'Courier New'; font-size:12px; border-radius:4px;" />
-                <button class="btn btn-sys" style="padding:6px 10px;" onclick="sendGlobalChatMsg()">Send</button>
-            </div>
-        `;
-        refreshChatBoxes();
-        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
-    }
-
-    function sendGlobalChatMsg() {
-        let input = document.getElementById("chat-input-text");
-        if (!input || !input.value.trim()) return;
-        if (socket && socket.connected) socket.emit('sendGlobalMessage', { name: game.playerName || "Trainer", text: input.value.trim() });
-        input.value = "";
-    }
-
-    function showRoomChatScreen() {
-        clearConsole("flex-start", "#002022", "#ffaa00");
-        document.getElementById("console").innerHTML = `
-            <h2 style="color: #ffaa00; font-size: 15px; margin: 3px 0;">💬 ROOM CHAT [${currentRoomId}]</h2>
-            <div id="room-chat-box" style="width:100%; max-width:400px; height:130px; background:#05050a; border:1px solid #ffaa0055; border-radius:4px; padding:8px; overflow-y:auto; font-size:12px; margin-bottom:6px;"></div>
-            <div style="display:flex; gap:6px; width:100%; max-width:400px;">
-                <input type="text" id="room-chat-input" placeholder="Message..." style="flex:1; background:#111; color:#ffaa00; border:1px solid #ffaa00; padding:6px; font-family:'Courier New'; font-size:12px; border-radius:4px;" />
-                <button class="btn btn-mine" style="padding:6px 10px;" onclick="sendRoomChatMsg()">Send</button>
-            </div>
-        `;
-        refreshChatBoxes();
-        renderButtons([{ text: "⬅ Back to Lobby", class: "btn btn-back", action: renderActiveLobbyView }]);
-    }
-
-    function sendRoomChatMsg() {
-        let input = document.getElementById("room-chat-input");
-        if (!input || !input.value.trim()) return;
-        if (socket && socket.connected) socket.emit('sendRoomMessage', { roomId: currentRoomId, name: game.playerName || "Trainer", text: input.value.trim() });
-        input.value = "";
-    }
-
-    function showInventoryMenu() {
-        clearConsole("flex-start", "#1a0f00", "#33ccff");
-        let html = `<h2 style="color: #33ccff; font-size:15px;">🎒 INVENTORY</h2>`;
-        if (!game.inventory) game.inventory = [];
-        game.inventory.forEach((item, idx) => {
-            let useBtn = item === "Energy Core" ? `<button class="btn btn-sys" style="padding:2px 6px; font-size:10px;" onclick="useEnergyCore(${idx})">Use (+50 Stm)</button>` : '';
-            html += `<div class="dex-card" style="font-size:12px; display:flex; justify-content:space-between; align-items:center;"><span>📦 ${item}</span>${useBtn}</div>`;
-        });
-        document.getElementById("console").innerHTML = html;
-        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
-    }
-
-    function useEnergyCore(idx) {
-        if (game.inventory && game.inventory[idx] === "Energy Core") {
-            game.inventory.splice(idx, 1);
-            game.stamina = (game.stamina || 0) + 50; saveGame(); updateUI();
-            log("⚡ Energy Core used! Gained +50 Stamina!", "color-cyan");
-            showInventoryMenu();
-        }
-    }
-
     function showFreePortalsMenu() {
         clearConsole("center", "#4d004d", "#ff00ff");
         document.getElementById("console").innerHTML = `<h2 style="color: #ff00ff; font-size:16px;">🌌 FREE PORTALS</h2>`;
         renderButtons([
-            { text: "🎀 Astolfo Portal", class: "btn btn-maid", action: () => { if(!game.staff) game.staff = []; game.staff.push({ name: "Astolfo", origin: "Fate", power: 30, maxHp: 120, hp: 120, level: 1, locked: false, loyalty: 10, evolved: false }); saveGame(); alert("Recruited Astolfo!"); showRosterMenu(); } },
-            { text: "🖤 Felix Portal", class: "btn btn-maid", action: () => { if(!game.staff) game.staff = []; game.staff.push({ name: "Felix Argyle", origin: "Re:Zero", power: 28, maxHp: 110, hp: 110, level: 1, locked: false, loyalty: 10, evolved: false }); saveGame(); alert("Recruited Felix!"); showRosterMenu(); } },
+            { text: "🎀 Astolfo Portal", class: "btn btn-maid", action: () => triggerPortalCatch({ name: "Astolfo", origin: "Fate", power: 30, maxHp: 120, hp: 120, level: 1, locked: false, loyalty: 10, evolved: false }, "Fate Dimension") },
+            { text: "🖤 Felix Portal", class: "btn btn-maid", action: () => triggerPortalCatch({ name: "Felix Argyle", origin: "Re:Zero", power: 28, maxHp: 110, hp: 110, level: 1, locked: false, loyalty: 10, evolved: false }, "Re:Zero Dimension") },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
+    }
+
+    function triggerPortalCatch(hero, poolName) {
+        clearConsole("center", "#000", "#fff");
+        document.getElementById("console").innerHTML = `
+            <div class="pokeball-container">
+                <div class="pokeball-sprite">
+                    <div class="ball-top"></div>
+                    <div class="ball-center-band"></div>
+                    <div class="ball-center-btn"></div>
+                    <div class="ball-bottom"></div>
+                </div>
+            </div>
+            <p style="color:#fff; margin-top:20px;">Capturing entity from ${poolName}...</p>
+        `;
+        renderButtons([]);
+        setTimeout(() => {
+            if(!game.staff) game.staff = [];
+            game.staff.push(hero);
+            saveGame(); updateUI();
+            alert(`Recruited ${hero.name}!`);
+            showRosterMenu();
+        }, 2000);
     }
 
     function showDLCMenu() {
@@ -1168,7 +1014,7 @@
         clearConsole("center", "#4d004d", "#ff00ff");
         document.getElementById("console").innerHTML = `<h2 style="color: #ff00ff; font-size:16px;">🌟 PREMIUM SECTORS</h2>`;
         renderButtons([
-            { text: "🥞 Goth Raven Portal", class: "btn btn-maid", action: () => { if(!game.staff) game.staff = []; game.staff.push({ name: "Goth Raven", origin: "DC", power: 35, maxHp: 130, hp: 130, level: 1, locked: false, loyalty: 10, evolved: false }); saveGame(); alert("Recruited Goth Raven!"); showRosterMenu(); } },
+            { text: "🥞 Goth Raven Portal", class: "btn btn-maid", action: () => triggerPortalCatch({ name: "Goth Raven", origin: "DC", power: 35, maxHp: 130, hp: 130, level: 1, locked: false, loyalty: 10, evolved: false }, "Goth IHOP") },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
