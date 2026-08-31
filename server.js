@@ -7,13 +7,11 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
-// Serve static files from root and public
 app.use(express.static(__dirname));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Global tracking
-const onlineUsers = new Map(); // socketId -> { name, location, currentSlot }
-const rooms = new Map();       // roomId -> [ players ]
+const onlineUsers = new Map(); // socketId -> { name, location }
+const globalChatHistory = [];  // recent chat logs
 
 function broadcastGlobalStats() {
     const userList = Array.from(onlineUsers.values());
@@ -24,11 +22,12 @@ function broadcastGlobalStats() {
 }
 
 io.on('connection', (socket) => {
-    // Default presence on connect
     onlineUsers.set(socket.id, { name: "Guest Trainer", location: "Nexus HQ" });
     broadcastGlobalStats();
 
-    // When client sends their trainer details
+    // Send existing chat history to new connection
+    socket.emit('chatHistory', globalChatHistory);
+
     socket.on('registerTrainerPresence', (data) => {
         onlineUsers.set(socket.id, {
             name: data.playerName || "Trainer",
@@ -37,31 +36,22 @@ io.on('connection', (socket) => {
         broadcastGlobalStats();
     });
 
-    // Room lobbies (Multiplayer Hub)
+    socket.on('sendGlobalMessage', (msgData) => {
+        const entry = { name: msgData.name || "Trainer", text: msgData.text || "", time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+        globalChatHistory.push(entry);
+        if (globalChatHistory.length > 50) globalChatHistory.shift(); // Keep last 50 messages
+        io.emit('receiveGlobalMessage', entry);
+    });
+
     socket.on('joinRoom', ({ roomId, player }) => {
         socket.join(roomId);
         socket.currentRoom = roomId;
-        if (!rooms.has(roomId)) rooms.set(roomId, []);
-        
-        const roomList = rooms.get(roomId);
-        // Avoid duplicate entries
-        const existingIdx = roomList.findIndex(p => p.id === socket.id);
-        const playerData = { ...player, id: socket.id };
-        if (existingIdx !== -1) roomList[existingIdx] = playerData;
-        else roomList.push(playerData);
-
-        io.to(roomId).emit('roomUpdate', { roomId, players: roomList });
+        // room logic...
     });
 
     socket.on('disconnect', () => {
         onlineUsers.delete(socket.id);
         broadcastGlobalStats();
-
-        if (socket.currentRoom && rooms.has(socket.currentRoom)) {
-            const roomList = rooms.get(socket.currentRoom).filter(p => p.id !== socket.id);
-            rooms.set(socket.currentRoom, roomList);
-            io.to(socket.currentRoom).emit('roomUpdate', { roomId: socket.currentRoom, players: roomList });
-        }
     });
 });
 
