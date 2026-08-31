@@ -9,9 +9,12 @@
             background-color: #030305; color: #00ff66;
             font-family: 'Courier New', Courier, monospace;
             margin: 0; padding: 6px;
-            width: 100vw; height: 100vh; height: 100dvh;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
             overflow: hidden; display: flex; flex-direction: column;
-            user-select: none; touch-action: manipulation;
+            user-select: none;
+            touch-action: manipulation;
             padding-bottom: max(6px, env(safe-area-inset-bottom));
         }
 
@@ -28,25 +31,41 @@
         .stat-money { color: #ffff00; font-weight: bold; text-shadow: 0 0 8px #ffff0088; }
         
         #screen-wrapper {
-            position: relative; flex: 1 1 auto; min-height: 120px;
-            display: flex; width: 100%; margin-bottom: 6px; overflow: hidden;
+            position: relative;
+            flex: 1 1 auto;
+            min-height: 120px;
+            display: flex;
+            width: 100%;
+            margin-bottom: 6px;
+            overflow: hidden;
         }
 
         #console {
             flex: 1 1 100%; min-height: 0; background-color: #020204;
-            border: 2px solid #222233; padding: 10px; overflow-y: auto;
+            border: 2px solid #222233;
+            padding: 10px; overflow-y: auto;
             border-radius: 8px; font-size: 13.5px; line-height: 1.4;
             box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.95), 0 0 20px rgba(0, 255, 100, 0.15);
             display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;
-            position: relative; -webkit-overflow-scrolling: touch; scroll-behavior: smooth;
+            position: relative;
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
         }
 
         #console::-webkit-scrollbar, #controls::-webkit-scrollbar { width: 8px; height: 8px; }
         #console::-webkit-scrollbar-track, #controls::-webkit-scrollbar-track { background: #080811; border-radius: 4px; }
         #console::-webkit-scrollbar-thumb, #controls::-webkit-scrollbar-thumb { background: #00ffff55; border: 1px solid #00ffff; border-radius: 4px; }
 
-        .touch-scroll-panel { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; z-index: 10; pointer-events: auto; }
-        .touch-scroll-btn { background: rgba(10, 10, 20, 0.85); color: #00ffff; border: 1px solid #00ffff; box-shadow: 0 0 8px rgba(0, 255, 255, 0.4); border-radius: 50%; width: 32px; height: 32px; font-size: 14px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; }
+        .touch-scroll-panel {
+            position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+            display: flex; flex-direction: column; gap: 6px; z-index: 10; pointer-events: auto;
+        }
+        .touch-scroll-btn {
+            background: rgba(10, 10, 20, 0.85); color: #00ffff; border: 1px solid #00ffff;
+            box-shadow: 0 0 8px rgba(0, 255, 255, 0.4); border-radius: 50%;
+            width: 32px; height: 32px; font-size: 14px; font-weight: bold;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none;
+        }
         .touch-scroll-btn:active { background: #00ffff; color: #000; }
 
         #console::after {
@@ -167,7 +186,6 @@
         .btn-hooters { border-color: #ff5500; color: #ff9955; background: #331100; }
         .btn-spin { border-color: #ffff00; color: #ffff00; background: #333300; }
         .btn-raid { border-color: #ff0055; color: #ffffff; background: #4a001a; font-weight: bold; }
-        .btn-forge { border-color: #ff8800; color: #ff8800; background: #2b1100; }
         
         .clickable-portrait { cursor: pointer; transition: transform 0.2s ease, border-color 0.2s ease; border: 3px solid transparent; border-radius: 10px; padding: 4px; background: rgba(0,0,0,0.4); }
         .clickable-portrait:hover { transform: scale(1.05); border-color: #00ffff; box-shadow: 0 0 12px rgba(0,255,255,0.4); }
@@ -182,10 +200,7 @@
             <span onclick="showLivePlayersModal()" style="cursor: pointer; color: #00ff88; background: #002211; border: 1px solid #00ff88; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Click to view online players">
                 🟢 Online: <span id="global-online-count">1</span>
             </span>
-            <span onclick="showLeaderboardModal()" style="cursor: pointer; color: #ffff00; background: #222200; border: 1px solid #ffff00; padding: 2px 6px; border-radius: 4px; font-weight: bold;">🏆 Rank</span>
-            ⭐ <span id="active-champ-display" style="color:#00ffff; font-weight:bold;">Astolfo</span> |
-            🏰 Spire: <span id="spire-floor-display" style="color:#ffaa00; font-weight:bold;">F1</span> |
-            💰 $<span class="stat-money" id="funds-display">5000</span> | Day <span id="day-display">1</span> | ⚡ <span id="stamina-display">100</span> | 🌌 <span id="dex-count-display">0/2000</span>
+            💼 <span id="manager-title-display" style="color:#00ffcc; font-weight:bold;">Novice</span> | 💰 $<span class="stat-money" id="funds-display">5000</span> | Day <span id="day-display">1</span> | ⚡ <span id="stamina-display">100</span> | 🌌 <span id="dex-count-display">0/2000</span>
             <input type="range" id="master-volume" min="0" max="1" step="0.05" value="0.35" oninput="updateMasterVolume(this.value)" style="width: 55px; cursor: pointer;" title="Master Volume">
             <button onclick="toggleAudioMute()" style="background:#111; color:#00ffff; border:1px solid #00ffff; border-radius:3px; padding:2px 5px; font-size:10px; cursor:pointer;" id="audio-toggle-btn">🔊</button>
             <button onclick="toggleFullScreen()" style="background:#111; color:#00ffcc; border:1px solid #00ffcc; border-radius:3px; padding:2px 5px; font-size:10px; cursor:pointer;" title="Toggle Fullscreen">⛶</button>
@@ -211,10 +226,6 @@
     let currentRoomId = null;
     let onlineRoomPlayers = [];
     let globalActiveTrainers = [];
-    let globalLeaderboard = [];
-    let globalMarketListings = [];
-    let activePvPSession = null;
-    let serverRaidBoss = { name: "Void Titan Chronos", hp: 5000, maxHp: 5000 };
     
     let masterVolume = 0.35;
     let isAudioMuted = false;
@@ -228,20 +239,10 @@
 
     function syncTrainerPresence() {
         if (socket && socket.connected) {
-            const champ = getActiveChampion();
             socket.emit('registerTrainerPresence', {
                 playerName: game.playerName || "Trainer",
-                location: game.location || "Nexus HQ",
-                funds: game.funds || 0,
-                champion: champ.name,
-                power: champ.power || 25
+                location: game.location || "Nexus HQ"
             });
-            if (currentRoomId) {
-                socket.emit('joinRoom', {
-                    roomId: currentRoomId,
-                    player: { name: game.playerName, location: game.location, champion: champ.name, power: champ.power }
-                });
-            }
         }
     }
 
@@ -250,109 +251,56 @@
             const countEl = document.getElementById("global-online-count");
             if (countEl) countEl.innerText = data.totalOnline;
             globalActiveTrainers = data.activePlayers || [];
-            globalLeaderboard = data.leaderboard || [];
-            if (data.raidBoss) serverRaidBoss = data.raidBoss;
-            if (data.marketListings) globalMarketListings = data.marketListings;
-        });
-
-        socket.on('marketUpdate', (listings) => { globalMarketListings = listings; });
-        socket.on('itemSoldNotification', ({ item, price, buyer }) => {
-            game.funds = (game.funds || 0) + price; saveGame(); updateUI();
-            alert(`💰 [MARKET SALE]: Sold [${item}] to Trainer ${buyer} for $${price}!`);
-        });
-        socket.on('itemPurchasedSuccess', (itemObj) => {
-            if (!game.inventory) game.inventory = [];
-            game.inventory.push(itemObj.item); saveGame(); updateUI();
-            alert(`🎉 [MARKET BOUGHT]: Purchased [${itemObj.item}] from ${itemObj.sellerName}!`);
-            showLiveMarketBoard();
-        });
-
-        socket.on('raidBossUpdate', (boss) => { serverRaidBoss = boss; });
-        socket.on('raidBossHit', (data) => {
-            serverRaidBoss.hp = data.bossHp;
-            let logEl = document.getElementById("raid-boss-combat-log");
-            if (logEl) {
-                document.getElementById("console").className = "mining-animation";
-                setTimeout(() => document.getElementById("console").className = "", 250);
-                logEl.innerHTML += `<div style="color:#00ffff; font-size:11px;">${data.log}</div>`;
-                logEl.scrollTop = logEl.scrollHeight;
-                let hpBar = document.getElementById("boss-hp-fill");
-                if (hpBar) hpBar.style.width = `${Math.max(0, (data.bossHp / data.bossMaxHp) * 100)}%`;
-                let hpText = document.getElementById("boss-hp-text");
-                if (hpText) hpText.innerText = `${data.bossHp} / ${data.bossMaxHp}`;
-            }
-            if (data.isDefeated) {
-                game.funds = (game.funds || 0) + (data.reward || 3000);
-                if (!game.inventory) game.inventory = [];
-                game.inventory.push("Diamond");
-                saveGame(); updateUI();
-                alert(`🏆 WORLD BOSS SLAIN by ${data.slayer}! Claimed $${data.reward || 3000} & 1x Diamond!`);
-            }
         });
 
         socket.on('receiveTradeOffer', ({ senderId, senderName, item }) => {
             playBGM('trade');
-            if (confirm(`🤝 [ITEM TRADE]: ${senderName} offered 1x [${item}]! Trade an item back?`)) {
-                let tradeItem = prompt(`Enter item from bag:\n${game.inventory.join(', ')}`, game.inventory[0]);
+            if (confirm(`🤝 [ITEM OFFER]: ${senderName} offered 1x [${item}]! Send an item back?`)) {
+                let tradeItem = prompt(`Choose item from your bag to send back:\n${game.inventory.join(', ')}`, game.inventory[0]);
                 if (tradeItem && game.inventory.includes(tradeItem)) {
-                    let idx = game.inventory.indexOf(tradeItem); game.inventory.splice(idx, 1); game.inventory.push(item);
+                    let idx = game.inventory.indexOf(tradeItem);
+                    game.inventory.splice(idx, 1);
+                    game.inventory.push(item);
                     saveGame(); updateUI();
                     socket.emit('acceptTradeOffer', { targetId: senderId, targetItem: item, myItem: tradeItem, senderName: game.playerName });
-                    alert(`✅ Trade done! Received [${item}]!`);
+                    alert(`✅ Trade completed! Received [${item}]!`);
                 }
             }
             playBGM('hq');
         });
 
         socket.on('tradeCompleted', ({ receivedItem, partnerName }) => {
-            if (!game.inventory) game.inventory = []; game.inventory.push(receivedItem);
-            saveGame(); updateUI(); alert(`🎉 Received [${receivedItem}] from ${partnerName}!`); showInventoryMenu();
+            if (!game.inventory) game.inventory = [];
+            game.inventory.push(receivedItem);
+            saveGame(); updateUI();
+            alert(`🎉 Trade Successful! Received [${receivedItem}] from ${partnerName}!`);
+            showInventoryMenu();
         });
 
         socket.on('receiveCharacterTradeOffer', ({ senderId, senderName, character }) => {
             playBGM('trade');
-            if (confirm(`🎭 [HERO TRADE]: ${senderName} offered [${character.name}]! Trade back?`)) {
-                if (game.staff.length <= 1) { alert("❌ Cannot trade your only hero!"); playBGM('hq'); return; }
+            if (confirm(`🎭 [HERO OFFER]: ${senderName} offered [${character.name}]! Send a companion back?`)) {
+                if (game.staff.length <= 1) { alert("❌ You cannot trade your only companion!"); playBGM('hq'); return; }
                 let charNames = game.staff.map((c, i) => `${i + 1}. ${c.name}`).join('\n');
-                let sel = parseInt(prompt(`Enter hero number to trade:\n${charNames}`)) - 1;
-                if (!isNaN(sel) && game.staff[sel] && !game.staff[sel].locked) {
-                    let sent = game.staff.splice(sel, 1)[0]; game.staff.push(character); saveGame(); updateUI();
+                let sel = parseInt(prompt(`Select companion number to send:\n${charNames}`)) - 1;
+                if (!isNaN(sel) && game.staff[sel]) {
+                    let sent = game.staff.splice(sel, 1)[0];
+                    game.staff.push(character);
+                    saveGame(); updateUI();
                     socket.emit('acceptCharacterTradeOffer', { targetId: senderId, targetCharacter: character, myCharacter: sent, senderName: game.playerName });
-                    alert(`🎉 Sent [${sent.name}] & recruited [${character.name}]!`); showRosterMenu();
-                } else { alert("❌ Hero is locked or invalid choice!"); }
+                    alert(`🎉 Sent [${sent.name}] & Recruited [${character.name}]!`);
+                    showStaffMenu();
+                } else { alert("❌ Invalid choice!"); }
             }
             playBGM('hq');
         });
 
         socket.on('characterTradeCompleted', ({ receivedCharacter, partnerName }) => {
-            if (!game.staff) game.staff = []; game.staff.push(receivedCharacter);
-            saveGame(); updateUI(); alert(`🎉 Recruited [${receivedCharacter.name}] from ${partnerName}!`); showRosterMenu();
-        });
-
-        socket.on('pvpChallengeReceived', ({ challengerId, challengerName, champion }) => {
-            if (confirm(`⚔️ [LIVE DUEL]: ${challengerName} (${champion}) challenged you! Accept?`)) {
-                const myChamp = getActiveChampion();
-                socket.emit('acceptPvP', { challengerId, accepterName: game.playerName, champion: myChamp.name });
-            }
-        });
-
-        socket.on('startLivePvP', (data) => {
-            playBGM('battle');
-            activePvPSession = { battleId: data.battleId, p1Id: data.p1Id, p2Id: data.p2Id, turn: data.p1Id, p1Hp: data.p1Max, p2Hp: data.p2Max, p1Max: data.p1Max, p2Max: data.p2Max, log: "⚔️ Live match started!" };
-            renderLivePvPScreen();
-        });
-
-        socket.on('pvpRoundUpdate', (data) => {
-            if (!activePvPSession) return;
-            activePvPSession.turn = data.turn; activePvPSession.p1Hp = data.p1Hp; activePvPSession.p2Hp = data.p2Hp; activePvPSession.log = data.lastActionLog;
-            document.getElementById("console").className = "mining-animation";
-            setTimeout(() => document.getElementById("console").className = "", 250);
-
-            if (data.isOver) {
-                if (socket.id === data.winnerId) { game.funds = (game.funds || 0) + 1200; saveGame(); updateUI(); alert("🏆 VICTORY! Won duel and claimed $1200!"); } 
-                else { alert("💀 DEFEAT! Knocked out in live duel!"); }
-                activePvPSession = null; playBGM('hq'); renderActiveLobbyView();
-            } else { renderLivePvPScreen(); }
+            if (!game.staff) game.staff = [];
+            game.staff.push(receivedCharacter);
+            saveGame(); updateUI();
+            alert(`🎉 Recruited [${receivedCharacter.name}] from ${partnerName}!`);
+            showStaffMenu();
         });
     }
 
@@ -363,6 +311,7 @@
             <p style="color: #aaa; font-size: 12px; margin-bottom: 8px;">Total Active Players Online: <strong>${globalActiveTrainers.length}</strong></p>
             <div style="width: 95%; max-width: 360px; max-height: 180px; overflow-y: auto; margin-bottom: 10px;">
         `;
+        
         globalActiveTrainers.forEach(t => {
             html += `
                 <div class="dex-card" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; font-size: 12px;">
@@ -371,65 +320,162 @@
                 </div>
             `;
         });
+        
         html += `</div>`;
         document.getElementById("console").innerHTML = html;
         renderButtons([{ text: "⬅ Return to HQ", class: "btn btn-back", action: showMainMenu }]);
     }
 
-    function showLeaderboardModal() {
-        clearConsole("center", "#1a1500", "#ffff00");
-        let html = `<h2 style="color: #ffff00; font-size: 16px;">🏆 GLOBAL TRAINER LEADERBOARD</h2><div style="width: 95%; max-width: 380px; max-height: 160px; overflow-y: auto; margin-bottom: 8px;">`;
-        if (!globalLeaderboard.length) { html += `<p style="color:#aaa;">No online data yet.</p>`; } 
-        else {
-            globalLeaderboard.forEach((user, idx) => {
-                let badge = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`;
-                html += `<div class="dex-card" style="font-size: 12px; padding: 6px; display:flex; justify-content:space-between; border-color:#ffff0055;"><span><strong>${badge} ${user.name}</strong> (⭐ ${user.champion || 'Partner'})</span><span style="color:#00ff66;">💰 $${Math.floor(user.funds || 0)}</span></div>`;
-            });
-        }
-        html += `</div>`;
-        document.getElementById("console").innerHTML = html;
-        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
-    }
-
     const REGIONS_DATA = {
-        'forest': { name: "Whispering Forest", bg: "radial-gradient(circle at 50% 30%, #002200 0%, #000c00 85%)", color: "#00ff88", animClass: "", icon: "🌲", monsters: [{ name: "Wild Forest Goblin", hp: 90, dmg: 10, reward: 500 }, { name: "Treant Guardian", hp: 140, dmg: 18, reward: 900 }, { name: "Venom Spore", hp: 70, dmg: 14, reward: 400 }] },
-        'desert': { name: "Sunscorched Desert", bg: "radial-gradient(circle at 50% 30%, #3d2600 0%, #140c00 85%)", color: "#ffaa00", animClass: "desert-scene", icon: "🏜️", monsters: [{ name: "Sand Scuttler", hp: 100, dmg: 15, reward: 600 }, { name: "Dune Bandit", hp: 130, dmg: 20, reward: 950 }, { name: "Mummy Entity", hp: 160, dmg: 22, reward: 1200 }] },
-        'volcano': { name: "Obsidian Volcano", bg: "radial-gradient(circle at 50% 30%, #3d0000 0%, #140000 85%)", color: "#ff3300", animClass: "volcano-scene", icon: "🌋", monsters: [{ name: "Magma Elemental", hp: 150, dmg: 24, reward: 1300 }, { name: "Ash Drake", hp: 200, dmg: 30, reward: 1800 }] }
+        'forest': {
+            name: "Whispering Forest",
+            bg: "radial-gradient(circle at 50% 30%, #002200 0%, #000c00 85%)",
+            color: "#00ff88",
+            animClass: "",
+            icon: "🌲",
+            monsters: [
+                { name: "Wild Forest Goblin", hp: 90, dmg: 10, reward: 500 },
+                { name: "Treant Guardian", hp: 140, dmg: 18, reward: 900 },
+                { name: "Venom Spore", hp: 70, dmg: 14, reward: 400 }
+            ]
+        },
+        'desert': {
+            name: "Sunscorched Desert",
+            bg: "radial-gradient(circle at 50% 30%, #3d2600 0%, #140c00 85%)",
+            color: "#ffaa00",
+            animClass: "desert-scene",
+            icon: "🏜️",
+            monsters: [
+                { name: "Sand Scuttler", hp: 100, dmg: 15, reward: 600 },
+                { name: "Dune Bandit", hp: 130, dmg: 20, reward: 950 },
+                { name: "Mummy Entity", hp: 160, dmg: 22, reward: 1200 }
+            ]
+        },
+        'volcano': {
+            name: "Obsidian Volcano",
+            bg: "radial-gradient(circle at 50% 30%, #3d0000 0%, #140000 85%)",
+            color: "#ff3300",
+            animClass: "volcano-scene",
+            icon: "🌋",
+            monsters: [
+                { name: "Magma Elemental", hp: 150, dmg: 24, reward: 1300 },
+                { name: "Ash Drake", hp: 200, dmg: 30, reward: 1800 }
+            ]
+        }
     };
 
     const PORTAL_CHAR_POOLS = {
         'standard': [
-            { name: "Astolfo", origin: "Fate/Apocrypha", type: "Fairy", id: 9001, power: 30, maxHp: 120, cry: new Audio('/music/astolfo voice.mp3') },
-            { name: "Felix Argyle", origin: "Re:Zero", type: "Water", id: 9002, power: 28, maxHp: 110, cry: new Audio('/music/felix voice.mp3') },
-            { name: "Venti", origin: "Genshin Impact", type: "Flying", id: 9003, power: 29, maxHp: 115, cry: new Audio('/music/venti voice.mp3') },
-            { name: "fr3xi0us", origin: "Project Nights Anthology", type: "Ghost", id: 9004, power: 35, maxHp: 130, cry: new Audio('/music/frixious.mp3') }
+            { name: "Astolfo", origin: "Fate/Apocrypha", type: "Fairy", id: 9001, cry: new Audio('/music/astolfo voice.mp3') },
+            { name: "Felix Argyle", origin: "Re:Zero", type: "Water", id: 9002, cry: new Audio('/music/felix voice.mp3') },
+            { name: "Venti", origin: "Genshin Impact", type: "Flying", id: 9003, cry: new Audio('/music/venti voice.mp3') },
+            { name: "fr3xi0us", origin: "Project Nights Anthology", type: "Ghost", id: 9004, cry: new Audio('/music/frixious.mp3') },
+            { name: "Cloud Strife", origin: "Final Fantasy VII", type: "Steel", id: 9005 },
+            { name: "Link", origin: "Hyrule Kingdom", type: "Fairy", id: 9006 },
+            { name: "Goku", origin: "Planet Vegeta", type: "Fighting", id: 9007 },
+            { name: "Sonic the Hedgehog", origin: "Green Hill", type: "Electric", id: 9008 },
+            { name: "Mario", origin: "Mushroom Kingdom", type: "Normal", id: 9009 },
+            { name: "Luigi", origin: "Mushroom Kingdom", type: "Normal", id: 9010 },
+            { name: "Master Chief", origin: "Halo Universe", type: "Steel", id: 9011 },
+            { name: "Spider-Man", origin: "New York City", type: "Electric", id: 9012 }
         ],
         'femboyHooters': [
-            { name: "Astolfo (Hooters Uniform)", origin: "Femboy Hooters", type: "Fairy", id: 9501, power: 32, maxHp: 125, cry: new Audio('/music/astolfo voice.mp3') },
-            { name: "Felix (Orange Shorts)", origin: "Femboy Hooters", type: "Water", id: 9502, power: 30, maxHp: 115, cry: new Audio('/music/felix voice.mp3') },
-            { name: "Venti (Server Mode)", origin: "Femboy Hooters", type: "Flying", id: 9503, power: 31, maxHp: 120, cry: new Audio('/music/venti voice.mp3') }
+            { name: "Astolfo (Hooters Uniform)", origin: "Femboy Hooters", type: "Fairy", id: 9501, cry: new Audio('/music/astolfo voice.mp3') },
+            { name: "Felix (Orange Shorts)", origin: "Femboy Hooters", type: "Water", id: 9502, cry: new Audio('/music/felix voice.mp3') },
+            { name: "Venti (Server Mode)", origin: "Femboy Hooters", type: "Flying", id: 9503, cry: new Audio('/music/venti voice.mp3') },
+            { name: "Hideri (Hooters Host)", origin: "Femboy Hooters", type: "Fairy", id: 9504 },
+            { name: "Totsuka Saika", origin: "My Teen Romantic Comedy", type: "Normal", id: 9505 },
+            { name: "Ruka Urushibara", origin: "Steins;Gate", type: "Psychic", id: 9506 }
         ],
         'bikiniBottom': [
-            { name: "SpongeBob SquarePants", origin: "Bikini Bottom", type: "Water", id: 1001, power: 20, maxHp: 90 },
-            { name: "Patrick Star", origin: "Bikini Bottom", type: "Water", id: 1002, power: 35, maxHp: 150 }
+            { name: "SpongeBob SquarePants", origin: "Bikini Bottom", type: "Water", id: 1001 },
+            { name: "Patrick Star", origin: "Bikini Bottom", type: "Water", id: 1002 },
+            { name: "Squidward Tentacles", origin: "Bikini Bottom", type: "Water", id: 1003 },
+            { name: "Sheldon J. Plankton", origin: "Chum Bucket", type: "Dark", id: 1004 },
+            { name: "Sandy Cheeks", origin: "Texas Dome", type: "Fighting", id: 1005 },
+            { name: "Eugene H. Krabs", origin: "Krusty Krab", type: "Normal", id: 1006 },
+            { name: "Mrs. Puff", origin: "Boating School", type: "Normal", id: 1007 },
+            { name: "Larry the Lobster", origin: "Goo Lagoon", type: "Fighting", id: 1008 }
         ],
-        'halloween': [{ name: "Jack Skellington", origin: "Halloween Town", type: "Ghost", id: 2001, power: 34, maxHp: 110 }],
-        'waffleHouse': [{ name: "3 AM Chef Tyrone", origin: "Waffle Sanctuary", type: "Fighting", id: 3001, power: 45, maxHp: 180 }],
-        'cyberCity': [{ name: "Raiden (Cyborg)", origin: "World Marshal Hub", type: "Electric", id: 4001, power: 48, maxHp: 170 }],
-        'gothIhop': [{ name: "Goth Raven", origin: "Azarath", type: "Dark", id: 5001, power: 35, maxHp: 130 }],
-        'maidCafe': [{ name: "Doug", origin: "The Archive of Bill", type: "Normal", id: 6001, power: 50, maxHp: 200, cry: new Audio('/music/doug shop.mp3') }, { name: "Princess Zelda", origin: "Hyrule Kingdom", type: "Psychic", id: 6002, power: 25, maxHp: 105 }],
-        'christmasPortal': [{ name: "Santa Claus", origin: "North Pole", type: "Fairy", id: 7001, power: 40, maxHp: 200 }],
-        'valentinePortal': [{ name: "Cupid", origin: "Mount Olympus", type: "Psychic", id: 7501, power: 35, maxHp: 140 }],
-        'paddysPortal': [{ name: "Uncle Sam", origin: "Independence Realm", type: "Normal", id: 7801, power: 38, maxHp: 150 }],
-        'summerPortal': [{ name: "Easter Bunny", origin: "Spring Meadow", type: "Normal", id: 8001, power: 30, maxHp: 120 }]
+        'halloween': [
+            { name: "Jack Skellington", origin: "Halloween Town", type: "Ghost", id: 2001 },
+            { name: "Count Dracula", origin: "Transylvania", type: "Dark", id: 2002 },
+            { name: "Michael Myers", origin: "Haddonfield", type: "Dark", id: 2003 },
+            { name: "Freddy Krueger", origin: "Elm Street", type: "Fire", id: 2004 },
+            { name: "The Headless Horseman", origin: "Sleepy Hollow", type: "Ghost", id: 2005 },
+            { name: "Jason Voorhees", origin: "Camp Crystal Lake", type: "Dark", id: 2006 },
+            { name: "Pennywise", origin: "Derry", type: "Psychic", id: 2007 }
+        ],
+        'waffleHouse': [
+            { name: "3 AM Chef Tyrone", origin: "Waffle Sanctuary", type: "Fighting", id: 3001 },
+            { name: "Brawler Dante", origin: "Devil May Cry", type: "Fire", id: 3002 },
+            { name: "Kratos", origin: "Sparta", type: "Fighting", id: 3003 },
+            { name: "Waffle Waitress Brenda", origin: "Griddle Station", type: "Normal", id: 3004 },
+            { name: "Night Shift Bouncer Marcus", origin: "Parking Lot", type: "Fighting", id: 3005 }
+        ],
+        'cyberCity': [
+            { name: "Raiden (Cyborg)", origin: "World Marshal Hub", type: "Electric", id: 4001 },
+            { name: "Genos", origin: "City Z", type: "Electric", id: 4002 },
+            { name: "Cyborg Victor Stone", origin: "Jump City", type: "Steel", id: 4003 },
+            { name: "Motoko Kusanagi", origin: "Section 9", type: "Steel", id: 4004 },
+            { name: "Adam Smasher", origin: "Night City", type: "Steel", id: 4005 }
+        ],
+        'gothIhop': [
+            { name: "Goth Raven", origin: "Azarath", type: "Dark", id: 5001 },
+            { name: "Sephiroth", origin: "Final Fantasy VII", type: "Dark", id: 5002 },
+            { name: "Shadow the Hedgehog", origin: "Space Colony ARK", type: "Dark", id: 5003 },
+            { name: "Mavis Dracula", origin: "Hotel Transylvania", type: "Ghost", id: 5004 },
+            { name: "Vampire Waitress Chloe", origin: "Midnight Diner", type: "Dark", id: 5005 }
+        ],
+        'maidCafe': [
+            { name: "Doug", origin: "The Archive of Bill", type: "Normal", id: 6001, cry: new Audio('/music/doug shop.mp3') },
+            { name: "Princess Zelda", origin: "Hyrule Kingdom", type: "Psychic", id: 6002 },
+            { name: "Tsubaki Maid", origin: "Akihabara", type: "Fairy", id: 6003 },
+            { name: "Hideri Kanzaki", origin: "Café Stile", type: "Fairy", id: 6004 },
+            { name: "Rem", origin: "Roswaal Mansion", type: "Water", id: 6005 }
+        ],
+        'christmasPortal': [
+            { name: "Santa Claus", origin: "North Pole", type: "Fairy", id: 7001 },
+            { name: "Rudolph the Red-Nosed Reindeer", origin: "North Pole Stables", type: "Normal", id: 7002 },
+            { name: "Frosty the Snowman", origin: "Winter Village", type: "Water", id: 7003 },
+            { name: "The Grinch", origin: "Mt. Crumpit", type: "Dark", id: 7004 }
+        ],
+        'valentinePortal': [
+            { name: "Cupid", origin: "Mount Olympus", type: "Psychic", id: 7501 },
+            { name: "Aphrodite", origin: "Pantheon Realm", type: "Fairy", id: 7502 },
+            { name: "Eros", origin: "Temple of Love", type: "Psychic", id: 7503 }
+        ],
+        'paddysPortal': [
+            { name: "Uncle Sam", origin: "Independence Realm", type: "Normal", id: 7801 },
+            { name: "Leprechaun Seamus", origin: "Emerald Isle", type: "Fairy", id: 7802 },
+            { name: "Clover Spirit", origin: "Mystic Hill", type: "Plant", id: 7803 }
+        ],
+        'summerPortal': [
+            { name: "Easter Bunny", origin: "Spring Meadow", type: "Normal", id: 8001 },
+            { name: "Lifeguard Mitch", origin: "Goo Lagoon Beach", type: "Fighting", id: 8002 },
+            { name: "Surfer Bro Kai", origin: "Sunset Shores", type: "Water", id: 8003 }
+        ]
     };
 
     const AUDIO_TRACKS = {
-        intro: new Audio('/music/intro.mp3'), hq: new Audio('/music/mainhq.mp3'), shop: new Audio('/music/shop.mp3'), farm: new Audio('/music/farm.mp3'),
-        staff: new Audio('/music/staff.mp3'), dex: new Audio('/music/dex.mp3'), trade: new Audio('/music/trade.mp3'), dlcHub: new Audio('/music/dlc hub.mp3'),
-        rift: new Audio('/music/rift.mp3'), villain: new Audio('/music/villan.mp3'), battle: new Audio('/music/battle.mp3'), rest: new Audio('/music/sleep.mp3'),
-        horror: new Audio('/music/horror.mp3'), credits: new Audio('/music/credits.mp3'), christmas: new Audio('/music/christmas.mp3'),
-        halloween: new Audio('/music/halloween.mp3'), summer: new Audio('/music/summer.mp3'), love: new Audio('/music/love.mp3'),
+        intro: new Audio('/music/intro.mp3'),
+        hq: new Audio('/music/mainhq.mp3'),
+        shop: new Audio('/music/shop.mp3'),
+        farm: new Audio('/music/farm.mp3'),
+        staff: new Audio('/music/staff.mp3'),
+        dex: new Audio('/music/dex.mp3'),
+        trade: new Audio('/music/trade.mp3'),
+        dlcHub: new Audio('/music/dlc hub.mp3'),
+        rift: new Audio('/music/rift.mp3'),
+        villain: new Audio('/music/villan.mp3'),
+        battle: new Audio('/music/battle.mp3'),
+        rest: new Audio('/music/sleep.mp3'),
+        horror: new Audio('/music/horror.mp3'),
+        credits: new Audio('/music/credits.mp3'),
+        christmas: new Audio('/music/christmas.mp3'),
+        halloween: new Audio('/music/halloween.mp3'),
+        summer: new Audio('/music/summer.mp3'),
+        love: new Audio('/music/love.mp3'),
         saintPaddys: new Audio(encodeURI('/music/saint paddys .mp3'))
     };
 
@@ -441,7 +487,12 @@
         if (currentTrackName === trackKey) return;
         stopAllMusic();
         let track = AUDIO_TRACKS[trackKey] || AUDIO_TRACKS.intro;
-        if (track) { track.loop = true; track.volume = masterVolume; track.play().catch(() => {}); currentTrackName = trackKey; }
+        if (track) { 
+            track.loop = true; 
+            track.volume = masterVolume; 
+            track.play().catch(() => {}); 
+            currentTrackName = trackKey; 
+        }
     }
 
     function playStarterCry(starterName) {
@@ -449,7 +500,11 @@
         stopAllMusic();
         let pool = PORTAL_CHAR_POOLS.standard;
         let charObj = pool.find(c => c.name === starterName);
-        if (charObj && charObj.cry) { charObj.cry.volume = masterVolume; charObj.cry.currentTime = 0; charObj.cry.play().catch(() => {}); }
+        if (charObj && charObj.cry) {
+            charObj.cry.volume = masterVolume;
+            charObj.cry.currentTime = 0;
+            charObj.cry.play().catch(() => {});
+        }
     }
 
     function stopStarterCries() {
@@ -457,20 +512,40 @@
         pool.forEach(c => { try { if (c.cry) { c.cry.pause(); c.cry.currentTime = 0; } } catch (e) {} });
     }
 
-    function stopAllMusic() { Object.values(AUDIO_TRACKS).forEach(t => { try { t.pause(); t.currentTime = 0; } catch (e) {} }); currentTrackName = null; }
-    function updateMasterVolume(val) { masterVolume = parseFloat(val); if (currentTrackName && AUDIO_TRACKS[currentTrackName]) AUDIO_TRACKS[currentTrackName].volume = masterVolume; }
+    function stopAllMusic() {
+        Object.values(AUDIO_TRACKS).forEach(t => { try { t.pause(); t.currentTime = 0; } catch (e) {} });
+        currentTrackName = null;
+    }
+
+    function updateMasterVolume(val) {
+        masterVolume = parseFloat(val);
+        if (currentTrackName && AUDIO_TRACKS[currentTrackName]) {
+            AUDIO_TRACKS[currentTrackName].volume = masterVolume;
+        }
+    }
+
     function toggleAudioMute() {
         isAudioMuted = !isAudioMuted;
         let btn = document.getElementById("audio-toggle-btn");
-        if (isAudioMuted) { stopAllMusic(); if (btn) btn.innerText = "🔇"; } 
-        else { if (btn) btn.innerText = "🔊"; playBGM(lastActiveTrack); }
-    }
-    function toggleFullScreen() {
-        if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(() => {}); }
-        else { if (document.exitFullscreen) document.exitFullscreen(); }
+        if (isAudioMuted) { 
+            stopAllMusic(); 
+            if (btn) btn.innerText = "🔇"; 
+        } else { 
+            if (btn) btn.innerText = "🔊"; 
+            playBGM(lastActiveTrack); 
+        }
     }
 
-    // --- GAMEPAD & CONTROLLER NAVIGATION ENGINE ---
+    function toggleFullScreen() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+        }
+    }
+
     function updateGamepadFocus() {
         const btns = Array.from(document.querySelectorAll("#controls .btn"));
         if (!btns.length) return;
@@ -497,18 +572,38 @@
 
                 const btns = Array.from(document.querySelectorAll("#controls .btn"));
                 if (btns.length && (now - gpLastNav > 180)) {
-                    if (dpadRight || stickX > 0.5) { gamepadBtnIndex = (gamepadBtnIndex + 1) % btns.length; gpLastNav = now; updateGamepadFocus(); }
-                    else if (dpadLeft || stickX < -0.5) { gamepadBtnIndex = (gamepadBtnIndex - 1 + btns.length) % btns.length; gpLastNav = now; updateGamepadFocus(); }
-                    else if (dpadDown || stickY > 0.5) { gamepadBtnIndex = Math.min(gamepadBtnIndex + 2, btns.length - 1); gpLastNav = now; updateGamepadFocus(); }
-                    else if (dpadUp || stickY < -0.5) { gamepadBtnIndex = Math.max(gamepadBtnIndex - 2, 0); gpLastNav = now; updateGamepadFocus(); }
+                    if (dpadRight || stickX > 0.5) {
+                        gamepadBtnIndex = (gamepadBtnIndex + 1) % btns.length;
+                        gpLastNav = now;
+                        updateGamepadFocus();
+                    } else if (dpadLeft || stickX < -0.5) {
+                        gamepadBtnIndex = (gamepadBtnIndex - 1 + btns.length) % btns.length;
+                        gpLastNav = now;
+                        updateGamepadFocus();
+                    } else if (dpadDown || stickY > 0.5) {
+                        gamepadBtnIndex = Math.min(gamepadBtnIndex + 2, btns.length - 1);
+                        gpLastNav = now;
+                        updateGamepadFocus();
+                    } else if (dpadUp || stickY < -0.5) {
+                        gamepadBtnIndex = Math.max(gamepadBtnIndex - 2, 0);
+                        gpLastNav = now;
+                        updateGamepadFocus();
+                    }
                 }
 
                 if (gp.buttons[0] && gp.buttons[0].pressed) {
-                    if (!window._gpA_pressed) { window._gpA_pressed = true; if (btns[gamepadBtnIndex]) btns[gamepadBtnIndex].click(); }
+                    if (!window._gpA_pressed) {
+                        window._gpA_pressed = true;
+                        if (btns[gamepadBtnIndex]) btns[gamepadBtnIndex].click();
+                    }
                 } else { window._gpA_pressed = false; }
 
                 if (gp.buttons[1] && gp.buttons[1].pressed) {
-                    if (!window._gpB_pressed) { window._gpB_pressed = true; let backBtn = document.querySelector(".btn-back"); if (backBtn) backBtn.click(); }
+                    if (!window._gpB_pressed) {
+                        window._gpB_pressed = true;
+                        let backBtn = document.querySelector(".btn-back");
+                        if (backBtn) backBtn.click();
+                    }
                 } else { window._gpB_pressed = false; }
             }
         }
@@ -525,22 +620,30 @@
 
     function getAllDexEntries() {
         let poolEntries = [];
-        Object.values(PORTAL_CHAR_POOLS).forEach(pool => { pool.forEach(c => poolEntries.push({ id: c.id, name: c.name, origin: c.origin })); });
+        Object.values(PORTAL_CHAR_POOLS).forEach(pool => {
+            pool.forEach(c => poolEntries.push({ id: c.id, name: c.name, origin: c.origin }));
+        });
         let existingIds = new Set(REAL_CHARACTERS_DB.map(c => c.id));
         return REAL_CHARACTERS_DB.concat(poolEntries.filter(c => !existingIds.has(c.id)));
     }
 
     function defaultGameState() {
         return {
-            h_name: "UniDex Legends", location: "Nexus HQ", funds: 5000, day: 1, stamina: 100, playerName: "Trainer", gender: "Boy",
-            activeChampionIndex: 0, spireFloor: 1, managerPower: 30,
+            h_name: "UniDex Legends", location: "Nexus HQ", funds: 5000,
+            day: 1, stamina: 100, playerName: "Trainer", gender: "Boy",
+            managerPower: 30,
             equippedGear: { weapon: "None", armor: "None", helmet: "None", accessory: "None" },
             inventory: ["Pokéball", "Pokéball", "Pokéball", "Copper Ore", "Diamond"], 
-            staff: [{ name: "Astolfo", rawName: "Astolfo", dexId: 9001, origin: "Fate/Apocrypha", hearts: 20, power: 30, maxHp: 120, hp: 120, level: 1, locked: true, loyalty: 10, evolved: false }],
-            pokedex: {}, specialDex: {}, dlcUnlocked: false, achievements: {},
+            staff: [], pokedex: {}, specialDex: {}, dlcUnlocked: false,
+            achievements: {},
             currentDailyEvent: { name: "Calm Multiverse", desc: "A peaceful day across timelines." },
             homeDecor: { tier: 1, name: "Standard Suite", items: [] },
-            farm: { plots: [{ crop: null, stage: 0, ready: false }, { crop: null, stage: 0, ready: false }, { crop: null, stage: 0, ready: false }] }
+            farm: {
+                seeds: { strawberries: 2, starfruits: 1, voidberries: 0 },
+                harvested: { strawberries: 0, starfruits: 0, voidberries: 0 },
+                plots: [{ crop: null, daysLeft: 0, watered: false }, { crop: null, daysLeft: 0, watered: false }, { crop: null, daysLeft: 0, watered: false }]
+            },
+            spouse: null
         };
     }
 
@@ -549,35 +652,13 @@
     let activeCombatSession = null;
     let activeRaidSession = null;
 
-    function getActiveChampion() {
-        if (!game.staff || game.staff.length === 0) sanitizeGameState(game);
-        let idx = (game.activeChampionIndex !== undefined && game.activeChampionIndex < game.staff.length) ? game.activeChampionIndex : 0;
-        return game.staff[idx] || game.staff[0];
-    }
-
-    function sanitizeGameState(loadedState) {
-        let clean = Object.assign(defaultGameState(), loadedState || {});
-        if (!Array.isArray(clean.staff) || clean.staff.length === 0) {
-            clean.staff = [{ name: "Astolfo", rawName: "Astolfo", dexId: 9001, origin: "Fate/Apocrypha", hearts: 20, power: 30, maxHp: 120, hp: 120, level: 1, locked: true, loyalty: 10, evolved: false }];
-        } else {
-            clean.staff = clean.staff.map(member => {
-                if (typeof member === "string") return { name: member, origin: "Multiverse", power: 30, maxHp: 120, hp: 120, level: 1, locked: false, loyalty: 10, evolved: false };
-                return {
-                    name: member.name || "Companion", origin: member.origin || "Multiverse", power: member.power || 25,
-                    maxHp: member.maxHp || 100, hp: member.hp !== undefined ? member.hp : (member.maxHp || 100),
-                    level: member.level || 1, locked: !!member.locked, loyalty: member.loyalty || 10, evolved: !!member.evolved, dexId: member.dexId || 0
-                };
-            });
-        }
-        if (!Array.isArray(clean.inventory)) clean.inventory = ["Pokéball", "Copper Ore", "Diamond"];
-        clean.activeChampionIndex = (clean.activeChampionIndex !== undefined && clean.activeChampionIndex < clean.staff.length) ? clean.activeChampionIndex : 0;
-        return clean;
-    }
-
     function showSaveToast() {
         let toast = document.getElementById("save-toast");
         if (!toast) return;
-        toast.style.display = "block"; toast.style.animation = "none"; toast.offsetHeight; toast.style.animation = "saveToastFade 2s ease-in-out forwards";
+        toast.style.display = "block";
+        toast.style.animation = "none";
+        toast.offsetHeight;
+        toast.style.animation = "saveToastFade 2s ease-in-out forwards";
         setTimeout(() => { toast.style.display = "none"; }, 2000);
     }
 
@@ -590,23 +671,30 @@
             { id: 'wealthy', name: 'Tycoon Manager', desc: 'Accumulate over $10,000 in funds.', check: game.funds >= 10000 },
             { id: 'staff_squad', name: 'Elite Squad', desc: 'Recruit 5 or more staff members.', check: (game.staff || []).length >= 5 }
         ];
+
         triggers.forEach(t => {
-            if (t.check && !game.achievements[t.id]) { game.achievements[t.id] = true; log(`🏆 ACHIEVEMENT UNLOCKED: ${t.name} - ${t.desc}`, "color-cyan"); }
+            if (t.check && !game.achievements[t.id]) {
+                game.achievements[t.id] = true;
+                log(`🏆 ACHIEVEMENT UNLOCKED: ${t.name} - ${t.desc}`, "color-cyan");
+            }
         });
     }
 
     function getManagerTitle() {
         let count = Object.keys(game.pokedex || {}).length;
-        if (count >= 25) return "Master";
-        if (count >= 10) return "Expert";
-        if (count >= 5) return "Seasoned";
-        return "Novice";
+        if (count >= 25) return "Master Trainer";
+        if (count >= 10) return "Expert Trainer";
+        if (count >= 5) return "Seasoned Trainer";
+        return "Novice Trainer";
     }
 
     function clearConsole(align="flex-start", bgGradient="radial-gradient(circle at 50% 30%, #15002b 0%, #05000a 80%)", borderColor="#00ffff") {
         const consoleDiv = document.getElementById("console");
-        consoleDiv.className = ""; consoleDiv.innerHTML = ""; consoleDiv.style.justifyContent = align;
-        consoleDiv.style.background = bgGradient; consoleDiv.style.borderColor = borderColor; consoleDiv.scrollTop = 0;
+        consoleDiv.innerHTML = "";
+        consoleDiv.style.justifyContent = align;
+        consoleDiv.style.background = bgGradient;
+        consoleDiv.style.borderColor = borderColor;
+        consoleDiv.scrollTop = 0;
     }
 
     function log(msg, colorClass="") {
@@ -629,17 +717,24 @@
     }
 
     function updateUI() {
+        if (!game.inventory) game.inventory = [];
+        if (!game.staff) game.staff = [];
+        if (!game.pokedex) game.pokedex = {};
+        if (!game.specialDex) game.specialDex = {};
+        if (!game.homeDecor) game.homeDecor = defaultGameState().homeDecor;
+        if (!game.farm) game.farm = defaultGameState().farm;
+        if (!game.equippedGear) game.equippedGear = { weapon: "None", armor: "None", helmet: "None", accessory: "None" };
+        if (!game.achievements) game.achievements = {};
+        if (!game.currentDailyEvent) game.currentDailyEvent = { name: "Calm Multiverse", desc: "A peaceful day." };
+        
         document.getElementById("funds-display").innerText = Math.floor(game.funds || 0);
         document.getElementById("stamina-display").innerText = game.stamina || 0;
         document.getElementById("day-display").innerText = game.day || 1;
         document.getElementById("player-name-display").innerText = game.playerName || "Trainer";
         document.getElementById("manager-title-display").innerText = getManagerTitle();
         document.getElementById("loc-display").innerText = game.location || "Nexus HQ";
-        document.getElementById("spire-floor-display").innerText = `F${game.spireFloor || 1}`;
-        const champ = getActiveChampion();
-        document.getElementById("active-champ-display").innerText = champ.name;
         
-        let unlockedCount = Object.keys(game.pokedex || {}).length;
+        let unlockedCount = Object.keys(game.pokedex).length;
         let totalCount = getAllDexEntries().length;
         document.getElementById("dex-count-display").innerText = `${unlockedCount}/${totalCount}`;
         syncTrainerPresence();
@@ -667,7 +762,7 @@
         updateGamepadFocus();
     }
 
-    // --- SAVE SLOT & STORYLINE INTRO ---
+    // --- SAVE SLOT & INTRO ---
     function showIntroScreen() {
         playBGM('intro');
         clearConsole("center", "radial-gradient(circle at 50% 30%, #050014 0%, #000 85%)", "#00ffff");
@@ -719,7 +814,8 @@
         currentSaveSlot = slotNum;
         if (hasData) {
             try {
-                game = sanitizeGameState(JSON.parse(localStorage.getItem(getSaveKey(slotNum))));
+                game = Object.assign(defaultGameState(), JSON.parse(localStorage.getItem(getSaveKey(slotNum))));
+                if (game.staff.length === 0) { finalizeStarter(9001, 20); return; }
             } catch (err) { game = defaultGameState(); }
             showMainMenu();
         } else {
@@ -829,9 +925,9 @@
         clearConsole("center", "radial-gradient(circle at 50% 30%, #001a1a 0%, #000 85%)", "#00ffff");
         document.getElementById("console").innerHTML = `<p style="color: #00ffff; font-size: 13px; line-height: 1.45; max-width: 400px;">👴 <strong>[Professor Bill]:</strong> "Choose your starter companion to aid your journey across Midnoria, trainer!"</p>`;
         renderButtons([
-            { text: "🎀 Astolfo", class: "btn btn-maid", action: () => confirmStarterChoice(9001, 30, "Astolfo") },
-            { text: "🖤 Felix Argyle", class: "btn btn-maid", action: () => confirmStarterChoice(9002, 28, "Felix Argyle") },
-            { text: "💀 Venti", class: "btn btn-maid", action: () => confirmStarterChoice(9003, 29, "Venti") }
+            { text: "🎀 Astolfo", class: "btn btn-maid", action: () => confirmStarterChoice(9001, 20, "Astolfo") },
+            { text: "🖤 Felix Argyle", class: "btn btn-maid", action: () => confirmStarterChoice(9002, 22, "Felix Argyle") },
+            { text: "💀 Venti", class: "btn btn-maid", action: () => confirmStarterChoice(9003, 24, "Venti") }
         ]);
     }
 
@@ -853,7 +949,7 @@
     function finalizeStarter(dexId, pwr) {
         stopStarterCries();
         let meta = PORTAL_CHAR_POOLS.standard.find(c => c.id === dexId) || { name: "Starter", origin: "Maid Cafe", type: "Normal" };
-        game.staff = [{ name: meta.name, rawName: meta.name, dexId: dexId, origin: meta.origin, hearts: 20, power: pwr, maxHp: 120, hp: 120, level: 1, locked: true, loyalty: 10, evolved: false, active: true, type: meta.type }];
+        game.staff = [{ name: meta.name, rawName: meta.name, dexId: dexId, origin: meta.origin, hearts: 20, power: pwr, active: true, type: meta.type }];
         recordDex(dexId, false);
         saveGame();
         showMainMenu();
@@ -872,17 +968,14 @@
         playBGM('hq');
         clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #1a1500 0%, #080702 85%)", "#ffaa00");
         document.getElementById("stats-bar").style.display = "flex";
-        game.location = "Nexus HQ";
         updateUI();
         log(`--- NEXUS HQ (Midnoria Region - Slot ${currentSaveSlot}) | WELCOME, TRAINER ${game.playerName.toUpperCase()} ---`, "color-cyan");
         log(`📅 Daily Event: ${game.currentDailyEvent.name} - ${game.currentDailyEvent.desc}`, "color-yellow");
         renderButtons([
-            { text: "🗺️ World Map", class: "btn btn-map", action: showWorldMap },
-            { text: "🏰 Spire of Trials", class: "btn btn-combat", action: showSpireDungeonMenu },
-            { text: "🔨 Blacksmith Forge", class: "btn btn-forge", action: showBlacksmithForgeMenu },
+            { text: "🗺️ World Map & Regions", class: "btn btn-map", action: showWorldMap },
             { text: "⛏️ Stardew Mines", class: "btn btn-mine", action: showMiningHub },
             { text: "🛍️ Market District", class: "btn btn-farm", action: showExploreMenu },
-            { text: "🎰 Casino Hub", class: "btn btn-spin", action: showCasinoHubMenu },
+            { text: "🎰 Lucky Wheel", class: "btn btn-spin", action: showLuckyWheelScreen },
             { text: "🎒 Inventory & Gear", class: "btn btn-gear", action: showInventoryMenu },
             { text: "🏠 Home & Decor", class: "btn btn-sys", action: showHomeDecorMenu },
             { text: "🌱 Greenhouse Farm", class: "btn btn-farm", action: showFarmMenu },
@@ -897,143 +990,6 @@
         ]);
     }
 
-    // --- SPIRE OF TRIALS ---
-    function showSpireDungeonMenu() {
-        playBGM('battle');
-        clearConsole("center", "radial-gradient(circle at 50% 30%, #150030 0%, #050010 85%)", "#ff00ff");
-        let currentF = game.spireFloor || 1;
-        let enemyHp = 80 + currentF * 25;
-        let enemyDmg = 10 + currentF * 4;
-        let floorReward = 300 + currentF * 150;
-
-        document.getElementById("console").innerHTML = `
-            <h2 style="color:#ff00ff; font-size:16px;">🏰 SPIRE OF TRIALS (FLOOR ${currentF})</h2>
-            <div style="font-size:32px; margin: 4px 0;">⚡ 🗿 ⚡</div>
-            <p style="color:#00ffff; font-size:11.5px;">Guardian: <strong>Spire Golem MK-${currentF}</strong></p>
-            <p style="color:#aaa; font-size:11px;">Guardian HP: ${enemyHp} | Reward: $${floorReward}</p>
-        `;
-        renderButtons([
-            { text: `⚔️ Challenge Floor ${currentF}`, class: "btn btn-combat", action: () => executeSpireFight(currentF, enemyHp, enemyDmg, floorReward) },
-            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
-        ]);
-    }
-
-    function executeSpireFight(floor, mobHp, mobDmg, reward) {
-        const champ = getActiveChampion();
-        let champHp = champ.maxHp || 120;
-        document.getElementById("console").className = "mining-animation";
-        setTimeout(() => document.getElementById("console").className = "", 300);
-
-        while (mobHp > 0 && champHp > 0) {
-            let dmg = Math.floor((champ.power || 25) + Math.random() * 10);
-            mobHp -= dmg;
-            if (mobHp <= 0) break;
-            champHp -= Math.max(1, mobDmg - (game.equippedGear && game.equippedGear.armor && game.equippedGear.armor.includes("Aegis") ? 8 : 0));
-        }
-
-        if (champHp > 0) {
-            game.spireFloor = floor + 1;
-            game.funds = (game.funds || 0) + reward;
-            if (!game.inventory) game.inventory = [];
-            if (floor % 3 === 0) game.inventory.push("Diamond");
-            saveGame(); updateUI();
-            alert(`🎉 CLEARED FLOOR ${floor}! Claimed $${reward} and advanced to Floor ${game.spireFloor}!`);
-            showSpireDungeonMenu();
-        } else {
-            alert(`💀 Champion was defeated on Floor ${floor}! Train your team or upgrade gear at the Forge!`);
-            showMainMenu();
-        }
-    }
-
-    // --- BLACKSMITH FORGE ---
-    function showBlacksmithForgeMenu() {
-        playBGM('shop');
-        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #2b1100 0%, #0a0400 85%)", "#ff8800");
-        if (!game.equippedGear) game.equippedGear = { weapon: "None (+0 ATK)", armor: "None (+0 DEF)" };
-        document.getElementById("console").innerHTML = `
-            <h2 style="color:#ff8800; font-size:16px;">🔨 MULTIVERSE FORGE</h2>
-            <p style="color:#aaa; font-size:11px;">Equipped Weapon: <strong style="color:#00ffff;">${game.equippedGear.weapon}</strong> | Armor: <strong style="color:#00ff66;">${game.equippedGear.armor}</strong></p>
-            <p style="color:#ffff00; font-size:11.5px;">Combine minerals to craft permanent power gear:</p>
-        `;
-        renderButtons([
-            { text: "🗡️ Craft Dragon Edge (+25 ATK)", class: "btn btn-forge", action: () => craftGear("Dragon Edge (+25 ATK)", "weapon", "Copper Ore", "Diamond", 500, 25) },
-            { text: "🛡️ Craft Aegis Shield (+40 HP & DEF)", class: "btn btn-forge", action: () => craftGear("Aegis Shield (+40 HP)", "armor", "Copper Ore", "Pokéball", 400, 0, 40) },
-            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
-        ]);
-    }
-
-    function craftGear(gearName, slot, reqItem1, reqItem2, goldCost, atkBoost=0, hpBoost=0) {
-        if (!game.inventory) game.inventory = [];
-        if ((game.funds || 0) < goldCost || !game.inventory.includes(reqItem1) || !game.inventory.includes(reqItem2)) {
-            alert(`❌ Missing materials! Need: 1x ${reqItem1}, 1x ${reqItem2}, and $${goldCost}!`);
-            return;
-        }
-        game.funds -= goldCost;
-        game.inventory.splice(game.inventory.indexOf(reqItem1), 1);
-        game.inventory.splice(game.inventory.indexOf(reqItem2), 1);
-        if (!game.equippedGear) game.equippedGear = {};
-        game.equippedGear[slot] = gearName;
-
-        if (game.staff) {
-            game.staff.forEach(c => {
-                c.power = (c.power || 25) + atkBoost;
-                c.maxHp = (c.maxHp || 100) + hpBoost;
-                c.hp = c.maxHp;
-            });
-        }
-        saveGame(); updateUI();
-        document.getElementById("console").className = "mining-animation";
-        setTimeout(() => document.getElementById("console").className = "", 300);
-        alert(`🔨 Successfully forged and equipped [${gearName}]!`);
-        showBlacksmithForgeMenu();
-    }
-
-    // --- CASINO HUB ---
-    function showCasinoHubMenu() {
-        playBGM('intro');
-        clearConsole("center", "radial-gradient(circle at 50% 30%, #333300 0%, #080800 85%)", "#ffff00");
-        document.getElementById("console").innerHTML = `
-            <h2 style="color:#ffff00; font-size:16px;">🎰 NEXUS CASINO & RESORT</h2>
-            <div style="font-size:32px; margin:4px 0;">🎲 🃏 🎡</div>
-            <p style="color:#aaa; font-size:11.5px;">Place your bets to multiply your wealth:</p>
-        `;
-        renderButtons([
-            { text: "🎡 Lucky Wheel ($100)", class: "btn btn-spin", action: showLuckyWheelScreen },
-            { text: "🃏 Blackjack 21 ($250 Bet)", class: "btn btn-sys", action: playBlackjackMinigame },
-            { text: "🪙 Coin Flip Double ($200)", class: "btn btn-farm", action: playCoinFlipMinigame },
-            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
-        ]);
-    }
-
-    function playBlackjackMinigame() {
-        if ((game.funds || 0) < 250) { alert("❌ Need $250 to play!"); return; }
-        game.funds -= 250;
-        let pTotal = Math.floor(4 + Math.random() * 16);
-        let dTotal = Math.floor(14 + Math.random() * 8);
-
-        if (pTotal > dTotal || dTotal > 21) {
-            game.funds += 600; saveGame(); updateUI();
-            alert(`🃏 WINNER! You: ${pTotal} | Dealer: ${dTotal}! Won $600!`);
-        } else {
-            saveGame(); updateUI();
-            alert(`💀 Dealer wins! You: ${pTotal} | Dealer: ${dTotal}!`);
-        }
-        showCasinoHubMenu();
-    }
-
-    function playCoinFlipMinigame() {
-        if ((game.funds || 0) < 200) { alert("❌ Need $200 for Coin Flip!"); return; }
-        game.funds -= 200;
-        if (Math.random() > 0.48) {
-            game.funds += 400; saveGame(); updateUI();
-            alert("🪙 HEADS! Won $400!");
-        } else {
-            saveGame(); updateUI();
-            alert("🪙 TAILS! Lost $200.");
-        }
-        showCasinoHubMenu();
-    }
-
     function showLuckyWheelScreen() {
         playBGM('shop');
         clearConsole("center", "radial-gradient(circle at 50% 30%, #333300 0%, #080800 85%)", "#ffff00");
@@ -1045,7 +1001,7 @@
         `;
         renderButtons([
             { text: "🔄 Spin the Wheel ($100)", class: "btn btn-spin", action: triggerWheelSpin },
-            { text: "⬅ Back to Casino", class: "btn btn-back", action: showCasinoHubMenu }
+            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
 
@@ -1076,62 +1032,11 @@
             if (resText) resText.innerHTML = `<strong style="color: #00ff66;">🎉 ${roll.text}</strong>`;
             renderButtons([
                 { text: "🔄 Spin Again ($100)", class: "btn btn-spin", action: triggerWheelSpin },
-                { text: "⬅ Back to Casino", class: "btn btn-back", action: showCasinoHubMenu }
+                { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
             ]);
         }, 2200);
     }
 
-    // --- GLOBAL TRADE BOARD ---
-    function showLiveMarketBoard() {
-        clearConsole("flex-start", "#002b1b", "#00ff88");
-        let html = `
-            <h2 style="color:#00ff88; font-size:16px; margin: 2px 0;">🏪 GLOBAL TRADE BOARD</h2>
-            <div style="width:100%; max-width:380px; max-height:160px; overflow-y:auto; margin-bottom: 6px;">
-        `;
-        if (!globalMarketListings || !globalMarketListings.length) {
-            html += `<p style="color:#777;">No active listings on server.</p>`;
-        } else {
-            globalMarketListings.forEach(l => {
-                let isMine = l.sellerId === (socket ? socket.id : '');
-                html += `
-                    <div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
-                        <div><strong>📦 ${l.item}</strong><br><span style="font-size:10px; color:#aaa;">Seller: ${l.sellerName} ${isMine ? '(You)' : ''}</span></div>
-                        <div><span style="color:#ffff00; font-size:11px; margin-right:4px;">$${l.price}</span>${!isMine ? `<button class="btn btn-farm" style="padding:2px 6px; font-size:10px;" onclick="buyMarketItem('${l.id}', ${l.price})">Buy</button>` : ''}</div>
-                    </div>
-                `;
-            });
-        }
-        html += `</div>`;
-        document.getElementById("console").innerHTML = html;
-        renderButtons([
-            { text: "📤 Post Item For Sale", class: "btn btn-sys", action: createMarketItemListing },
-            { text: "⬅ Back to Market", class: "btn btn-back", action: showExploreMenu }
-        ]);
-    }
-
-    function createMarketItemListing() {
-        if (!game.inventory || !game.inventory.length) { alert("Backpack empty!"); return; }
-        let itemToSell = prompt(`Enter item from bag:\n${game.inventory.join(', ')}`, game.inventory[0]);
-        if (itemToSell && game.inventory.includes(itemToSell)) {
-            let price = parseInt(prompt("Enter sale price ($):", "400"));
-            if (!isNaN(price) && price > 0) {
-                let idx = game.inventory.indexOf(itemToSell);
-                game.inventory.splice(idx, 1);
-                saveGame(); updateUI();
-                if (socket) socket.emit('createMarketListing', { item: itemToSell, price: price, sellerName: game.playerName });
-                showLiveMarketBoard();
-            }
-        }
-    }
-
-    function buyMarketItem(listingId, price) {
-        if ((game.funds || 0) < price) { alert("❌ Not enough funds!"); return; }
-        game.funds -= price;
-        saveGame(); updateUI();
-        if (socket) socket.emit('buyMarketListing', { listingId, buyerName: game.playerName });
-    }
-
-    // --- EXPLORE & SHOPS ---
     function showExploreMenu() {
         playBGM('shop');
         clearConsole("flex-start", "radial-gradient(ellipse at 50% 20%, #3d1c00 0%, #140a00 70%)", "#ff8c00");
@@ -1141,7 +1046,6 @@
             <p style="color: #aaa; font-size:12px;">Visit the bustling merchant stalls of Midnoria!</p>
         `;
         renderButtons([
-            { text: "📜 Global Trade Board", class: "btn btn-farm", action: showLiveMarketBoard },
             { text: "💰 Doug's Ore Exchange", class: "btn btn-mine", action: showMiningShop },
             { text: "🛍️ Don's General Store", class: "btn btn-farm", action: showGeneralStore },
             { text: "🕶️ Fr3xi0us's Black Market", class: "btn btn-dlc", action: showBlackMarket },
@@ -1199,7 +1103,8 @@
     const DON_QUOTES = [
         `"Welcome to Don's... where I am forced to stand here all day listening to you breathe. Buy something and get out before I lose my remaining sanity."`,
         `*Plays a miserable note on his clarinet* "Another customer. Oh joy. Just what my bleak existence was missing."`,
-        `"I hate my job, I hate this multiverse, and I especially hate YOU. Make your purchase quickly."`
+        `"I hate my job, I hate this multiverse, and I especially hate YOU. Make your purchase quickly."`,
+        `*Stares blankly with half-lidded eyes* "If you touch any merchandise you aren't buying, I will personally throw you into a dimensional rift."`
     ];
 
     function showGeneralStore() {
@@ -1317,89 +1222,38 @@
     function showFarmMenu() {
         playBGM('farm');
         clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #053b16 0%, #021408 80%)", "#00ff66");
-        if (!game.farm || !game.farm.plots) game.farm = { plots: [{ crop: null, stage: 0, ready: false }, { crop: null, stage: 0, ready: false }, { crop: null, stage: 0, ready: false }] };
-        let html = `<h2 style="color:#00ff88; font-size:18px;">🌱 HYDROPONIC GREENHOUSE</h2><div style="width:100%; max-width:380px;">`;
-        game.farm.plots.forEach((p, idx) => {
-            html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;"><div><strong>Plot #${idx + 1}:</strong> ${p.crop ? `<span style="color:#ffff00;">${p.crop}</span> (${p.ready ? 'READY' : 'Growing...'})` : 'Empty Plot'}</div>${p.crop && p.ready ? `<button class="btn btn-farm" style="padding:2px 8px; font-size:10px;" onclick="harvestPlot(${idx})">🌾 Harvest</button>` : ''}${!p.crop ? `<button class="btn btn-mine" style="padding:2px 8px; font-size:10px;" onclick="plantPlot(${idx})">🌱 Plant ($150)</button>` : ''}</div>`;
-        });
-        html += `</div>`; document.getElementById("console").innerHTML = html;
-        renderButtons([{ text: "💤 Sleep & Advance Crops", class: "btn btn-sys", action: triggerRestCycleAnimation }, { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
+        updateUI();
+        document.getElementById("console").innerHTML = `<h2 style="color:#00ff88; font-size:18px;">🌱 HYDROPONIC GREENHOUSE</h2><p style="font-size:12px;">Greenhouse operational.</p>`;
+        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
     }
 
-    function plantPlot(idx) {
-        if ((game.funds || 0) >= 150) { game.funds -= 150; game.farm.plots[idx] = { crop: "Stamina Berries", stage: 1, ready: false }; saveGame(); updateUI(); showFarmMenu(); } 
-        else { alert("❌ Need $150 for seeds!"); }
-    }
-
-    function harvestPlot(idx) {
-        game.farm.plots[idx] = { crop: null, stage: 0, ready: false }; if (!game.inventory) game.inventory = []; game.inventory.push("Energy Core"); game.funds = (game.funds || 0) + 400; saveGame(); updateUI(); alert("🌾 Harvested crop for 1x Energy Core & $400 gold!"); showFarmMenu();
-    }
-
-    // --- STAFF ROSTER & INTERACTIONS ---
     function showStaffMenu() {
         playBGM('staff');
         clearConsole("flex-start", "radial-gradient(circle at 50% 25%, #2b005c 0%, #0c001a 80%)", "#a020f0");
         let staff = game.staff || [];
-        let totalPower = staff.reduce((acc, c) => acc + (c.power || 25), 0);
-        let html = `<h2 style="color:#a020f0; font-size:18px;">⚔️ STAFF ROSTER & HEROES</h2><p style="color:#aaa; font-size:11px; margin-bottom: 6px;">Total Power: <strong style="color:#00ffff;">${totalPower}</strong> | Companions: <strong style="color:#ff00ff;">${staff.length}</strong></p><div style="width:100%; max-width:400px; max-height: 220px; overflow-y:auto;">`;
-
-        staff.forEach((member, idx) => {
-            let isActive = idx === game.activeChampionIndex;
-            let hpVal = member.hp !== undefined ? member.hp : (member.maxHp || 100);
-            let maxHpVal = member.maxHp || 100;
-            let isLocked = !!member.locked;
-            let trainCost = (member.level || 1) * 200;
-
-            html += `
-                <div class="dex-card" style="display:flex; flex-direction:column; align-items:flex-start; border-color:${isActive ? '#00ffff' : isLocked ? '#ffff0055' : '#333'}; background:${isActive ? '#001a22' : '#08080f'}; padding: 6px 8px; margin-bottom: 6px;">
-                    <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
-                        <div><strong style="color:${isActive ? '#00ffff' : '#fff'}; font-size:13px;">${isLocked ? '🔒 ' : ''}${member.name}</strong> ${isActive ? '<span style="color:#00ff66; font-size:11px;">[ACTIVE]</span>' : ''}</div>
-                        <span style="color:#ffaa00; font-size:11px;">Lv. ${member.level || 1}</span>
+        let html = `<h2 style="color:#a020f0; font-size:18px;">⚔️ STAFF ROSTER & INTERACTIONS</h2><div style="width:100%;">`;
+        
+        if (!staff.length) {
+            html += `<p style="color:#aaa; font-size:12px;">No staff recruited yet.</p>`;
+        } else {
+            staff.forEach((s, idx) => {
+                html += `
+                    <div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <img src="${getCharacterPortrait(s.name)}" style="width:34px;height:34px;object-fit:contain;border-radius:6px;border:1px solid #a020f0;" onerror="this.style.display='none'"/>
+                            <div style="font-size:12px;">
+                                <strong>${s.name}</strong><br>
+                                <span style="font-size:10.5px;color:#aaa;">Origin: ${s.origin || 'Unknown'} | Power: ${s.power || 0}</span>
+                            </div>
+                        </div>
+                        <button class="btn btn-maid" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="interactWithStaff(${idx})">💬 Talk</button>
                     </div>
-                    <div style="color:#aaa; font-size:11px; margin: 2px 0;">Origin: <strong>${member.origin || 'Multiverse'}</strong> | ⚡ Power: <strong style="color:#ff00ff;">${member.power || 25}</strong> | ❤️ HP: ${hpVal}/${maxHpVal} | 💖 Bond: ${member.loyalty || 0}</div>
-                    <div style="display:flex; flex-wrap:wrap; gap:3px; margin-top: 4px; width:100%;">
-                        ${!isActive ? `<button class="btn btn-sys" style="padding:2px 5px; font-size:9.5px; min-height:20px;" onclick="setActiveChampion(${idx})">⭐ Set Champ</button>` : ''}
-                        <button class="btn btn-farm" style="padding:2px 5px; font-size:9.5px; min-height:20px;" onclick="trainCompanion(${idx}, ${trainCost})">🏋️ Train ($${trainCost})</button>
-                        <button class="btn btn-forge" style="padding:2px 5px; font-size:9.5px; min-height:20px;" onclick="limitBreakEvolve(${idx})">⚡ Limit Break</button>
-                        <button class="btn btn-maid" style="padding:2px 5px; font-size:9.5px; min-height:20px;" onclick="interactWithStaff(${idx})">💬 Talk</button>
-                        <button class="btn btn-spin" style="padding:2px 5px; font-size:9.5px; min-height:20px;" onclick="toggleLockCompanion(${idx})">${isLocked ? '🔓' : '🔒'}</button>
-                        ${!isActive ? `<button class="btn btn-back" style="padding:2px 5px; font-size:9.5px; min-height:20px;" onclick="releaseCompanion(${idx})">🗑️</button>` : ''}
-                    </div>
-                </div>
-            `;
-        });
+                `;
+            });
+        }
         html += `</div>`;
         document.getElementById("console").innerHTML = html;
-        renderButtons([{ text: "🌌 Recruit (Portals)", class: "btn btn-dlc", action: showFreePortalsMenu }, { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
-    }
-
-    function setActiveChampion(idx) { game.activeChampionIndex = idx; saveGame(); updateUI(); showStaffMenu(); }
-    function toggleLockCompanion(idx) { game.staff[idx].locked = !game.staff[idx].locked; saveGame(); showStaffMenu(); }
-
-    function trainCompanion(idx, cost) {
-        let member = game.staff[idx];
-        if ((game.funds || 0) >= cost) {
-            game.funds -= cost; member.level = (member.level || 1) + 1; member.power = (member.power || 25) + 6; member.maxHp = (member.maxHp || 100) + 15; member.hp = member.maxHp;
-            saveGame(); updateUI(); alert(`🎉 ${member.name} reached Level ${member.level}! Power is now ${member.power}!`); showStaffMenu();
-        } else { alert(`❌ Need $${cost} to train!`); }
-    }
-
-    function limitBreakEvolve(idx) {
-        let member = game.staff[idx];
-        if ((member.level || 1) < 5 || (member.loyalty || 0) < 50) { alert(`❌ Requirements: Level 5+ & 50+ Loyalty!`); return; }
-        if (member.evolved) { alert("✨ This hero is already Ascended!"); return; }
-        member.name = `Ascended ${member.name} ⚡`; member.power = (member.power || 25) * 2; member.maxHp = (member.maxHp || 100) * 2; member.hp = member.maxHp; member.evolved = true;
-        saveGame(); updateUI(); alert(`🌟 EVOLUTION SUCCESS! ${member.name} base stats are DOUBLED!`); showStaffMenu();
-    }
-
-    function releaseCompanion(idx) {
-        let member = game.staff[idx];
-        if (game.staff.length <= 1) { alert("❌ Cannot release only companion!"); return; }
-        if (member.locked) { alert("🔒 Unlock companion first!"); return; }
-        if (confirm(`⚠️ Release ${member.name}?`)) {
-            game.staff.splice(idx, 1); if (game.activeChampionIndex >= game.staff.length) game.activeChampionIndex = 0;
-            game.funds = (game.funds || 0) + 150; saveGame(); updateUI(); showStaffMenu();
-        }
+        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
     }
 
     function interactWithStaff(idx) {
@@ -1409,28 +1263,25 @@
         clearConsole("center", "radial-gradient(circle at 50% 30%, #2b005c 0%, #0c001a 80%)", "#a020f0");
         document.getElementById("console").innerHTML = `
             ${portrait(getCharacterPortrait(member.name), member.name, 160)}
-            <h3 style="color:#ff66ff;">💬 Chat with ${member.name}</h3>
-            <p style="color:#00ffff; font-size:12px;">Loyalty: <strong style="color:#ffff00;">${member.loyalty || 0} / 100</strong></p>
+            <h3 style="color:#ff66ff; font-size:16px;">💬 Chat with ${member.name}</h3>
             <p style="color:#ffff00; font-size:12.5px; max-width:380px; line-height:1.4;">
                 "Hey trainer ${game.playerName}! Thanks for having me along across timelines in Midnoria. Let's keep pushing our limits!"
             </p>
         `;
         renderButtons([
-            { text: "🎁 Gift Diamond (+15 Loyalty)", class: "btn btn-farm", action: () => {
-                if (game.inventory && game.inventory.includes("Diamond")) {
-                    game.inventory.splice(game.inventory.indexOf("Diamond"), 1);
-                    member.loyalty = Math.min(100, (member.loyalty || 0) + 15);
-                    member.power = (member.power || 25) + 4;
+            { text: "💖 Give Gift ($100)", class: "btn btn-start", action: () => {
+                if (game.funds >= 100) {
+                    game.funds -= 100;
+                    member.power = (member.power || 20) + 5;
                     saveGame(); updateUI();
-                    alert(`🎁 Gave Diamond! Loyalty is now ${member.loyalty}!`);
-                    interactWithStaff(idx);
-                } else { alert("❌ No Diamond in inventory!"); }
+                    alert(`${member.name} smiles warmly! Power increased by +5!`);
+                } else { alert("Not enough funds for a gift!"); }
+                showStaffMenu();
             }},
             { text: "⬅ Back to Roster", class: "btn btn-back", action: showStaffMenu }
         ]);
     }
 
-    // --- FREE PORTALS ---
     function showFreePortalsMenu() {
         playBGM('dlcHub');
         clearConsole("center", "radial-gradient(circle at 50% 50%, #4d004d 0%, #1a001a 80%)", "#ff00ff");
@@ -1451,7 +1302,7 @@
         playBGM(musicKey || 'rift');
         let pool = PORTAL_CHAR_POOLS[poolKey] || PORTAL_CHAR_POOLS.standard;
         let chosen = pool[Math.floor(Math.random() * pool.length)];
-        activeEncounter = { name: chosen.name, origin: chosen.origin, power: chosen.power || 42, maxHp: chosen.maxHp || 120, dexId: chosen.id, baseChance: 0.50 };
+        activeEncounter = { name: chosen.name, origin: chosen.origin, power: 42, dexId: chosen.id, baseChance: 0.50 };
         renderEncounterScreen();
     }
 
@@ -1459,7 +1310,9 @@
         clearConsole("center", "radial-gradient(circle at 50% 50%, #4d004d 0%, #1a001a 80%)", "#ff00ff");
         document.getElementById("console").innerHTML = `
             <div class="pokeball-container">
-                <div class="pokeball-sprite"><div class="ball-top"></div><div class="ball-center-band"></div><div class="ball-center-btn"></div><div class="ball-bottom"></div></div>
+                <div class="pokeball-sprite">
+                    <div class="ball-top"></div><div class="ball-center-band"></div><div class="ball-center-btn"></div><div class="ball-bottom"></div>
+                </div>
             </div>
             ${portrait(getCharacterPortrait(activeEncounter.name), activeEncounter.name, 120)}
             <h2 style="font-size:16px;">🌌 WILD ENCOUNTER!</h2>
@@ -1479,7 +1332,7 @@
         setTimeout(() => {
             const success = Math.random() < 0.65;
             if (success) {
-                game.staff.push({ name: activeEncounter.name, power: activeEncounter.power, maxHp: activeEncounter.maxHp, hp: activeEncounter.maxHp, origin: activeEncounter.origin, level: 1, locked: false, loyalty: 10, evolved: false });
+                game.staff.push({ name: activeEncounter.name, power: activeEncounter.power, origin: activeEncounter.origin });
                 recordDex(activeEncounter.dexId, false);
                 saveGame(); updateUI();
                 document.getElementById("capture-status").innerHTML = `<strong style="color:#55ff99;">🎉 CAPTURED ${activeEncounter.name}!</strong>`;
@@ -1490,7 +1343,6 @@
         }, 2200);
     }
 
-    // --- PREMIUM DLC PORTALS ---
     function openDLCDispatch() {
         if (game.dlcUnlocked) { showPremiumDLCMenu(); return; }
         playBGM('dlcHub');
@@ -1528,7 +1380,7 @@
         ]);
     }
 
-    // --- MULTIPLAYER & TRADING HUB ---
+    // --- REBUILT MULTIPLAYER ONLINE HUB ---
     function showOnlineLobbyGate() {
         playBGM('trade');
         clearConsole("center", "radial-gradient(circle at 50% 30%, #003366 0%, #000c14 85%)", "#00aaff");
@@ -1540,15 +1392,9 @@
         renderButtons([
             { text: "Connect to Room", class: "btn btn-sys", action: () => {
                 currentRoomId = document.getElementById("room-code-input").value.trim().toUpperCase() || "MIDNORIA";
-                const champ = getActiveChampion();
-                if (socket) socket.emit('joinRoom', { roomId: currentRoomId, player: { name: game.playerName, location: game.location, champion: champ.name, power: champ.power } });
+                if (socket) socket.emit('joinRoom', { roomId: currentRoomId, player: { name: game.playerName, staff: game.staff, power: game.managerPower } });
                 renderActiveLobbyView();
             }},
-            { text: "🎲 Random Room", class: "btn btn-dlc", action: () => {
-                const champ = getActiveChampion();
-                if (socket) socket.emit('joinRandomRoom', { player: { name: game.playerName, location: game.location, champion: champ.name, power: champ.power } });
-            }},
-            { text: "🏆 Leaderboard", class: "btn btn-spin", action: showLeaderboardModal },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
@@ -1566,24 +1412,23 @@
         } else {
             onlineRoomPlayers.forEach(p => {
                 let isMe = p.name === game.playerName;
-                html += `
-                    <div class="dex-card" style="display:flex; justify-content:space-between; align-items:center; font-size:12px;">
-                        <div><strong>👤 ${p.name}</strong> ${isMe ? '<span style="color:#ffaa00;">(You)</span>' : ''}</div>
-                        ${!isMe ? `<button class="btn btn-combat" style="padding:2px 6px; font-size:10px; min-height:24px;" onclick="challengePlayerPvP('${p.id || ''}', '${p.name}')">⚔️ Duel</button>` : ''}
-                    </div>
-                `;
+                html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center; font-size:12px;">
+                    <div><strong>👤 ${p.name}</strong> ${isMe ? '<span style="color:#ffaa00;">(You)</span>' : ''}</div>
+                    ${!isMe ? `<button class="btn btn-combat" style="padding:2px 6px; font-size:10px; min-height:24px;" onclick="challengePlayerPvP('${p.name}')">⚔️ Duel</button>` : ''}
+                </div>`;
             });
         }
         html += `</div>`;
         document.getElementById("console").innerHTML = html;
 
         renderButtons([
-            { text: "🐲 Co-Op World Boss", class: "btn btn-raid", action: showWorldBossRaidScreen },
+            { text: "🐲 Start Co-Op Raid Boss", class: "btn btn-raid", action: startCoopRaidSession },
             { text: "🤝 Trade Any Item/Hero", class: "btn btn-dex", action: showMultiplayerTradeScreen },
-            { text: "🚪 Leave Room", class: "btn btn-back", action: showOnlineLobbyGate }
+            { text: "⬅ Leave Room", class: "btn btn-back", action: showMainMenu }
         ]);
     }
 
+    // --- REBUILT UNIVERSAL TRADING MENU ---
     function showMultiplayerTradeScreen() {
         playBGM('trade');
         clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #201a00 0%, #050400 85%)", "#ffaa00");
@@ -1591,7 +1436,7 @@
             <h2 style="color:#ffaa00; font-size:18px;">🤝 MULTIPLAYER TRADE HUB</h2>
             <p style="color:#aaa; font-size:12px; max-width:360px;">Choose what you want to offer to Room <strong>${currentRoomId}</strong>:</p>
             <div class="dex-card" style="display:block; text-align:left; font-size:12px; margin-bottom:8px;">
-                <strong style="color:#00ffff;">🎒 Backpack Items:</strong> ${game.inventory.length}<br>
+                <strong style="color:#00ffff;">🎒 Backpack Items Available:</strong> ${game.inventory.length}<br>
                 <strong style="color:#ff66ff;">👥 Companions on Team:</strong> ${game.staff.length}
             </div>
         `;
@@ -1634,7 +1479,7 @@
         `;
         let btns = [];
         if (!game.staff || game.staff.length <= 1) {
-            btns.push({ text: "❌ Need >1 Hero to Trade", class: "btn btn-sys", action: () => alert("You cannot trade your only companion!") });
+            btns.push({ text: "❌ Need >1 Companion to Trade", class: "btn btn-sys", action: () => alert("You cannot trade your only companion!") });
         } else {
             game.staff.forEach((member, idx) => {
                 btns.push({
@@ -1650,111 +1495,103 @@
 
     function broadcastTradeOffer(type, tradeData, index = null) {
         if (type === 'item') {
-            if (!game.inventory.includes(tradeData)) { alert("❌ Item not found!"); return; }
+            if (!game.inventory.includes(tradeData)) {
+                alert("❌ Item not found in backpack!");
+                return;
+            }
             if (socket && socket.connected) {
-                socket.emit('offerTradeItem', { roomId: currentRoomId, item: tradeData, senderName: game.playerName });
+                socket.emit('offerTradeItem', {
+                    roomId: currentRoomId,
+                    item: tradeData,
+                    senderName: game.playerName
+                });
                 alert(`🤝 Broadcasted trade offer for 1x [${tradeData}] to Room ${currentRoomId}!`);
-            } else { alert(`🤝 Selected [${tradeData}] for trade!`); }
+            } else {
+                alert(`🤝 Selected [${tradeData}] for trade!`);
+            }
         } else if (type === 'character') {
             if (socket && socket.connected) {
-                socket.emit('offerTradeCharacter', { roomId: currentRoomId, character: tradeData, senderName: game.playerName });
-                alert(`🎭 Broadcasted trade offer for [${tradeData.name}] to Room ${currentRoomId}!`);
-            } else { alert(`🎭 Selected [${tradeData.name}] for trade!`); }
+                socket.emit('offerTradeCharacter', {
+                    roomId: currentRoomId,
+                    character: tradeData,
+                    senderName: game.playerName
+                });
+                alert(`🎭 Broadcasted trade offer for companion [${tradeData.name}] to Room ${currentRoomId}!`);
+            } else {
+                alert(`🎭 Selected [${tradeData.name}] for trade!`);
+            }
         }
         showMultiplayerTradeScreen();
     }
 
-    function challengePlayerPvP(targetId, opponentName) {
-        const champ = getActiveChampion();
-        if (socket && socket.connected && targetId) {
-            socket.emit('requestPvP', { roomId: currentRoomId, targetId: targetId, challengerName: game.playerName, champion: champ.name });
-            alert(`⚔️ PvP challenge sent to ${opponentName}!`);
-        } else {
-            playBGM('battle');
-            activeCombatSession = {
-                enemyName: `${opponentName}'s Champion`, enemyHP: 160, enemyMaxHP: 160, enemyDmg: 18,
-                rewardCash: 1500, regionKey: null, companionName: champ.name, companionHP: 100, companionMaxHP: 100, companionPower: champ.power || 35
-            };
-            renderPokemonCombatScreen();
-        }
+    function challengePlayerPvP(opponentName) {
+        playBGM('battle');
+        let leadCompanion = (game.staff && game.staff.length > 0) ? game.staff[0] : { name: "Trainer Partner", power: 35 };
+        activeCombatSession = {
+            enemyName: `${opponentName}'s Champion`,
+            enemyHP: 160,
+            enemyMaxHP: 160,
+            enemyDmg: 18,
+            rewardCash: 1500,
+            regionKey: null,
+            companionName: leadCompanion.name,
+            companionHP: 100,
+            companionMaxHP: 100,
+            companionPower: leadCompanion.power || 35
+        };
+        renderPokemonCombatScreen();
     }
 
-    function renderLivePvPScreen() {
-        const s = activePvPSession;
-        if (!s) return;
-        clearConsole("center", "#2b000f", "#ff0055");
-        const isMyTurn = socket.id === s.turn;
-        const champ = getActiveChampion();
-
-        document.getElementById("console").innerHTML = `
-            <h2 style="color:#ff0055; font-size:16px;">⚔️ LIVE PVP DUEL</h2>
-            <div style="display:flex; justify-content:space-around; width:100%; margin: 6px 0;">
-                <div class="dex-card" style="width:48%; display:block; text-align:center;">
-                    <strong style="color:#00ffff;">${champ.name}</strong><br>
-                    ❤️ HP: <span style="color:#33ff33;">${socket.id === s.p1Id ? s.p1Hp : s.p2Hp} / 120</span>
-                </div>
-                <div class="dex-card" style="width:48%; display:block; text-align:center;">
-                    <strong style="color:#ff0055;">Opponent</strong><br>
-                    ❤️ HP: <span style="color:#ff3333;">${socket.id === s.p1Id ? s.p2Hp : s.p1Hp} / 120</span>
-                </div>
-            </div>
-            <p style="color:#ffff00; font-size:12px;">${s.log}</p>
-        `;
-
-        if (isMyTurn) {
-            renderButtons([
-                { text: "⚔️ Strike", class: "btn btn-combat", action: () => executePvPAction("strike") },
-                { text: "🛡️ Guard (-50%)", class: "btn btn-sys", action: () => executePvPAction("guard") },
-                { text: "⚡ Special (15 Stm)", class: "btn btn-dlc", action: () => executePvPAction("special") }
-            ]);
-        } else { renderButtons([]); }
-    }
-
-    function executePvPAction(actionType) {
-        if (!activePvPSession) return;
-        if (actionType === "special") {
-            if ((game.stamina || 0) < 15) { alert("❌ Not enough stamina!"); return; }
-            game.stamina -= 15; saveGame(); updateUI();
-        }
-        const champ = getActiveChampion();
-        if (socket) {
-            socket.emit('executeLivePvPAction', {
-                battleId: activePvPSession.battleId, actionType: actionType, power: champ.power || 25, championName: champ.name
-            });
-        }
-    }
-
-    function showWorldBossRaidScreen() {
+    function startCoopRaidSession() {
         playBGM('villain');
-        clearConsole("flex-start", "#2b0008", "#ff0055");
-        let percent = Math.max(0, (serverRaidBoss.hp / serverRaidBoss.maxHp) * 100);
+        let totalPartyPower = (game.managerPower || 30);
+        let partyCount = Math.max(1, onlineRoomPlayers.length);
+        activeRaidSession = {
+            bossName: "THE VOID TITAN",
+            bossHP: 500,
+            bossMaxHP: 500,
+            partyPower: totalPartyPower * partyCount,
+            partyCount: partyCount
+        };
+
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #3a0000 0%, #0a0002 85%)", "#ff0055");
         document.getElementById("console").innerHTML = `
-            <h2 style="color:#ff0055; font-size:16px; margin: 2px 0;">👹 MULTIVERSE WORLD BOSS</h2>
-            <strong style="color:#fff; font-size:13px;">${serverRaidBoss.name}</strong>
-            <div style="width:90%; max-width:360px; height:12px; background:#111; border:1px solid #ff0055; border-radius:8px; margin:4px 0; overflow:hidden;">
-                <div id="boss-hp-fill" style="width:${percent}%; height:100%; background:linear-gradient(90deg, #ff0033, #ff5500); transition: width 0.3s ease;"></div>
+            <h2 style="color:#ff0055; text-shadow: 0 0 10px #ff0055; font-size:18px;">🐲 MULTIPLAYER CO-OP RAID BOSS</h2>
+            <div class="dex-card" style="display:block; text-align:center; font-size:12px;">
+                <strong style="color:#ff3333; font-size:16px;">${activeRaidSession.bossName}</strong><br>
+                ❤️ Raid HP: <span style="color:#ff3333;" id="raid-boss-hp">${activeRaidSession.bossHP} / ${activeRaidSession.bossMaxHP}</span><br>
+                👥 United Lobby Attackers: <span style="color:#00ffff;">${activeRaidSession.partyCount} Player(s)</span>
             </div>
-            <p style="color:#aaa; font-size:11px;">Boss Health: <span id="boss-hp-text" style="color:#ff5555; font-weight:bold;">${serverRaidBoss.hp} / ${serverRaidBoss.maxHp}</span></p>
-            <div id="raid-boss-combat-log" style="width:95%; max-width:380px; height:70px; background:#050005; border:1px solid #ff005555; border-radius:4px; padding:6px; overflow-y:auto; margin-bottom:4px;"></div>
+            <p id="raid-combat-log" style="color:#ffff00; font-size:12px;">Coordinate your party strike against the raid boss!</p>
         `;
+
         renderButtons([
-            { text: "⚔️ Strike Boss", class: "btn btn-combat", action: () => raidBossAction("strike") },
-            { text: "⚡ Burst Raid (15 Stm)", class: "btn btn-raid", action: () => raidBossAction("burst") },
-            { text: "🐉 Netherfang Tier 2", class: "btn btn-dlc", action: () => { if(socket) socket.emit('selectRaidTier', 'dragon'); showWorldBossRaidScreen(); } },
-            { text: "⬅ Back to Lobby", class: "btn btn-back", action: renderActiveLobbyView }
+            { text: "💥 United Party Strike!", class: "btn btn-raid", action: executeRaidStrike },
+            { text: "🏃 Flee to Lobby", class: "btn btn-back", action: renderActiveLobbyView }
         ]);
     }
 
-    function raidBossAction(type) {
-        if (serverRaidBoss.hp <= 0) { alert("Boss defeated! Respawning soon..."); return; }
-        const champ = getActiveChampion();
-        let mult = type === "burst" ? 2.5 : 1.0;
-        if (type === "burst") {
-            if ((game.stamina || 0) < 15) { alert("Not enough stamina!"); return; }
-            game.stamina -= 15; saveGame(); updateUI();
+    function executeRaidStrike() {
+        let r = activeRaidSession;
+        let dmg = r.partyPower + Math.floor(Math.random() * 40) + 20;
+        r.bossHP = Math.max(0, r.bossHP - dmg);
+        document.getElementById("raid-boss-hp").innerText = `${r.bossHP} / ${r.bossMaxHP}`;
+        document.getElementById("raid-combat-log").innerHTML = `<span style="color:#00ffff;">United party dealt ${dmg} multi-strike damage!</span>`;
+
+        if (r.bossHP <= 0) {
+            setTimeout(() => {
+                let reward = 3000;
+                game.funds += reward;
+                game.inventory.push("Diamond");
+                updateUI(); saveGame();
+                clearConsole("center", "radial-gradient(circle, #003300, #000)", "#00ff88");
+                document.getElementById("console").innerHTML = `
+                    <h2 style="color:#00ff88; font-size:18px;">🏆 RAID BOSS DEFEATED!</h2>
+                    <p style="color:#fff; font-size:12px;">The entire party claimed $${reward} and a rare Diamond!</p>
+                `;
+                renderButtons([{ text: "✔ Return to Lobby", class: "btn btn-start", action: renderActiveLobbyView }]);
+            }, 1200);
         }
-        let dmg = Math.floor((champ.power || 25) * mult + Math.random() * 15);
-        if (socket) socket.emit('attackRaidBoss', { damage: dmg, trainerName: game.playerName, championName: champ.name });
     }
 
     if (socket) {
@@ -1796,7 +1633,6 @@
             game.day++;
             let passive = (game.staff || []).length * 50;
             game.funds += passive;
-            if (game.farm && game.farm.plots) game.farm.plots.forEach(p => { if (p.crop) p.ready = true; });
             saveGame(); showMainMenu();
         }, 3800);
     }
@@ -1853,7 +1689,6 @@
         showDexMenu(1, query);
     }
 
-    // --- REGIONS & MONSTER ENCOUNTERS ---
     function showWorldMap() {
         playBGM('hq');
         clearConsole("center", "radial-gradient(circle at 50% 40%, #002244 0%, #02060a 85%)", "#00ffcc");
@@ -1887,6 +1722,7 @@
             </div>
         `;
         renderButtons([]);
+
         setTimeout(() => { showRegionHub(regionKey); }, 1300);
     }
 
@@ -1911,8 +1747,16 @@
         let leadCompanion = (game.staff && game.staff.length > 0) ? game.staff[0] : { name: "Trainer Partner", power: 35 };
 
         activeCombatSession = {
-            enemyName: randomMob.name, enemyHP: randomMob.hp, enemyMaxHP: randomMob.hp, enemyDmg: randomMob.dmg,
-            rewardCash: randomMob.reward, regionKey: regionKey, companionName: leadCompanion.name, companionHP: 100, companionMaxHP: 100, companionPower: leadCompanion.power || 35
+            enemyName: randomMob.name,
+            enemyHP: randomMob.hp,
+            enemyMaxHP: randomMob.hp,
+            enemyDmg: randomMob.dmg,
+            rewardCash: randomMob.reward,
+            regionKey: regionKey,
+            companionName: leadCompanion.name,
+            companionHP: 100,
+            companionMaxHP: 100,
+            companionPower: leadCompanion.power || 35
         };
         renderPokemonCombatScreen();
     }
@@ -1920,6 +1764,7 @@
     function showMiningHub() {
         playBGM('horror');
         clearConsole("flex-start", "radial-gradient(circle at 50% 35%, #1a0f00 0%, #050200 85%)", "#ff8800");
+        
         let inventoryHTML = `<div style="width:98%; max-width:380px; background:#0b0800; border:1px dashed #ffaa0088; border-radius:6px; padding:6px; margin:6px 0; text-align:left;">
             <strong style="color:#ffaa00; font-size:12px;">🎒 Bag Minerals (${game.inventory.filter(i => ['Copper Ore','Diamond'].includes(i)).length}):</strong><br>
             <span style="font-size:11px; color:#aaa;">${game.inventory.filter(i => ['Copper Ore','Diamond'].includes(i)).join(', ') || 'No ores or gems in backpack yet.'}</span>
@@ -1967,8 +1812,16 @@
         playBGM('battle');
         let leadCompanion = (game.staff && game.staff.length > 0) ? game.staff[0] : { name: "Trainer Partner", power: 35 };
         activeCombatSession = {
-            enemyName: enemyName, enemyHP: 100, enemyMaxHP: 100, enemyDmg: 12, rewardCash: 1000, regionKey: null,
-            companionName: leadCompanion.name, companionHP: 100, companionMaxHP: 100, companionPower: leadCompanion.power || 35
+            enemyName: enemyName,
+            enemyHP: 100,
+            enemyMaxHP: 100,
+            enemyDmg: 12,
+            rewardCash: 1000,
+            regionKey: null,
+            companionName: leadCompanion.name,
+            companionHP: 100,
+            companionMaxHP: 100,
+            companionPower: leadCompanion.power || 35
         };
         renderPokemonCombatScreen();
     }
