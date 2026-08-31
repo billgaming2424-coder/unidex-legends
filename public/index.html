@@ -26,7 +26,7 @@
         .stat-money { color: #ffff00; font-weight: bold; text-shadow: 0 0 8px #ffff0088; }
         
         #screen-wrapper {
-            position: relative; flex: 1 1 auto; min-height: 120px;
+            position: relative; flex: 1 1 auto; min-height: 100px;
             display: flex; width: 100%; margin-bottom: 6px; overflow: hidden;
         }
 
@@ -39,7 +39,7 @@
             position: relative; -webkit-overflow-scrolling: touch; scroll-behavior: smooth;
         }
 
-        #console::-webkit-scrollbar, #controls::-webkit-scrollbar { width: 8px; height: 8px; }
+        #console::-webkit-scrollbar, #controls::-webkit-scrollbar { width: 6px; height: 6px; }
         #console::-webkit-scrollbar-track, #controls::-webkit-scrollbar-track { background: #080811; border-radius: 4px; }
         #console::-webkit-scrollbar-thumb, #controls::-webkit-scrollbar-thumb { background: #00ffff55; border: 1px solid #00ffff; border-radius: 4px; }
 
@@ -62,9 +62,10 @@
 
         .log-entry { margin-bottom: 5px; border-bottom: 1px solid #14141e; padding-bottom: 3px; width: 100%; text-align: left; position: relative; z-index: 3; }
 
+        /* Fully flexible mobile layout preventing any button cut-off */
         #controls {
-            display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px;
-            flex-shrink: 0; width: 100%; max-height: 45vh; overflow-y: auto; -webkit-overflow-scrolling: touch; z-index: 4; padding: 2px 2px 8px 2px;
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px;
+            flex-shrink: 0; width: 100%; max-height: 48vh; overflow-y: auto; -webkit-overflow-scrolling: touch; z-index: 4; padding: 2px 2px 12px 2px;
         }
         @media (min-width: 650px) { #controls { grid-template-columns: repeat(4, 1fr); max-height: 250px; } }
         
@@ -72,26 +73,21 @@
             background: #12121c; color: #00ff66; border: 1px solid #00ff6666; padding: 8px 4px;
             font-family: 'Courier New', Courier, monospace; font-size: 12px; font-weight: bold;
             cursor: pointer; border-radius: 4px; text-align: center; transition: all 0.15s ease;
-            touch-action: manipulation; min-height: 38px; display: flex; align-items: center; justify-content: center;
+            touch-action: manipulation; min-height: 40px; display: flex; align-items: center; justify-content: center;
         }
         .btn:hover { background: #1c1c2e; box-shadow: 0 0 10px rgba(0, 255, 100, 0.8); outline: 2px solid #00ffff; }
         .btn:active { background-color: #00ff66; color: #000; outline: 2px solid #ff00ff; }
         
         .btn-sys { border-color: #00ffff; color: #00ffff; }
-        .btn-dlc { border-color: #ff00ff; color: #ff00ff; }
-        .btn-villain { border-color: #ff0055; color: #ff0055; background: #2b0011; }
-        .btn-back { border-color: #ff3333; color: #ff3333; }
+        .btn-dlc { border-color: #ff00ff; color: #ff00ff; background: #220022; }
+        .btn-back { border-color: #ff3333; color: #ff3333; background: #2b0011; }
         .btn-farm { border-color: #00ff88; color: #00ff88; background: #001f0c; }
         .btn-gear { border-color: #33ccff; color: #33ccff; background: #001122; }
         .btn-map { border-color: #00ffcc; color: #00ffcc; background: #002222; }
         .btn-mine { border-color: #ffaa00; color: #ffaa00; background: #221500; }
-        .btn-combat { border-color: #ff0033; color: #ff0033; background: #33000a; }
-        .btn-start { border-color: #00ffff; color: #00ffff; font-size: 13.5px; grid-column: span 2; background: #002222; }
-        .btn-maid { border-color: #ff66ff; color: #ff66ff; background: #220022; }
-        .btn-dex { border-color: #ffff00; color: #ffff00; background: #222200; }
         .btn-spin { border-color: #ffff00; color: #ffff00; background: #333300; }
+        .btn-maid { border-color: #ff66ff; color: #ff66ff; background: #220022; }
         
-        .clickable-portrait { cursor: pointer; border: 3px solid transparent; border-radius: 10px; padding: 4px; background: rgba(0,0,0,0.4); }
         .dex-card { background: #08080f; border: 1px solid #222238; border-radius: 6px; padding: 8px; margin: 4px 0; width: 98%; text-align: left; position: relative; z-index: 3; display: flex; align-items: center; gap: 10px; }
     </style>
 </head>
@@ -100,7 +96,7 @@
     <div id="stats-bar">
         <div>🌍 <span id="loc-display">Nexus HQ</span> | Trainer: <span class="stat-highlight" id="player-name-display">Trainer</span></div>
         <div style="display: flex; align-items: center; gap: 6px;">
-            💼 <span id="manager-title-display" style="color:#00ffcc; font-weight:bold;">Novice</span> | 💰 $<span class="stat-money" id="funds-display">5000</span> | Day <span id="day-display">1</span> | ⚡ <span id="stamina-display">100</span> | 🌌 <span id="dex-count-display">0/2000</span>
+            💼 <span id="manager-title-display" style="color:#00ffcc; font-weight:bold;">Novice</span> | 💰 $<span class="stat-money" id="funds-display">5000</span> | Day <span id="day-display">1</span> | ⚡ <span id="stamina-display">100</span>
         </div>
     </div>
     
@@ -115,9 +111,6 @@
     <div id="controls"></div>
 
 <script>
-    let socket = null;
-    try { socket = io({ transports: ['websocket', 'polling'] }); } catch(e) {}
-
     let currentSaveSlot = 1;
     let game = {
         h_name: "UniDex Legends", location: "Nexus HQ", funds: 5000,
@@ -146,17 +139,12 @@
         consoleDiv.scrollTop = consoleDiv.scrollHeight;
     }
 
-    function portrait(src, alt, maxHeight = 160) {
-        return `<img src="${src}" alt="${alt}" style="max-height: ${maxHeight}px; max-width: 90%; object-fit: contain; margin-bottom: 8px; border-radius: 8px; border: 2px solid #00ffff; background: #0d0d0d;" onerror="this.style.display='none';" />`;
-    }
-
     function updateUI() {
         document.getElementById("funds-display").innerText = Math.floor(game.funds || 0);
         document.getElementById("stamina-display").innerText = game.stamina || 0;
         document.getElementById("day-display").innerText = game.day || 1;
         document.getElementById("player-name-display").innerText = game.playerName || "Trainer";
         document.getElementById("loc-display").innerText = game.location || "Nexus HQ";
-        document.getElementById("dex-count-display").innerText = `${Object.keys(game.pokedex || {}).length}/2000`;
     }
 
     function saveGame() {
@@ -202,8 +190,8 @@
         }
 
         document.getElementById("console").innerHTML = `
-            <h1 style="color: #00ffff; text-shadow: 0 0 15px #00ffff; margin-bottom: 5px; font-size: 24px;">UNIDEX LEGENDS</h1>
-            <p style="color: #ffff00; font-size: 12px; max-width: 380px;">Select a timeline save slot to continue your franchise!</p>
+            <h1 style="color: #00ffff; text-shadow: 0 0 15px #00ffff; margin-bottom: 5px; font-size: 22px;">UNIDEX LEGENDS</h1>
+            <p style="color: #ffff00; font-size: 11.5px; max-width: 380px;">Select a timeline save slot to continue your franchise!</p>
         `;
         renderButtons(slotButtons);
     }
@@ -239,7 +227,7 @@
             { text: "🎒 Inventory", class: "btn btn-gear", action: showInventoryMenu },
             { text: "🌌 Free Portals", class: "btn btn-sys", action: showPortalsMenu },
             { text: "🔒 Premium DLC", class: "btn btn-dlc", action: showDLCMenu },
-            { text: "💤 Sleep (Next Day)", action: () => { game.stamina = 100; game.day++; saveGame(); updateUI(); alert("Rested for the night! Stamina restored to 100."); showMainMenu(); } },
+            { text: "💤 Sleep", action: () => { game.stamina = 100; game.day++; saveGame(); updateUI(); alert("Rested for the night! Stamina restored."); showMainMenu(); } },
             { text: "📁 Switch Slot", class: "btn btn-back", action: showIntroScreen }
         ]);
     }
@@ -284,7 +272,7 @@
     function showLuckyWheelScreen() {
         clearConsole("center", "radial-gradient(circle at 50% 30%, #333300 0%, #080800 85%)", "#ffff00");
         document.getElementById("console").innerHTML = `
-            <div style="font-size: 40px; margin-bottom: 6px;">🎡</div>
+            <div style="font-size: 36px; margin-bottom: 4px;">🎡</div>
             <h2 style="color: #ffff00; font-size:16px;">🎰 LUCKY WHEEL</h2>
             <p style="color: #aaa; font-size:11.5px;">Spin for rewards! (Cost: $100)</p>
         `;
@@ -309,7 +297,7 @@
         `;
         renderButtons([
             { text: "🎀 Astolfo Portal", class: "btn btn-maid", action: () => { game.staff.push({ name: "Astolfo", origin: "Fate" }); saveGame(); alert("Recruited Astolfo!"); showMainMenu(); } },
-            { text: "🖤 Felix Portal", class: "btn btn-maid", action: () => { game.staff.push({ name: "Felix Argyle", origin: "Re:Zero" }); saveGame(); alert("Recruited Felix!"); showMainMenu(); } },
+            { text: "🖤 Felix Portal", class: "btn btn-maid", action: () => { game.staff.push({ name: "Felix Argyle", origin: "Re:Zero" }); saveGame(); alert("Recruiteur Felix!"); showMainMenu(); } },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
