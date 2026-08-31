@@ -3,7 +3,7 @@
 <html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>UniDex Legends</title>
+    <title>UniMon Legends</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         * { box-sizing: border-box; }
@@ -159,6 +159,60 @@
 
         @keyframes saveToastFade { 0% { opacity: 0; transform: translateY(10px); } 20% { opacity: 1; transform: translateY(0); } 80% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-10px); } }
         #save-toast { position: fixed; bottom: 20px; right: 20px; background: #002211; border: 1px solid #00ff66; color: #00ff66; padding: 6px 12px; border-radius: 4px; font-size: 12px; z-index: 9999; display: none; box-shadow: 0 0 10px rgba(0,255,100,0.4); pointer-events: none; }
+
+        /* --- Animated Title Screen --- */
+        .title-stage { position: relative; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
+        .title-particles { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+        .title-particle {
+            position: absolute; bottom: -10px; left: 50%; width: 3px; height: 3px; border-radius: 50%;
+            background: #00ffff; box-shadow: 0 0 6px 2px rgba(0,255,255,0.8);
+            animation: titleParticleFloat linear infinite; opacity: 0;
+        }
+        @keyframes titleParticleFloat {
+            0%   { transform: translateY(0) translateX(0); opacity: 0; }
+            10%  { opacity: 0.9; }
+            90%  { opacity: 0.5; }
+            100% { transform: translateY(-230px) translateX(var(--drift, 12px)); opacity: 0; }
+        }
+        .title-particle:nth-child(1)  { left: 8%;  animation-duration: 5.5s; animation-delay: 0s;    --drift: 12px;  background:#00ffff; }
+        .title-particle:nth-child(2)  { left: 18%; animation-duration: 7s;   animation-delay: 1.1s;  --drift: -18px; background:#ff66ff; }
+        .title-particle:nth-child(3)  { left: 28%; animation-duration: 6.2s; animation-delay: 2.3s;  --drift: 10px;  background:#00ff88; }
+        .title-particle:nth-child(4)  { left: 40%; animation-duration: 8s;   animation-delay: 0.6s;  --drift: -8px;  background:#00ffff; }
+        .title-particle:nth-child(5)  { left: 52%; animation-duration: 5.8s; animation-delay: 3s;    --drift: 16px;  background:#ff66ff; }
+        .title-particle:nth-child(6)  { left: 63%; animation-duration: 6.8s; animation-delay: 1.8s;  --drift: -14px; background:#00ff88; }
+        .title-particle:nth-child(7)  { left: 74%; animation-duration: 7.4s; animation-delay: 0.3s;  --drift: 20px;  background:#00ffff; }
+        .title-particle:nth-child(8)  { left: 84%; animation-duration: 5.2s; animation-delay: 2.6s;  --drift: -10px; background:#ff66ff; }
+        .title-particle:nth-child(9)  { left: 92%; animation-duration: 6.5s; animation-delay: 1.3s;  --drift: 6px;   background:#00ff88; }
+        .title-particle:nth-child(10) { left: 48%; animation-duration: 9s;   animation-delay: 4s;    --drift: -22px; background:#00ffff; }
+
+        .title-logo-wrap {
+            position: relative; z-index: 2; margin-bottom: 4px;
+            animation: logoReveal 1.1s cubic-bezier(0.16, 1, 0.3, 1) both, logoGlowPulse 2.6s ease-in-out 1.1s infinite;
+        }
+        .title-logo-wrap svg { width: 100%; max-width: 360px; height: auto; display: block; }
+        @keyframes logoReveal {
+            0%   { opacity: 0; transform: scale(0.72) translateY(10px); filter: brightness(2.2) blur(6px); }
+            60%  { opacity: 1; transform: scale(1.05) translateY(0);   filter: brightness(1.3) blur(0); }
+            100% { opacity: 1; transform: scale(1) translateY(0);      filter: brightness(1) blur(0); }
+        }
+        @keyframes logoGlowPulse {
+            0%, 100% { filter: drop-shadow(0 0 10px rgba(0,255,255,0.55)) drop-shadow(0 0 22px rgba(255,102,255,0.35)); }
+            50%      { filter: drop-shadow(0 0 18px rgba(0,255,255,0.85)) drop-shadow(0 0 34px rgba(255,102,255,0.55)); }
+        }
+
+        .title-tagline {
+            opacity: 0; animation: fadeUpIn 0.8s ease-out 0.9s forwards;
+            color: #ffff00; font-size: 12.5px; max-width: 400px; margin-top: 4px; position: relative; z-index: 2;
+        }
+        @keyframes fadeUpIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        .title-menu-btn { opacity: 0; animation: menuBtnRise 0.5s ease-out forwards; }
+        .title-menu-btn:nth-of-type(1) { animation-delay: 1.15s; }
+        .title-menu-btn:nth-of-type(2) { animation-delay: 1.28s; }
+        .title-menu-btn:nth-of-type(3) { animation-delay: 1.41s; }
+        .title-menu-btn:nth-of-type(4) { animation-delay: 1.54s; }
+        .title-menu-btn:nth-of-type(5) { animation-delay: 1.67s; }
+        @keyframes menuBtnRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 
         @keyframes wheelSpinAnim {
             0% { transform: rotate(0deg) scale(0.9); }
@@ -673,7 +727,7 @@
 
     function defaultGameState() {
         return {
-            h_name: "UniDex Legends", location: "Nexus HQ", funds: 5000,
+            h_name: "UniMon Legends", location: "Nexus HQ", funds: 5000,
             day: 1, stamina: 100, playerName: "Trainer", gender: "Boy",
             managerPower: 30,
             equippedGear: { weapon: "None", armor: "None", helmet: "None", accessory: "None" },
@@ -835,13 +889,37 @@
                     }
                 } catch(e) {}
             }
-            slotButtons.push({ text: label, class: hasData ? "btn btn-dlc" : "btn btn-sys", action: () => selectSaveSlot(i, hasData) });
+            slotButtons.push({ text: label, class: (hasData ? "btn btn-dlc" : "btn btn-sys") + " title-menu-btn", action: () => selectSaveSlot(i, hasData) });
         }
-        slotButtons.push({ text: "🗑️ Delete Save Slot", class: "btn btn-back", action: showDeleteSaveSlotsScreen });
+        slotButtons.push({ text: "🗑️ Delete Save Slot", class: "btn btn-back title-menu-btn", action: showDeleteSaveSlotsScreen });
 
         document.getElementById("console").innerHTML = `
-            <h1 style="color: #00ffff; text-shadow: 0 0 15px #00ffff; margin-bottom: 5px; font-size: 26px; letter-spacing: 2px;">UNIDEX LEGENDS</h1>
-            <p style="color: #ffff00; font-size: 12.5px; max-width: 400px; margin-top: 4px;">Select a timeline save slot to continue your franchise, or start fresh!</p>
+            <div class="title-stage">
+                <div class="title-particles">
+                    ${Array.from({ length: 10 }).map(() => `<div class="title-particle"></div>`).join('')}
+                </div>
+                <div class="title-logo-wrap">
+                    <svg class="vector-logo" viewBox="0 0 400 90" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="UniMon Legends">
+                        <defs>
+                            <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#00ffff"/>
+                                <stop offset="50%" stop-color="#ff66ff"/>
+                                <stop offset="100%" stop-color="#00ff88"/>
+                            </linearGradient>
+                            <filter id="logoGlow" x="-50%" y="-50%" width="200%" height="200%">
+                                <feGaussianBlur stdDeviation="4" result="blur"/>
+                                <feMerge>
+                                    <feMergeNode in="blur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <text x="50%" y="40" text-anchor="middle" font-family="'Courier New', monospace" font-weight="bold" font-size="34" letter-spacing="3" fill="url(#logoGrad)" filter="url(#logoGlow)">UNIMON</text>
+                        <text x="50%" y="78" text-anchor="middle" font-family="'Courier New', monospace" font-weight="bold" font-size="25" letter-spacing="7" fill="url(#logoGrad)" filter="url(#logoGlow)">LEGENDS</text>
+                    </svg>
+                </div>
+                <p class="title-tagline">Select a timeline save slot to continue your franchise, or start fresh!</p>
+            </div>
         `;
         renderButtons(slotButtons);
     }
@@ -905,7 +983,7 @@
         document.getElementById("console").innerHTML = `
             ${portrait("/pictures/professor.jpg", "Professor Bill", 200)}
             <p style="color: #00ffff; font-size: 13px; line-height: 1.45; max-width: 400px;">
-                👴 <strong>[Professor Bill]:</strong> "You are standing in the magnificent <strong>Midnoria</strong> region—a unique nexus point where space-time intersects, allowing portals to open into infinite parallel universes and fictional realms."
+                👴 <strong>[Professor Bill]:</strong> "You are standing in the magnificent <strong>Aetheria</strong> region—a unique nexus point where space-time intersects, allowing portals to open into infinite parallel universes and fictional realms."
             </p>
         `;
         renderButtons([{ text: "Next ➡", class: "btn btn-start", action: showProfessorDialogue2 }]);
@@ -937,7 +1015,7 @@
     function showProfessorDialogue3() {
         clearConsole("center", "radial-gradient(circle at 50% 30%, #001a1a 0%, #000 85%)", "#00ffff");
         document.getElementById("console").innerHTML = `
-            <p style="color: #00ffff; font-size: 13px;">👴 <strong>[Professor Bill]:</strong> "First, what is your name? Enter it into your official Midnoria trainer license below:"</p>
+            <p style="color: #00ffff; font-size: 13px;">👴 <strong>[Professor Bill]:</strong> "First, what is your name? Enter it into your official Aetheria trainer license below:"</p>
             <input type="text" id="name-input" placeholder="Enter name..." style="background: #111; color: #0f0; border: 1px solid #0f0; padding: 8px; font-family: 'Courier New'; font-size: 13px; border-radius: 4px; width: 80%; max-width: 220px; text-align: center; margin-top:8px;" />
         `;
         renderButtons([{ text: "Confirm Name ➡", class: "btn btn-start", action: confirmManagerName }]);
@@ -954,7 +1032,7 @@
         document.getElementById("console").innerHTML = `
             ${portrait("/pictures/professor.jpg", "Professor Bill", 200)}
             <p style="color: #00ffff; font-size: 13px; line-height: 1.45; max-width: 400px;">
-                👴 <strong>[Professor Bill]:</strong> "Right! So your name is <strong>${game.playerName}</strong>! You cannot possibly venture out into the wild dimensions of Midnoria without a reliable partner. Would you like to select your starter companion now?"
+                👴 <strong>[Professor Bill]:</strong> "Right! So your name is <strong>${game.playerName}</strong>! You cannot possibly venture out into the wild dimensions of Aetheria without a reliable partner. Would you like to select your starter companion now?"
             </p>
         `;
         renderButtons([
@@ -976,7 +1054,7 @@
 
     function showStarterSelection() {
         clearConsole("center", "radial-gradient(circle at 50% 30%, #001a1a 0%, #000 85%)", "#00ffff");
-        document.getElementById("console").innerHTML = `<p style="color: #00ffff; font-size: 13px; line-height: 1.45; max-width: 400px;">👴 <strong>[Professor Bill]:</strong> "Choose your starter companion to aid your journey across Midnoria, trainer!"</p>`;
+        document.getElementById("console").innerHTML = `<p style="color: #00ffff; font-size: 13px; line-height: 1.45; max-width: 400px;">👴 <strong>[Professor Bill]:</strong> "Choose your starter companion to aid your journey across Aetheria, trainer!"</p>`;
         renderButtons([
             { text: "🎀 Astolfo", class: "btn btn-maid", action: () => confirmStarterChoice(9001, 20, "Astolfo") },
             { text: "🖤 Felix Argyle", class: "btn btn-maid", action: () => confirmStarterChoice(9002, 22, "Felix Argyle") },
@@ -1022,7 +1100,7 @@
         clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #1a1500 0%, #080702 85%)", "#ffaa00");
         document.getElementById("stats-bar").style.display = "flex";
         updateUI();
-        log(`--- NEXUS HQ (Midnoria Region - Slot ${currentSaveSlot}) | WELCOME, TRAINER ${game.playerName.toUpperCase()} ---`, "color-cyan");
+        log(`--- NEXUS HQ (Aetheria Region - Slot ${currentSaveSlot}) | WELCOME, TRAINER ${game.playerName.toUpperCase()} ---`, "color-cyan");
         log(`📅 Daily Event: ${game.currentDailyEvent.name} - ${game.currentDailyEvent.desc}`, "color-yellow");
         renderButtons([
             { text: "🗺️ World Map & Regions", class: "btn btn-map", action: showWorldMap },
@@ -1101,8 +1179,8 @@
         clearConsole("flex-start", "radial-gradient(ellipse at 50% 20%, #3d1c00 0%, #140a00 70%)", "#ff8c00");
         document.getElementById("console").innerHTML = `
             ${portrait("/pictures/doug.png", "Doug", 120)}
-            <h2 style="color: #ffaa00; font-size:18px;">🏪 MIDNORIA MARKET DISTRICT</h2>
-            <p style="color: #aaa; font-size:12px;">Visit the bustling merchant stalls of Midnoria!</p>
+            <h2 style="color: #ffaa00; font-size:18px;">🏪 AETHERIA MARKET DISTRICT</h2>
+            <p style="color: #aaa; font-size:12px;">Visit the bustling merchant stalls of Aetheria!</p>
         `;
         renderButtons([
             { text: "💰 Doug's Ore Exchange", class: "btn btn-mine", action: showMiningShop },
@@ -1270,9 +1348,9 @@
             if (game.funds >= 5000) {
                 game.funds -= 5000;
                 game.homeDecor.tier = 2;
-                game.homeDecor.name = "Midnoria Luxury Penthouse";
+                game.homeDecor.name = "Aetheria Luxury Penthouse";
                 updateUI(); saveGame();
-                log("🏰 Upgraded home to Midnoria Luxury Penthouse!", "color-cyan");
+                log("🏰 Upgraded home to Aetheria Luxury Penthouse!", "color-cyan");
                 showHomeDecorMenu();
             } else { log("❌ Need $5000 to upgrade home!", "color-red"); }
         } else { log("❌ Home is already at maximum tier!", "color-yellow"); }
@@ -1369,7 +1447,7 @@
             ${portrait(getCharacterPortrait(member.name), member.name, 160)}
             <h3 style="color:#ff66ff; font-size:16px;">💬 Chat with ${member.name}</h3>
             <p style="color:#ffff00; font-size:12.5px; max-width:380px; line-height:1.4;">
-                "Hey trainer ${game.playerName}! Thanks for having me along across timelines in Midnoria. Let's keep pushing our limits!"
+                "Hey trainer ${game.playerName}! Thanks for having me along across timelines in Aetheria. Let's keep pushing our limits!"
             </p>
         `;
         renderButtons([
@@ -1549,11 +1627,11 @@
         document.getElementById("console").innerHTML = `
             <h2 style="color:#00ffff; font-size:18px;">🌐 ONLINE MULTIPLAYER HUB</h2>
             <p style="color:#aaa; max-width:380px; font-size:12px;">Join a shared timeline room with your friends to view rosters, trade, fight PvP duels, or tackle Co-Op Raid Bosses!</p>
-            <input type="text" id="room-code-input" value="${currentRoomId || 'MIDNORIA'}" style="background:#111;color:#0ff;border:1px solid #0ff;padding:8px;font-family:'Courier New';font-size:13px;border-radius:4px;width:70%;max-width:180px;text-align:center;margin-top:6px;" />
+            <input type="text" id="room-code-input" value="${currentRoomId || 'AETHERIA'}" style="background:#111;color:#0ff;border:1px solid #0ff;padding:8px;font-family:'Courier New';font-size:13px;border-radius:4px;width:70%;max-width:180px;text-align:center;margin-top:6px;" />
         `;
         renderButtons([
             { text: "Connect to Room", class: "btn btn-sys", action: () => {
-                currentRoomId = document.getElementById("room-code-input").value.trim().toUpperCase() || "MIDNORIA";
+                currentRoomId = document.getElementById("room-code-input").value.trim().toUpperCase() || "AETHERIA";
                 if (socket) socket.emit('joinRoom', { roomId: currentRoomId, player: { name: game.playerName, staff: game.staff, power: game.managerPower } });
                 renderActiveLobbyView();
             }},
@@ -1688,9 +1766,9 @@
         playBGM('credits');
         clearConsole("center", "radial-gradient(circle at 50% 30%, #151515 0%, #000 85%)", "#ffffff");
         document.getElementById("console").innerHTML = `
-            <h2 style="color:#fff; font-size:18px;">📜 UNIDEX LEGENDS — CREDITS</h2>
+            <h2 style="color:#fff; font-size:18px;">📜 UNIMON LEGENDS — CREDITS</h2>
             <div class="dex-card" style="display:block;line-height:1.5;font-size:12px;text-align:center;">
-                <strong>UNIDEX LEGENDS</strong><br><br>
+                <strong>UNIMON LEGENDS</strong><br><br>
                 <strong>Concept & Direction</strong><br>Bill<br><br>
                 <strong>Beta Testing</strong><br>Fr3xi0us<br><br>
                 <strong>Concepts & Ideas</strong><br>Doug & Don<br><br>
@@ -1780,7 +1858,7 @@
         playBGM('hq');
         clearConsole("center", "radial-gradient(circle at 50% 40%, #002244 0%, #02060a 85%)", "#00ffcc");
         document.getElementById("console").innerHTML = `
-            <h2 style="color: #00ffcc; font-size:18px;">🗺️ MIDNORIA REGIONS MAP</h2>
+            <h2 style="color: #00ffcc; font-size:18px;">🗺️ AETHERIA REGIONS MAP</h2>
             <p style="color: #aaa; font-size:12px;">Explore diverse biomes and hunt regional monsters (Costs 5 Stamina):</p>
         `;
         renderButtons([
