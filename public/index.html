@@ -463,7 +463,35 @@
             { name: "Easter Bunny", origin: "Spring Meadow", type: "Normal", id: 8001 },
             { name: "Lifeguard Mitch", origin: "Goo Lagoon Beach", type: "Fighting", id: 8002 },
             { name: "Surfer Bro Kai", origin: "Sunset Shores", type: "Water", id: 8003 }
+        ],
+        // Exclusive characters only obtainable through Mystery Gift redeem codes -
+        // never appear in wild encounters or portal pulls, but still show up (locked)
+        // in the UniDex list like any other entry.
+        'legendary': [
+            { name: "Nullex, the Beta Wyrm", origin: "Unfinished Timeline", type: "Dragon", id: 9900, power: 88 }
         ]
+    };
+
+    // Mystery Gift redeem codes. Keys are matched case-insensitively (input is
+    // uppercased before lookup). Each code can only be redeemed once per save
+    // (tracked in game.redeemedCodes).
+    const REDEEM_CODES = {
+        "BETALEGEND": {
+            desc: "🐉 Beta Tester Reward: Nullex, the Beta Wyrm (Legendary)!",
+            apply: (g) => {
+                let legend = PORTAL_CHAR_POOLS.legendary[0];
+                g.staff.push({ name: legend.name, power: legend.power || 80, origin: legend.origin, dexId: legend.id, legendary: true });
+                recordDex(legend.id, false);
+            }
+        },
+        "WELCOME500": {
+            desc: "💰 +$500 Bonus Funds!",
+            apply: (g) => { g.funds += 500; }
+        },
+        "LUCKYGEMS": {
+            desc: "💎 +2 Diamonds added to your bag!",
+            apply: (g) => { g.inventory.push("Diamond", "Diamond"); }
+        }
     };
 
     const AUDIO_TRACKS = {
@@ -634,7 +662,8 @@
             pool.forEach(c => poolEntries.push({ id: c.id, name: c.name, origin: c.origin }));
         });
         let existingIds = new Set(REAL_CHARACTERS_DB.map(c => c.id));
-        return REAL_CHARACTERS_DB.concat(poolEntries.filter(c => !existingIds.has(c.id)));
+        return REAL_CHARACTERS_DB.concat(poolEntries.filter(c => !existingIds.has(c.id)))
+            .sort((a, b) => a.id - b.id);
     }
 
     function defaultGameState() {
@@ -644,7 +673,7 @@
             managerPower: 30,
             equippedGear: { weapon: "None", armor: "None", helmet: "None", accessory: "None" },
             inventory: ["Pokéball", "Pokéball", "Pokéball", "Copper Ore", "Diamond"], 
-            staff: [], pokedex: {}, specialDex: {}, dlcUnlocked: false,
+            staff: [], pokedex: {}, specialDex: {}, dlcUnlocked: false, redeemedCodes: [],
             achievements: {},
             currentDailyEvent: { name: "Calm Multiverse", desc: "A peaceful day across timelines." },
             homeDecor: { tier: 1, name: "Standard Suite", items: [] },
@@ -743,8 +772,9 @@
         if (!game.farm) game.farm = defaultGameState().farm;
         if (!game.equippedGear) game.equippedGear = { weapon: "None", armor: "None", helmet: "None", accessory: "None" };
         if (!game.achievements) game.achievements = {};
+        if (!game.redeemedCodes) game.redeemedCodes = [];
         if (!game.currentDailyEvent) game.currentDailyEvent = { name: "Calm Multiverse", desc: "A peaceful day." };
-        
+
         document.getElementById("funds-display").innerText = Math.floor(game.funds || 0);
         document.getElementById("stamina-display").innerText = game.stamina || 0;
         document.getElementById("day-display").innerText = game.day || 1;
@@ -1000,6 +1030,7 @@
             { text: "⚔️ Staff Roster", class: "btn btn-maid", action: showStaffMenu },
             { text: "📖 UniDex (1-2000)", class: "btn btn-dex", action: () => showDexMenu(1) },
             { text: "🌌 Free Portals", class: "btn btn-sys", action: showFreePortalsMenu },
+            { text: "🎁 Redeem Code", class: "btn btn-sys", action: () => showRedeemCodeMenu() },
             { text: "🔒 Premium DLC Portals", class: "btn btn-dlc", action: openDLCDispatch },
             { text: "🌐 Online Hub & Co-Op", class: "btn btn-sys", action: showOnlineLobbyGate },
             { text: "📜 Credits", class: "btn btn-sys", action: showCreditsMenu },
@@ -1270,7 +1301,10 @@
                                 <span style="font-size:10.5px;color:#aaa;">Origin: ${s.origin || 'Unknown'} | Power: ${s.power || 0}</span>
                             </div>
                         </div>
-                        <button class="btn btn-maid" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="interactWithStaff(${idx})">💬 Talk</button>
+                        <div style="display:flex; gap:4px;">
+                            <button class="btn btn-maid" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="interactWithStaff(${idx})">💬 Talk</button>
+                            <button class="btn btn-back" style="padding:3px 8px; font-size:11px; min-height:28px; border-color:#ff3333; color:#ff6666;" onclick="confirmReleaseStaff(${idx})">🗑️ Release</button>
+                        </div>
                     </div>
                 `;
             });
@@ -1278,6 +1312,47 @@
         html += `</div>`;
         document.getElementById("console").innerHTML = html;
         renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
+    }
+
+    // Lets a player release a staff member they've caught (typically an extra copy of
+    // someone they already have) back into the multiverse, freeing up the roster.
+    function confirmReleaseStaff(idx) {
+        let member = game.staff[idx];
+        if (!member) return;
+        if (game.staff.length <= 1) {
+            alert("You need at least one team member! Recruit another before releasing this one.");
+            return;
+        }
+        playBGM('staff');
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #2b005c 0%, #0c001a 80%)", "#ff3333");
+        document.getElementById("console").innerHTML = `
+            ${portrait(getCharacterPortrait(member.name), member.name, 160)}
+            <p style="color: #ffff00; font-size: 13px; line-height: 1.45; max-width: 400px;">
+                👴 <strong>[Professor Bill]:</strong> "You want to release <strong>${member.name}</strong> back into the multiverse? This can't be undone!"
+            </p>
+        `;
+        renderButtons([
+            { text: "✔ Yes, release them", class: "btn btn-back", action: () => releaseStaffMember(idx) },
+            { text: "❌ Nevermind", class: "btn btn-start", action: showStaffMenu }
+        ]);
+    }
+
+    function releaseStaffMember(idx) {
+        let member = game.staff[idx];
+        if (!member) { showStaffMenu(); return; }
+        game.staff.splice(idx, 1);
+
+        // Releasing removes them from your active roster, but keeps the UniDex entry
+        // discovered (just like a real Pokédex) - only the extra "count" goes down.
+        if (member.dexId != null && game.pokedex && game.pokedex[String(member.dexId)]) {
+            let entry = game.pokedex[String(member.dexId)];
+            entry.count = Math.max(0, (entry.count || 1) - 1);
+        }
+
+        game.funds += 50;
+        saveGame(); updateUI();
+        alert(`👋 Released ${member.name} back into the multiverse. (+$50)`);
+        showStaffMenu();
     }
 
     function interactWithStaff(idx) {
@@ -1366,7 +1441,7 @@
         setTimeout(() => {
             const success = Math.random() < 0.65;
             if (success) {
-                game.staff.push({ name: activeEncounter.name, power: activeEncounter.power, origin: activeEncounter.origin });
+                game.staff.push({ name: activeEncounter.name, power: activeEncounter.power, origin: activeEncounter.origin, dexId: activeEncounter.dexId });
                 recordDex(activeEncounter.dexId, false);
                 saveGame(); updateUI();
                 document.getElementById("capture-status").innerHTML = `<strong style="color:#55ff99;">🎉 CAPTURED ${activeEncounter.name}!</strong>`;
@@ -1378,6 +1453,53 @@
     }
 
     // --- PREMIUM DLC PORTALS ---
+    // --- MYSTERY GIFT / REDEEM CODE SYSTEM ---
+    function showRedeemCodeMenu(message = "") {
+        playBGM('dlcHub');
+        clearConsole("center", "radial-gradient(circle at 50% 50%, #002b1a 0%, #001008 80%)", "#00ff99");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color: #00ff99; font-size:18px;">🎁 MYSTERY GIFT</h2>
+            <p style="color: #aaa; font-size:12px; max-width:360px;">Enter a code from an event, promo, or the beta test to claim your reward.</p>
+            <input type="text" id="redeem-code-input" placeholder="Enter code..." style="background: #111; color: #0f0; border: 1px solid #0f0; padding: 8px; font-family: 'Courier New'; font-size: 13px; border-radius: 4px; width: 80%; max-width: 220px; text-align: center; margin-top:6px; text-transform:uppercase;" />
+            ${message ? `<p style="font-size:12px; margin-top:8px;">${message}</p>` : ''}
+        `;
+        renderButtons([
+            { text: "🎁 Redeem", class: "btn btn-start", action: submitRedeemCode },
+            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
+        ]);
+        let input = document.getElementById("redeem-code-input");
+        if (input) {
+            input.focus();
+            input.addEventListener("keydown", (e) => { if (e.key === "Enter") submitRedeemCode(); });
+        }
+    }
+
+    function submitRedeemCode() {
+        let input = document.getElementById("redeem-code-input");
+        let raw = input ? input.value.trim().toUpperCase() : "";
+
+        if (!raw) {
+            showRedeemCodeMenu(`<span style="color:#ff6666;">Enter a code first!</span>`);
+            return;
+        }
+        if (!game.redeemedCodes) game.redeemedCodes = [];
+
+        let code = REDEEM_CODES[raw];
+        if (!code) {
+            showRedeemCodeMenu(`<span style="color:#ff6666;">❌ "${raw}" isn't a valid code.</span>`);
+            return;
+        }
+        if (game.redeemedCodes.includes(raw)) {
+            showRedeemCodeMenu(`<span style="color:#ffaa00;">⚠️ You've already redeemed "${raw}".</span>`);
+            return;
+        }
+
+        code.apply(game);
+        game.redeemedCodes.push(raw);
+        saveGame(); updateUI();
+        showRedeemCodeMenu(`<span style="color:#55ff99;">✔ Redeemed! ${code.desc}</span>`);
+    }
+
     function openDLCDispatch() {
         if (game.dlcUnlocked) { showPremiumDLCMenu(); return; }
         playBGM('dlcHub');
