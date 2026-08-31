@@ -10,9 +10,10 @@
         html, body {
             background-color: #030305; color: #00ff66;
             font-family: 'Courier New', Courier, monospace;
-            margin: 0; padding: 10px; width: 100vw; height: 100vh;
+            margin: 0; padding: 8px; width: 100vw; height: 100vh;
             overflow: hidden; display: flex; flex-direction: column;
             user-select: none;
+            touch-action: manipulation;
         }
 
         /* Top HUD Bar */
@@ -20,29 +21,92 @@
             background: linear-gradient(180deg, #12121c 0%, #08080f 100%);
             border: 1px solid #00ffff55;
             box-shadow: 0 0 12px rgba(0, 255, 255, 0.2);
-            padding: 8px 12px; margin-bottom: 8px; border-radius: 6px;
-            font-size: 13px; flex-shrink: 0; display: none;
+            padding: 6px 10px; margin-bottom: 6px; border-radius: 6px;
+            font-size: 12px; flex-shrink: 0; display: none;
             justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 4px;
         }
         .stat-highlight { color: #ff00ff; font-weight: bold; text-shadow: 0 0 8px #ff00ff88; }
         .stat-money { color: #ffff00; font-weight: bold; text-shadow: 0 0 8px #ffff0088; }
         
-        /* Main Interactive Console Screen */
-        #console {
-            flex: 1 1 0%; min-height: 0; background-color: #020204;
-            border: 2px solid #222233;
-            padding: 15px; overflow-y: auto; margin-bottom: 10px;
-            border-radius: 8px; font-size: 14.5px; line-height: 1.45;
-            box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.95), 0 0 20px rgba(0, 255, 100, 0.15);
-            display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;
+        /* Main Interactive Console Wrapper */
+        #screen-wrapper {
             position: relative;
+            flex: 1 1 0%;
+            min-height: 0;
+            display: flex;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+
+        #console {
+            flex: 1 1 100%; min-height: 0; background-color: #020204;
+            border: 2px solid #222233;
+            padding: 12px; overflow-y: scroll;
+            border-radius: 8px; font-size: 14px; line-height: 1.45;
+            box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.95), 0 0 20px rgba(0, 255, 100, 0.15);
+            display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;
+            position: relative;
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+        }
+
+        /* Visible Neon Scrollbars for Mobile & Desktop */
+        #console::-webkit-scrollbar, #controls::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        #console::-webkit-scrollbar-track, #controls::-webkit-scrollbar-track {
+            background: #080811;
+            border-radius: 4px;
+        }
+        #console::-webkit-scrollbar-thumb, #controls::-webkit-scrollbar-thumb {
+            background: #00ffff55;
+            border: 1px solid #00ffff;
+            border-radius: 4px;
+        }
+        #console::-webkit-scrollbar-thumb:hover {
+            background: #00ffffaa;
+        }
+
+        /* On-Screen Mobile Touch Scroll Nudge Buttons */
+        .touch-scroll-panel {
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 10;
+            pointer-events: auto;
+        }
+        .touch-scroll-btn {
+            background: rgba(10, 10, 20, 0.85);
+            color: #00ffff;
+            border: 1px solid #00ffff;
+            box-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+        }
+        .touch-scroll-btn:active {
+            background: #00ffff;
+            color: #000;
         }
 
         /* CRT Scanline Overlay */
         #console::after {
             content: " "; display: block; position: absolute;
             top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.04), rgba(0, 255, 0, 0.015), rgba(0, 0, 255, 0.04));
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.04), rgba(0, 255, 0, 0.015), rgba(0, 255, 0, 0.04));
             z-index: 2; background-size: 100% 3px, 6px 100%; pointer-events: none; opacity: 0.65;
         }
 
@@ -122,10 +186,10 @@
         .ball-center-band { position: absolute; top: 46%; left: 0; width: 100%; height: 8%; background: #111; z-index: 4; }
         .ball-center-btn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 18px; height: 18px; border-radius: 50%; background: #ffffff; border: 3px solid #111; z-index: 5; box-shadow: 0 0 4px #fff; }
 
-        #controls { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; flex-shrink: 0; width: 100%; min-height: 85px; max-height: 250px; overflow-y: auto; z-index: 4; }
+        #controls { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; flex-shrink: 0; width: 100%; min-height: 85px; max-height: 230px; overflow-y: auto; -webkit-overflow-scrolling: touch; z-index: 4; }
         @media (min-width: 600px) { #controls { grid-template-columns: repeat(4, 1fr); } }
         
-        .btn { background: #12121c; color: #00ff66; border: 1px solid #00ff6666; padding: 11px 6px; font-family: 'Courier New', Courier, monospace; font-size: 13px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; transition: all 0.15s ease; }
+        .btn { background: #12121c; color: #00ff66; border: 1px solid #00ff6666; padding: 11px 6px; font-family: 'Courier New', Courier, monospace; font-size: 13px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; transition: all 0.15s ease; touch-action: manipulation; }
         .btn:hover, .btn.gamepad-focused { background: #1c1c2e; box-shadow: 0 0 10px rgba(0, 255, 100, 0.8); outline: 2px solid #00ffff; }
         .btn:active, .btn.selected { background-color: #00ff66; color: #000; outline: 2px solid #ff00ff; }
         
@@ -167,7 +231,14 @@
         </div>
     </div>
     
-    <div id="console"></div>
+    <div id="screen-wrapper">
+        <div id="console"></div>
+        <div class="touch-scroll-panel">
+            <div class="touch-scroll-btn" onclick="scrollConsole(-140)" title="Scroll Up">▲</div>
+            <div class="touch-scroll-btn" onclick="scrollConsole(140)" title="Scroll Down">▼</div>
+        </div>
+    </div>
+
     <div id="controls"></div>
 
 <script>
@@ -183,6 +254,13 @@
     let isAudioMuted = false;
     let lastActiveTrack = 'intro';
     let gamepadBtnIndex = 0;
+
+    function scrollConsole(offset) {
+        const consoleDiv = document.getElementById("console");
+        if (consoleDiv) {
+            consoleDiv.scrollBy({ top: offset, behavior: 'smooth' });
+        }
+    }
 
     const REGIONS_DATA = {
         'forest': {
@@ -553,6 +631,7 @@
         consoleDiv.style.justifyContent = align;
         consoleDiv.style.background = bgGradient;
         consoleDiv.style.borderColor = borderColor;
+        consoleDiv.scrollTop = 0;
     }
 
     function log(msg, colorClass="") {
@@ -651,7 +730,7 @@
         slotButtons.push({ text: "🗑️ Delete Save Slot", class: "btn btn-back", action: showDeleteSaveSlotsScreen });
 
         document.getElementById("console").innerHTML = `
-            <h1 style="color: #00ffff; text-shadow: 0 0 15px #00ffff; margin-bottom: 5px; font-size: 32px; letter-spacing: 2px;">UNIDEX LEGENDS</h1>
+            <h1 style="color: #00ffff; text-shadow: 0 0 15px #00ffff; margin-bottom: 5px; font-size: 30px; letter-spacing: 2px;">UNIDEX LEGENDS</h1>
             <p style="color: #ffff00; font-size: 13px; max-width: 420px; margin-top: 5px;">Select a timeline save slot to continue your franchise, or start fresh!</p>
         `;
         renderButtons(slotButtons);
@@ -692,7 +771,7 @@
         playBGM('intro');
         clearConsole("center", "radial-gradient(circle at 50% 30%, #001a1a 0%, #000 85%)", "#00ffff");
         document.getElementById("console").innerHTML = `
-            ${portrait("/pictures/professor.jpg", "Professor Bill", 260)}
+            ${portrait("/pictures/professor.jpg", "Professor Bill", 240)}
             <p style="color: #00ffff; font-size: 13.5px; line-height: 1.5; max-width: 440px;">
                 👴 <strong>[Professor Bill]:</strong> "Hello there! Welcome to the world of multiversal research! My name is Professor BILL! People call me the DIMENSION PROF!"
             </p>
@@ -703,7 +782,7 @@
     function showProfessorDialogue1_B() {
         clearConsole("center", "radial-gradient(circle at 50% 30%, #001a1a 0%, #000 85%)", "#00ffff");
         document.getElementById("console").innerHTML = `
-            ${portrait("/pictures/professor.jpg", "Professor Bill", 260)}
+            ${portrait("/pictures/professor.jpg", "Professor Bill", 240)}
             <p style="color: #00ffff; font-size: 13.5px; line-height: 1.5; max-width: 440px;">
                 👴 <strong>[Professor Bill]:</strong> "This world is inhabited by legendary characters from across all realities! For some people, these icons are close allies. Others use them for epic battles. Myself... I study them as a profession."
             </p>
@@ -714,7 +793,7 @@
     function showProfessorDialogue1_C() {
         clearConsole("center", "radial-gradient(circle at 50% 30%, #001a1a 0%, #000 85%)", "#00ffff");
         document.getElementById("console").innerHTML = `
-            ${portrait("/pictures/professor.jpg", "Professor Bill", 260)}
+            ${portrait("/pictures/professor.jpg", "Professor Bill", 240)}
             <p style="color: #00ffff; font-size: 13.5px; line-height: 1.5; max-width: 440px;">
                 👴 <strong>[Professor Bill]:</strong> "You are standing in the magnificent <strong>Midnoria</strong> region—a unique nexus point where space-time intersects, allowing portals to open into infinite parallel universes and fictional realms."
             </p>
@@ -725,13 +804,13 @@
     function showProfessorDialogue2() {
         clearConsole("center", "radial-gradient(circle at 50% 30%, #001a1a 0%, #000 85%)", "#00ffff");
         document.getElementById("console").innerHTML = `
-            <div style="display: flex; gap: 30px; justify-content: center; margin-bottom: 12px; align-items: center;">
+            <div style="display: flex; gap: 20px; justify-content: center; margin-bottom: 12px; align-items: center;">
                 <div class="clickable-portrait" onclick="setManagerGender('Boy')">
-                    ${portrait("/pictures/boy_trainer.jpg", "Boy Trainer", 260)}<br>
+                    ${portrait("/pictures/boy_trainer.jpg", "Boy Trainer", 220)}<br>
                     <strong style="color: #00ffff;">👦 BOY</strong>
                 </div>
                 <div class="clickable-portrait" onclick="setManagerGender('Girl')">
-                    ${portrait("/pictures/girl trainer.jpg", "Girl Trainer", 260)}<br>
+                    ${portrait("/pictures/girl trainer.jpg", "Girl Trainer", 220)}<br>
                     <strong style="color: #ff00ff;">👧 GIRL</strong>
                 </div>
             </div>
@@ -763,7 +842,7 @@
     function showStarterSelectionPrompt() {
         clearConsole("center", "radial-gradient(circle at 50% 30%, #001a1a 0%, #000 85%)", "#00ffff");
         document.getElementById("console").innerHTML = `
-            ${portrait("/pictures/professor.jpg", "Professor Bill", 260)}
+            ${portrait("/pictures/professor.jpg", "Professor Bill", 240)}
             <p style="color: #00ffff; font-size: 13.5px; line-height: 1.5; max-width: 420px;">
                 👴 <strong>[Professor Bill]:</strong> "Right! So your name is <strong>${game.playerName}</strong>! You cannot possibly venture out into the wild dimensions of Midnoria without a reliable partner. Would you like to select your starter companion now?"
             </p>
@@ -777,7 +856,7 @@
     function showStarterRefusal() {
         clearConsole("center", "radial-gradient(circle at 50% 30%, #001a1a 0%, #000 85%)", "#00ffff");
         document.getElementById("console").innerHTML = `
-            ${portrait("/pictures/professor.jpg", "Professor Bill", 260)}
+            ${portrait("/pictures/professor.jpg", "Professor Bill", 240)}
             <p style="color: #ff3333; font-size: 13.5px; line-height: 1.5; max-width: 420px;">
                 👴 <strong>[Professor Bill]:</strong> "Haha, don't be shy, trainer! It is far too dangerous out there without backup. Let's try this again!"
             </p>
@@ -799,7 +878,7 @@
         playStarterCry(starterName);
         clearConsole("center", "radial-gradient(circle at 50% 30%, #001a1a 0%, #000 85%)", "#00ffff");
         document.getElementById("console").innerHTML = `
-            ${portrait(getCharacterPortrait(starterName), starterName, 220)}
+            ${portrait(getCharacterPortrait(starterName), starterName, 200)}
             <p style="color: #ffff00; font-size: 14px; line-height: 1.5; max-width: 420px;">
                 👴 <strong>[Professor Bill]:</strong> "Ah, you want <strong>${starterName}</strong>? This character is quite spirited! Are you sure you want this one?"
             </p>
@@ -859,7 +938,7 @@
         playBGM('shop');
         clearConsole("center", "radial-gradient(circle at 50% 30%, #333300 0%, #080800 85%)", "#ffff00");
         document.getElementById("console").innerHTML = `
-            <div id="wheel-icon" style="font-size: 70px; margin-bottom: 10px;">🎡</div>
+            <div id="wheel-icon" style="font-size: 60px; margin-bottom: 10px;">🎡</div>
             <h2 style="color: #ffff00;">🎰 MULTIVERSE LUCKY WHEEL</h2>
             <p style="color: #aaa; font-size:13px; max-width: 380px;">Spin the wheel for a chance to win bonus cash, rare gems, stamina, or Pokéballs! (Cost: $100)</p>
             <p id="wheel-result" style="color: #00ffff; font-size: 14px;"></p>
@@ -910,7 +989,7 @@
         playBGM('shop');
         clearConsole("flex-start", "radial-gradient(ellipse at 50% 20%, #3d1c00 0%, #140a00 70%)", "#ff8c00");
         document.getElementById("console").innerHTML = `
-            ${portrait("/pictures/doug.png", "Doug", 140)}
+            ${portrait("/pictures/doug.png", "Doug", 130)}
             <h2 style="color: #ffaa00;">🏪 MIDNORIA MARKET DISTRICT</h2>
             <p style="color: #aaa; font-size:13px;">Visit the bustling merchant stalls of Midnoria!</p>
         `;
@@ -981,7 +1060,7 @@
         clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #002233 0%, #000c14 85%)", "#00ffff");
         let randomDonQuote = DON_QUOTES[Math.floor(Math.random() * DON_QUOTES.length)];
         document.getElementById("console").innerHTML = `
-            ${portrait("/pictures/don.png", "Don", 150)}
+            ${portrait("/pictures/don.png", "Don", 140)}
             <p style="color: #00ffff; font-size:13px; font-style:italic;">*Sighs heavily and loudly rubs his temples*</p>
             <h2 style="color: #00ffff;">🛍️ DON'S GENERAL STORE</h2>
             <p style="color: #aaa; font-size:13px;">${randomDonQuote}</p>
@@ -1010,7 +1089,7 @@
         playBGM('villain');
         clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #200020 0%, #0a000a 85%)", "#ff00ff");
         document.getElementById("console").innerHTML = `
-            ${portrait("/pictures/fr3xi0us.png", "Fr3xi0us", 150)}
+            ${portrait("/pictures/fr3xi0us.png", "Fr3xi0us", 140)}
             <h2 style="color: #ff00ff;">🕶️ FR3XI0US'S BLACK MARKET</h2>
             <p style="color: #aaa; font-size:13px;">"Looking for high-end gear and survival utilities? You came to the right place."</p>
         `;
@@ -1293,7 +1372,7 @@
             });
         }
         html += `</div>`;
-        document.getElementById("console").innerHTML = html;
+        document.getElementById("console").innerHTML += html;
 
         renderButtons([
             { text: "🐲 Start Co-Op Raid Boss", class: "btn btn-raid", action: startCoopRaidSession },
