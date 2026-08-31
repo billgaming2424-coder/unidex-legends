@@ -298,9 +298,14 @@
 
     function syncTrainerPresence() {
         if (socket && socket.connected) {
+            let lead = (game.staff && game.staff.length > 0) ? game.staff[0] : null;
             socket.emit('registerTrainerPresence', {
                 playerName: game.playerName || "Trainer",
-                location: game.location || "Nexus HQ"
+                location: game.location || "Nexus HQ",
+                funds: game.funds || 0,
+                champion: lead ? lead.name : "Partner",
+                power: lead ? (lead.power || 25) : 25,
+                saveSlot: currentSaveSlot
             });
         }
     }

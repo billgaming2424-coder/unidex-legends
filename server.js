@@ -11,8 +11,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(__dirname));
 app.use(express.json());
 
-const onlineUsers = new Map(); 
-const rooms = new Map();       
+const onlineUsers = new Map();
+const rooms = new Map();
 const globalChatHistory = [];
 const pvpBattles = new Map();
 const globalMarketListings = [];
@@ -35,7 +35,74 @@ function broadcastGlobalStats() {
         activeRaidKey: activeRaidKey,
         marketListings: globalMarketListings
     });
+    broadcastAdminStats();
 }
+
+// --- ADMIN MONITORING PANEL ---
+// Set ADMIN_PASSWORD in your environment before deploying publicly, e.g.
+//   (Windows)  set ADMIN_PASSWORD=your-real-password && node server.js
+//   (Mac/Linux) ADMIN_PASSWORD=your-real-password node server.js
+// The fallback below is only for local testing - change it before going live.
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "unidex-admin-2026";
+
+const serverStartTime = Date.now();
+let peakOnline = 0;
+let totalConnectionsSinceStart = 0;
+
+function buildAdminStats() {
+    return {
+        serverStartTime,
+        serverUptimeSec: Math.floor((Date.now() - serverStartTime) / 1000),
+        totalOnlineNow: onlineUsers.size,
+        peakOnline,
+        totalConnectionsSinceStart,
+        players: Array.from(onlineUsers.values()),
+        rooms: Array.from(rooms.entries()).map(([id, players]) => ({ id, playerCount: players.length, players })),
+        activePvpBattles: pvpBattles.size,
+        marketListings: globalMarketListings,
+        raidBoss: { ...raidBosses[activeRaidKey], key: activeRaidKey },
+        timestamp: Date.now()
+    };
+}
+
+// Admin dashboard connects on its own Socket.IO namespace, kept fully separate
+// from player sockets/onlineUsers so admin connections never show up as
+// "players" and never receive game broadcasts (and vice versa).
+const adminIo = io.of('/admin');
+const authenticatedAdminIds = new Set();
+
+function broadcastAdminStats() {
+    if (authenticatedAdminIds.size === 0) return;
+    const stats = buildAdminStats();
+    authenticatedAdminIds.forEach((id) => {
+        const s = adminIo.sockets.get(id);
+        if (s) s.emit('statsUpdate', stats);
+    });
+}
+
+adminIo.on('connection', (socket) => {
+    socket.emit('needAuth');
+
+    socket.on('authenticate', (password) => {
+        if (typeof password === 'string' && password === ADMIN_PASSWORD) {
+            authenticatedAdminIds.add(socket.id);
+            socket.emit('authResult', { success: true });
+            socket.emit('statsUpdate', buildAdminStats());
+        } else {
+            socket.emit('authResult', { success: false });
+        }
+    });
+
+    socket.on('requestStats', () => {
+        if (authenticatedAdminIds.has(socket.id)) {
+            socket.emit('statsUpdate', buildAdminStats());
+        }
+    });
+
+    socket.on('disconnect', () => {
+        authenticatedAdminIds.delete(socket.id);
+    });
+});
 
 io.on('connection', (socket) => {
     onlineUsers.set(socket.id, {
@@ -44,21 +111,28 @@ io.on('connection', (socket) => {
         location: "Nexus HQ",
         funds: 5000,
         champion: "Partner",
-        power: 25
+        power: 25,
+        saveSlot: null,
+        connectedAt: Date.now()
     });
+    totalConnectionsSinceStart++;
+    peakOnline = Math.max(peakOnline, onlineUsers.size);
     broadcastGlobalStats();
 
     socket.emit('chatHistory', globalChatHistory);
     socket.emit('raidBossUpdate', raidBosses[activeRaidKey]);
 
     socket.on('registerTrainerPresence', (data) => {
+        const existing = onlineUsers.get(socket.id);
         onlineUsers.set(socket.id, {
             id: socket.id,
             name: data.playerName || "Trainer",
             location: data.location || "Nexus HQ",
             funds: data.funds || 0,
             champion: data.champion || "Partner",
-            power: data.power || 25
+            power: data.power || 25,
+            saveSlot: data.saveSlot || null,
+            connectedAt: existing ? existing.connectedAt : Date.now()
         });
         broadcastGlobalStats();
     });
@@ -113,6 +187,7 @@ io.on('connection', (socket) => {
         else roomList.push(playerData);
 
         io.to(roomId).emit('roomUpdate', { roomId, players: roomList });
+        broadcastAdminStats();
     });
 
     socket.on('selectRaidTier', (tierKey) => {
@@ -140,8 +215,10 @@ io.on('connection', (socket) => {
             setTimeout(() => {
                 currentBoss.hp = currentBoss.maxHp;
                 io.emit('raidBossUpdate', currentBoss);
+                broadcastAdminStats();
             }, 25000);
         }
+        broadcastAdminStats();
     });
 
     socket.on('createMarketListing', ({ item, price, sellerName }) => {
@@ -154,6 +231,7 @@ io.on('connection', (socket) => {
         };
         globalMarketListings.push(listing);
         io.emit('marketUpdate', globalMarketListings);
+        broadcastAdminStats();
     });
 
     socket.on('buyMarketListing', ({ listingId, buyerName }) => {
@@ -163,6 +241,7 @@ io.on('connection', (socket) => {
             io.to(itemObj.sellerId).emit('itemSoldNotification', { item: itemObj.item, price: itemObj.price, buyer: buyerName });
             socket.emit('itemPurchasedSuccess', itemObj);
             io.emit('marketUpdate', globalMarketListings);
+            broadcastAdminStats();
         }
     });
 
@@ -201,6 +280,7 @@ io.on('connection', (socket) => {
         const payload = { battleId, p1Id: challengerId, p2Id: socket.id, p1Max, p2Max };
         io.to(challengerId).emit('startLivePvP', payload);
         socket.emit('startLivePvP', payload);
+        broadcastAdminStats();
     });
 
     socket.on('executeLivePvPAction', ({ battleId, actionType, power, championName }) => {
@@ -236,7 +316,7 @@ io.on('connection', (socket) => {
 
         io.to(b.p1Id).emit('pvpRoundUpdate', statePayload);
         io.to(b.p2Id).emit('pvpRoundUpdate', statePayload);
-        if (statePayload.isOver) pvpBattles.delete(battleId);
+        if (statePayload.isOver) { pvpBattles.delete(battleId); broadcastAdminStats(); }
     });
 
     socket.on('disconnect', () => {
@@ -246,8 +326,13 @@ io.on('connection', (socket) => {
             let roomList = rooms.get(socket.currentRoom).filter(p => p.id !== socket.id);
             rooms.set(socket.currentRoom, roomList);
             io.to(socket.currentRoom).emit('roomUpdate', { roomId: socket.currentRoom, players: roomList });
+            broadcastAdminStats();
         }
     });
+});
+
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
 app.get('*', (req, res) => {
@@ -257,4 +342,4 @@ app.get('*', (req, res) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
-});
+});

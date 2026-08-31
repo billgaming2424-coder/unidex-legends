@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UniDex Legends — Admin Panel</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+    * { box-sizing: border-box; }
+    html, body {
+        margin: 0; padding: 0; min-height: 100vh;
+        background: #030305; color: #00ff66;
+        font-family: 'Courier New', Courier, monospace;
+    }
+    #login-screen {
+        min-height: 100vh; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 14px; padding: 20px;
+    }
+    #login-screen h1 { color: #00ffff; text-shadow: 0 0 12px #00ffff; font-size: 22px; margin: 0; }
+    #login-screen p { color: #888; font-size: 12px; margin: 0; }
+    #password-input {
+        background: #111; color: #0f0; border: 1px solid #00ffff;
+        padding: 10px; font-family: 'Courier New', monospace; font-size: 14px;
+        border-radius: 6px; width: 260px; text-align: center;
+    }
+    #login-btn, .refresh-btn, .logout-btn {
+        background: #002222; color: #00ffff; border: 1px solid #00ffff;
+        padding: 10px 18px; font-family: 'Courier New', monospace; font-size: 13px;
+        border-radius: 6px; cursor: pointer;
+    }
+    #login-btn:hover, .refresh-btn:hover, .logout-btn:hover { background: #00ffff22; }
+    #login-error { color: #ff5555; font-size: 12px; min-height: 16px; }
+
+    #dashboard { display: none; padding: 16px; max-width: 1100px; margin: 0 auto; }
+    header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+    header h1 { color: #00ffff; text-shadow: 0 0 10px #00ffff; font-size: 20px; margin: 0; }
+    #conn-status { font-size: 11px; }
+    #conn-status.online { color: #00ff66; }
+    #conn-status.offline { color: #ff5555; }
+
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
+    .stat-card {
+        background: #08080f; border: 1px solid #222238; border-radius: 8px; padding: 12px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    }
+    .stat-card .label { color: #888; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-card .value { color: #00ffff; font-size: 22px; font-weight: bold; margin-top: 4px; }
+
+    .panel { background: #08080f; border: 1px solid #222238; border-radius: 8px; padding: 14px; margin-bottom: 16px; }
+    .panel h2 { color: #ffff00; font-size: 14px; margin: 0 0 10px 0; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #1a1a26; }
+    th { color: #a020f0; font-size: 10.5px; text-transform: uppercase; }
+    td { color: #ccc; }
+    .empty-row td { color: #666; font-style: italic; text-align: center; padding: 14px; }
+
+    .raid-bar-bg { background: #1a0000; border: 1px solid #ff3333; border-radius: 6px; height: 18px; overflow: hidden; margin-top: 6px; }
+    .raid-bar-fill { background: linear-gradient(90deg, #ff3333, #ff8800); height: 100%; transition: width 0.4s ease; }
+
+    footer { text-align: center; color: #444; font-size: 10.5px; margin-top: 20px; }
+</style>
+</head>
+<body>
+
+    <div id="login-screen">
+        <h1>🛡️ ADMIN PANEL</h1>
+        <p>UniDex Legends — authorized personnel only</p>
+        <input type="password" id="password-input" placeholder="Admin password..." />
+        <button id="login-btn">🔓 Sign In</button>
+        <div id="login-error"></div>
+    </div>
+
+    <div id="dashboard">
+        <header>
+            <h1>🛡️ UNIDEX LEGENDS — ADMIN PANEL</h1>
+            <div>
+                <span id="conn-status" class="offline">● connecting...</span>
+                <button class="refresh-btn" id="refresh-btn">🔄 Refresh</button>
+                <button class="logout-btn" id="logout-btn">🚪 Sign Out</button>
+            </div>
+        </header>
+
+        <div class="stat-grid">
+            <div class="stat-card"><div class="label">Online Now</div><div class="value" id="stat-online">0</div></div>
+            <div class="stat-card"><div class="label">Peak Online</div><div class="value" id="stat-peak">0</div></div>
+            <div class="stat-card"><div class="label">Total Connections</div><div class="value" id="stat-total-conn">0</div></div>
+            <div class="stat-card"><div class="label">Co-Op Rooms</div><div class="value" id="stat-rooms">0</div></div>
+            <div class="stat-card"><div class="label">Active PvP Battles</div><div class="value" id="stat-pvp">0</div></div>
+            <div class="stat-card"><div class="label">Market Listings</div><div class="value" id="stat-market">0</div></div>
+            <div class="stat-card"><div class="label">Server Uptime</div><div class="value" id="stat-uptime">0s</div></div>
+        </div>
+
+        <div class="panel">
+            <h2>⚔️ Active Raid Boss</h2>
+            <div id="raid-name" style="color:#ff8888; font-size:13px;">—</div>
+            <div class="raid-bar-bg"><div class="raid-bar-fill" id="raid-bar" style="width:0%;"></div></div>
+            <div id="raid-hp-text" style="color:#aaa; font-size:11px; margin-top:4px;">—</div>
+        </div>
+
+        <div class="panel">
+            <h2>👥 Connected Beta Players</h2>
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>Trainer</th><th>Save Slot</th><th>Location</th><th>Champion</th><th>Power</th><th>Funds</th><th>Connected</th></tr>
+                </thead>
+                <tbody id="players-body">
+                    <tr class="empty-row"><td colspan="7">No players connected.</td></tr>
+                </tbody>
+            </table>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>🌐 Co-Op / Trade Rooms</h2>
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>Room ID</th><th>Players</th><th>Members</th></tr>
+                </thead>
+                <tbody id="rooms-body">
+                    <tr class="empty-row"><td colspan="3">No active rooms.</td></tr>
+                </tbody>
+            </table>
+            </div>
+        </div>
+
+        <footer>Live data pushes automatically over a private admin channel — no page reloads needed.</footer>
+    </div>
+
+<script>
+    let socket = null;
+    let authenticated = false;
+
+    function fmtDuration(sec) {
+        if (sec < 60) return `${sec}s`;
+        let m = Math.floor(sec / 60), s = sec % 60;
+        if (m < 60) return `${m}m ${s}s`;
+        let h = Math.floor(m / 60); m = m % 60;
+        return `${h}h ${m}m`;
+    }
+
+    function connect() {
+        socket = io('/admin', { transports: ['websocket', 'polling'] });
+
+        socket.on('connect', () => {
+            setConnStatus(true);
+            let pw = document.getElementById('password-input').value;
+            if (pw) socket.emit('authenticate', pw);
+        });
+
+        socket.on('disconnect', () => setConnStatus(false));
+
+        socket.on('needAuth', () => {
+            let pw = document.getElementById('password-input').value;
+            if (pw) socket.emit('authenticate', pw);
+        });
+
+        socket.on('authResult', (res) => {
+            if (res.success) {
+                authenticated = true;
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+                document.getElementById('login-error').innerText = '';
+            } else {
+                authenticated = false;
+                document.getElementById('login-error').innerText = '❌ Incorrect password.';
+            }
+        });
+
+        socket.on('statsUpdate', renderStats);
+    }
+
+    function setConnStatus(isOnline) {
+        let el = document.getElementById('conn-status');
+        if (!el) return;
+        el.className = isOnline ? 'online' : 'offline';
+        el.innerText = isOnline ? '● live' : '● disconnected';
+    }
+
+    function renderStats(stats) {
+        document.getElementById('stat-online').innerText = stats.totalOnlineNow;
+        document.getElementById('stat-peak').innerText = stats.peakOnline;
+        document.getElementById('stat-total-conn').innerText = stats.totalConnectionsSinceStart;
+        document.getElementById('stat-rooms').innerText = stats.rooms.length;
+        document.getElementById('stat-pvp').innerText = stats.activePvpBattles;
+        document.getElementById('stat-market').innerText = stats.marketListings.length;
+        document.getElementById('stat-uptime').innerText = fmtDuration(stats.serverUptimeSec);
+
+        let boss = stats.raidBoss;
+        document.getElementById('raid-name').innerText = `${boss.name} (Lv. ${boss.level})`;
+        let pct = boss.maxHp > 0 ? Math.max(0, Math.min(100, (boss.hp / boss.maxHp) * 100)) : 0;
+        document.getElementById('raid-bar').style.width = pct + '%';
+        document.getElementById('raid-hp-text').innerText = `${boss.hp} / ${boss.maxHp} HP — Reward: $${boss.reward}`;
+
+        let pBody = document.getElementById('players-body');
+        if (!stats.players.length) {
+            pBody.innerHTML = '<tr class="empty-row"><td colspan="7">No players connected.</td></tr>';
+        } else {
+            pBody.innerHTML = stats.players.map(p => {
+                let connSec = Math.floor((Date.now() - (p.connectedAt || Date.now())) / 1000);
+                return `<tr>
+                    <td>${escapeHtml(p.name)}</td>
+                    <td>${p.saveSlot != null ? p.saveSlot : '—'}</td>
+                    <td>${escapeHtml(p.location)}</td>
+                    <td>${escapeHtml(p.champion)}</td>
+                    <td>${p.power}</td>
+                    <td>$${p.funds}</td>
+                    <td>${fmtDuration(connSec)}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        let rBody = document.getElementById('rooms-body');
+        if (!stats.rooms.length) {
+            rBody.innerHTML = '<tr class="empty-row"><td colspan="3">No active rooms.</td></tr>';
+        } else {
+            rBody.innerHTML = stats.rooms.map(r => `<tr>
+                <td>${escapeHtml(r.id)}</td>
+                <td>${r.playerCount}</td>
+                <td>${r.players.map(p => escapeHtml(p.name || p.playerName || 'Trainer')).join(', ') || '—'}</td>
+            </tr>`).join('');
+        }
+    }
+
+    function escapeHtml(str) {
+        return String(str == null ? '' : str).replace(/[&<>"']/g, (c) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+
+    document.getElementById('login-btn').addEventListener('click', () => {
+        document.getElementById('login-error').innerText = '';
+        if (!socket || !socket.connected) connect();
+        else {
+            let pw = document.getElementById('password-input').value;
+            socket.emit('authenticate', pw);
+        }
+    });
+    document.getElementById('password-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('login-btn').click();
+    });
+    document.getElementById('refresh-btn').addEventListener('click', () => {
+        if (socket && socket.connected && authenticated) socket.emit('requestStats');
+    });
+    document.getElementById('logout-btn').addEventListener('click', () => {
+        if (socket) socket.disconnect();
+        authenticated = false;
+        document.getElementById('dashboard').style.display = 'none';
+        document.getElementById('login-screen').style.display = 'flex';
+        document.getElementById('password-input').value = '';
+    });
+
+    connect();
+</script>
+</body>
+</html>
