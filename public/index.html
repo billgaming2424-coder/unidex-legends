@@ -30,23 +30,24 @@
         
         #controls {
             display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px;
-            flex-shrink: 0; width: 100%; max-height: 48vh; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 10px;
+            flex-shrink: 0; width: 100%; max-height: 52vh; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 12px;
         }
         @media (min-width: 650px) { #controls { grid-template-columns: repeat(4, 1fr); max-height: 250px; } }
         
         .btn {
-            background: #12121c; color: #00ff66; border: 1px solid #00ff6666; padding: 8px 4px;
-            font-family: 'Courier New'; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; min-height: 38px; display: flex; align-items: center; justify-content: center;
+            background: #12121c; color: #00ff66; border: 1px solid #00ff6666; padding: 10px 6px;
+            font-family: 'Courier New'; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; min-height: 42px; display: flex; align-items: center; justify-content: center;
         }
         .btn-sys { border-color: #00ffff; color: #00ffff; }
-        .btn-dlc { border-color: #ff00ff; color: #ff00ff; }
-        .btn-back { border-color: #ff3333; color: #ff3333; }
+        .btn-dlc { border-color: #ff00ff; color: #ff00ff; background: #220022; }
+        .btn-back { border-color: #ff3333; color: #ff3333; background: #2b0011; }
         .btn-farm { border-color: #00ff88; color: #00ff88; background: #001f0c; }
-        .btn-gear { border-color: #33ccff; color: #33ccff; }
+        .btn-gear { border-color: #33ccff; color: #33ccff; background: #001122; }
         .btn-map { border-color: #00ffcc; color: #00ffcc; background: #002222; }
         .btn-mine { border-color: #ffaa00; color: #ffaa00; background: #221500; }
-        .btn-dex { border-color: #ffff00; color: #ffff00; }
+        .btn-dex { border-color: #ffff00; color: #ffff00; background: #222200; }
         .btn-spin { border-color: #ffff00; color: #ffff00; background: #333300; }
+        .btn-maid { border-color: #ff66ff; color: #ff66ff; background: #220022; }
         .dex-card { background: #08080f; border: 1px solid #222238; border-radius: 6px; padding: 8px; margin: 4px 0; width: 98%; text-align: left; display: flex; align-items: center; gap: 10px; }
     </style>
 </head>
@@ -74,7 +75,25 @@
 
     let globalActiveTrainers = [];
     let globalChatMessages = [];
-    let game = { playerName: "Trainer", funds: 5000, stamina: 100, day: 1, location: "Nexus HQ", inventory: ["Energy Core", "Pokéball"] };
+    let currentSaveSlot = 1;
+    let game = { playerName: "Trainer", funds: 5000, stamina: 100, day: 1, location: "Nexus HQ", inventory: ["Energy Core", "Pokéball"], pokedex: {}, staff: [], dlcUnlocked: false };
+
+    const PORTAL_POOLS = {
+        'standard': [{ name: "Astolfo", origin: "Fate", type: "Fairy", id: 9001 }, { name: "Felix Argyle", origin: "Re:Zero", type: "Water", id: 9002 }],
+        'femboyHooters': [{ name: "Astolfo (Hooters)", origin: "Femboy Hooters", type: "Fairy", id: 9501 }, { name: "Venti (Server)", origin: "Hooters", type: "Flying", id: 9503 }],
+        'bikiniBottom': [{ name: "SpongeBob", origin: "Bikini Bottom", type: "Water", id: 1001 }, { name: "Patrick Star", origin: "Bikini Bottom", type: "Water", id: 1002 }],
+        'halloween': [{ name: "Jack Skellington", origin: "Halloween Town", type: "Ghost", id: 2001 }],
+        'christmasPortal': [{ name: "Santa Claus", origin: "North Pole", type: "Fairy", id: 7001 }],
+        'gothIhop': [{ name: "Goth Raven", origin: "Azarath", type: "Dark", id: 5001 }],
+        'maidCafe': [{ name: "Doug", origin: "Archive", type: "Normal", id: 6001 }, { name: "Zelda", origin: "Hyrule", type: "Psychic", id: 6002 }]
+    };
+
+    function getSaveKey(slot) { return `unidexSave_slot_${slot}`; }
+    function saveGame() {
+        localStorage.setItem(getSaveKey(currentSaveSlot), JSON.stringify(game));
+        syncTrainerPresence();
+        showSaveToast();
+    }
 
     function syncTrainerPresence() {
         if (socket && socket.connected) {
@@ -141,6 +160,40 @@
         syncTrainerPresence();
     }
 
+    function showIntroScreen() {
+        clearConsole("center", "#050014", "#00ffff");
+        document.getElementById("stats-bar").style.display = "none";
+        let slotButtons = [];
+        for (let i = 1; i <= 3; i++) {
+            let rawData = localStorage.getItem(getSaveKey(i));
+            let label = `Slot ${i}: Empty (New Game)`;
+            let hasData = false;
+            if (rawData) {
+                try {
+                    let parsed = JSON.parse(rawData);
+                    if (parsed && parsed.playerName) {
+                        label = `▶ Slot ${i}: ${parsed.playerName} (Day ${parsed.day || 1}) - $${Math.floor(parsed.funds || 0)}`;
+                        hasData = true;
+                    }
+                } catch(e) {}
+            }
+            slotButtons.push({ text: label, class: hasData ? "btn btn-dlc" : "btn btn-sys", action: () => selectSaveSlot(i, hasData) });
+        }
+        document.getElementById("console").innerHTML = `<h1 style="color: #00ffff; font-size: 24px;">UNIDEX LEGENDS</h1><p style="color: #ffff00; font-size: 12px;">Select Save Slot:</p>`;
+        renderButtons(slotButtons);
+    }
+
+    function selectSaveSlot(slotNum, hasData) {
+        currentSaveSlot = slotNum;
+        if (hasData) {
+            try { game = JSON.parse(localStorage.getItem(getSaveKey(slotNum))); } catch (err) { game = { playerName: "Trainer", funds: 5000, stamina: 100, day: 1, location: "Nexus HQ", inventory: ["Energy Core"] }; }
+        } else {
+            game = { playerName: "Trainer", funds: 5000, stamina: 100, day: 1, location: "Nexus HQ", inventory: ["Energy Core", "Pokéball"], staff: [], dlcUnlocked: false };
+            saveGame();
+        }
+        showMainMenu();
+    }
+
     function showLivePlayersModal() {
         clearConsole("center", "#001f3f", "#00ffff");
         let html = `
@@ -203,7 +256,7 @@
         if (game.inventory[idx] === "Energy Core") {
             game.inventory.splice(idx, 1);
             game.stamina += 50;
-            updateUI();
+            saveGame(); updateUI();
             log("⚡ Energy Core activated! Gained +50 Stamina!", "color-cyan");
             showInventoryMenu();
         }
@@ -223,24 +276,67 @@
                     let roll = Math.random();
                     if (roll > 0.5) { game.funds += 300; alert("Won $300!"); }
                     else { game.inventory.push("Diamond"); alert("Won a Diamond!"); }
-                    updateUI(); showLuckyWheelScreen();
+                    saveGame(); updateUI(); showLuckyWheelScreen();
                 } else { alert("Not enough funds!"); }
             }},
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
 
-    function showPortalsMenu() {
+    function showFreePortalsMenu() {
         clearConsole("center", "#4d004d", "#ff00ff");
         document.getElementById("console").innerHTML = `
-            <h2 style="color: #ff00ff; font-size:16px;">🌌 MULTIVERSE PORTALS</h2>
-            <p style="color: #aaa; font-size:11.5px;">Travel across dimensions to recruit legends!</p>
+            <h2 style="color: #ff00ff; font-size:16px;">🌌 FREE PORTALS</h2>
+            <p style="color: #aaa; font-size:11.5px;">Explore dimensions and recruit characters!</p>
         `;
         renderButtons([
-            { text: "🌌 Standard Portal", class: "btn btn-sys", action: () => alert("Standard portal opened!") },
-            { text: "🦉 Femboy Hooters", class: "btn btn-maid", action: () => alert("Hooters portal opened!") },
+            { text: "🌌 Standard Multiverse", class: "btn btn-sys", action: () => triggerPortalCatch('standard') },
+            { text: "🦉 Femboy Hooters", class: "btn btn-maid", action: () => triggerPortalCatch('femboyHooters') },
+            { text: "🍍 Bikini Bottom", class: "btn btn-farm", action: () => triggerPortalCatch('bikiniBottom') },
+            { text: "🎃 Halloween Portal", class: "btn btn-mine", action: () => triggerPortalCatch('halloween') },
+            { text: "🎄 Christmas Realm", class: "btn btn-sys", action: () => triggerPortalCatch('christmasPortal') },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
+    }
+
+    function openDLCDispatch() {
+        if (game.dlcUnlocked) { showPremiumDLCMenu(); return; }
+        clearConsole("center", "#4d004d", "#ff00ff");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color: #ff00ff; font-size:16px;">🔒 PREMIUM DLC PORTALS</h2>
+            <p style="color: #00ffff; font-size:11.5px;">Enter VIP Passcode (MULTIVERSE):</p>
+            <input type="text" id="dlc-passcode" placeholder="Passcode..." style="background:#111; color:#0f0; border:1px solid #0ff; padding:6px; font-family:'Courier New'; font-size:12px; border-radius:4px; text-align:center; margin-top:6px;" />
+        `;
+        renderButtons([
+            { text: "🔓 Unlock", class: "btn btn-dlc", action: () => {
+                let val = document.getElementById("dlc-passcode").value.trim().toUpperCase();
+                if (val === "MULTIVERSE") { game.dlcUnlocked = true; saveGame(); showPremiumDLCMenu(); }
+                else { alert("Incorrect Passcode!"); }
+            }},
+            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
+        ]);
+    }
+
+    function showPremiumDLCMenu() {
+        clearConsole("center", "#4d004d", "#ff00ff");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color: #ff00ff; font-size:16px;">🌟 PREMIUM SECTORS</h2>
+            <p style="color: #aaa; font-size:11.5px;">Unlocked VIP dimensions!</p>
+        `;
+        renderButtons([
+            { text: "🥞 Goth IHOP", class: "btn btn-maid", action: () => triggerPortalCatch('gothIhop') },
+            { text: "🏰 Maid Café", class: "btn btn-maid", action: () => triggerPortalCatch('maidCafe') },
+            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
+        ]);
+    }
+
+    function triggerPortalCatch(poolKey) {
+        let pool = PORTAL_POOLS[poolKey] || PORTAL_POOLS['standard'];
+        let chosen = pool[Math.floor(Math.random() * pool.length)];
+        game.staff.push(chosen);
+        saveGame();
+        alert(`🎉 Captured ${chosen.name} from ${chosen.origin}!`);
+        showMainMenu();
     }
 
     function showMarketMenu() {
@@ -250,8 +346,8 @@
             <p style="color: #aaa; font-size:11.5px;">Trade ores and buy utilities.</p>
         `;
         renderButtons([
-            { text: "💰 Doug's Ores", class: "btn btn-mine", action: () => alert("Doug's shop opened!") },
-            { text: "🛍️ Don's Store", class: "btn btn-farm", action: () => alert("Don's store opened!") },
+            { text: "💰 Doug's Ores", class: "btn btn-mine", action: () => { game.funds += 300; game.inventory.push("Copper Ore"); saveGame(); updateUI(); alert("Traded with Doug!"); } },
+            { text: "🛍️ Don's Store", class: "btn btn-farm", action: () => { if (game.funds >= 150) { game.funds -= 150; game.inventory.push("Potion"); saveGame(); updateUI(); alert("Bought Potion!"); } else { alert("Not enough funds!"); } } },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
@@ -263,7 +359,7 @@
             <p style="color:#aaa; font-size:11.5px;">Multiplayer lobby and rooms.</p>
         `;
         renderButtons([
-            { text: "📡 Join Room", class: "btn btn-sys", action: () => alert("Joined room!") },
+            { text: "📡 Connected", class: "btn btn-sys", action: () => alert("Connected to network!") },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
@@ -272,22 +368,23 @@
         clearConsole("flex-start", "#1a1500", "#ffaa00");
         document.getElementById("stats-bar").style.display = "flex";
         updateUI();
-        log(`--- NEXUS HQ | WELCOME, TRAINER ${game.playerName.toUpperCase()} ---`, "color-cyan");
+        log(`--- NEXUS HQ (Slot ${currentSaveSlot}) | WELCOME, TRAINER ---`, "color-cyan");
         renderButtons([
-            { text: "🗺️ World Map", class: "btn btn-map", action: () => { game.location = "Whispering Forest"; updateUI(); showMainMenu(); } },
-            { text: "⛏️ Stardew Mines", class: "btn btn-mine", action: () => { game.location = "Stardew Mines"; updateUI(); showMainMenu(); } },
+            { text: "🗺️ World Map", class: "btn btn-map", action: () => { game.location = "Whispering Forest"; saveGame(); updateUI(); showMainMenu(); } },
+            { text: "⛏️ Stardew Mines", class: "btn btn-mine", action: () => { game.location = "Stardew Mines"; saveGame(); updateUI(); showMainMenu(); } },
             { text: "🛍️ Market District", class: "btn btn-farm", action: showMarketMenu },
             { text: "🎰 Lucky Wheel", class: "btn btn-spin", action: showLuckyWheelScreen },
             { text: "💬 Global Chat", class: "btn btn-sys", action: showGlobalChatScreen },
             { text: "🎒 Inventory", class: "btn btn-gear", action: showInventoryMenu },
-            { text: "🌌 Free Portals", class: "btn btn-dlc", action: showPortalsMenu },
+            { text: "🌌 Free Portals", class: "btn btn-sys", action: showFreePortalsMenu },
+            { text: "🔒 Premium DLC", class: "btn btn-dlc", action: openDLCDispatch },
             { text: "🌐 Online Hub", class: "btn btn-sys", action: showOnlineHubMenu },
-            { text: "💤 Sleep", action: () => { game.stamina = 100; game.day++; updateUI(); showMainMenu(); } },
-            { text: "📁 Switch Slot", class: "btn btn-back", action: () => { location.reload(); } }
+            { text: "💤 Sleep", action: () => { game.stamina = 100; game.day++; saveGame(); updateUI(); showMainMenu(); } },
+            { text: "📁 Switch Slot", class: "btn btn-back", action: showIntroScreen }
         ]);
     }
 
-    window.onload = () => { showMainMenu(); };
+    window.onload = () => { showIntroScreen(); };
 </script>
 </body>
 </html>
