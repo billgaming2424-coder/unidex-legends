@@ -37,6 +37,32 @@ Step into the shoes of a newly licensed Multiverse Trainer in the nexus world of
 
 Ensure you have [Node.js](https://nodejs.org/) (v16 or higher) installed.
 
+Install dependencies:
+
+Bash
+npm install
+Build the UniDex Database (if needed):
+
+Bash
+node build_dex.js
+Launch the server:
+
+Bash
+node server.js
+Play the game:
+Open your browser and navigate to http://localhost:3000 (or your configured port).
+
+📜 Credits & Contributors
+Concept & Direction: Bill
+
+Beta Testing & Engineering Support: Fr3xi0us
+
+Concepts & Additional Ideas: Doug & Don
+
+⚖️ Disclaimer
+UniMon Legends is an independent, non-profit fan project created for educational and entertainment purposes. All crossover characters, names, and associated intellectual properties remain the copyright of their respective owners.
+
+
 ### Installation
 
 1. **Clone the repository:**
