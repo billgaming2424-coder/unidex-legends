@@ -3,7 +3,7 @@
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>UniDex Legends - Ultimate Edition</title>
+    <title>UniDex Legends</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         * { box-sizing: border-box; }
@@ -146,6 +146,7 @@
     let socket = null;
     try { socket = io({ transports: ['websocket', 'polling'] }); } catch(e) {}
 
+    // --- AUDIO CONTROLLER ---
     let isMuted = true;
     let currentTrack = "";
     
@@ -156,7 +157,7 @@
         if (!aud) return;
         aud.src = `music/${trackName}.mp3`;
         if (!isMuted) {
-            aud.play().catch(e => console.log("Audio play allowed on user click:", e));
+            aud.play().catch(e => console.log("Autoplay waiting for user gesture:", e));
         }
     }
 
@@ -184,6 +185,7 @@
         else { document.exitFullscreen(); }
     }
 
+    // --- STATE DEFINITION & PORTAL ENCOUNTERS ---
     let globalActiveTrainers = [];
     let globalLeaderboard = [];
     let globalChatMessages = [];
@@ -197,13 +199,13 @@
     let serverRaidBoss = { name: "Void Titan Chronos", hp: 5000, maxHp: 5000 };
 
     const PORTAL_POOLS = {
-        'standard': [{ name: "Astolfo", origin: "Fate", power: 30, maxHp: 120 }, { name: "Felix Argyle", origin: "Re:Zero", power: 28, maxHp: 110 }],
-        'femboyHooters': [{ name: "Astolfo (Hooters)", origin: "Femboy Hooters", power: 32, maxHp: 125 }, { name: "Venti", origin: "Hooters", power: 29, maxHp: 115 }],
-        'bikiniBottom': [{ name: "SpongeBob", origin: "Bikini Bottom", power: 20, maxHp: 90 }, { name: "Patrick Star", origin: "Bikini Bottom", power: 35, maxHp: 150 }],
-        'halloween': [{ name: "Jack Skellington", origin: "Halloween Town", power: 34, maxHp: 110 }],
-        'christmasPortal': [{ name: "Santa Claus", origin: "North Pole", power: 40, maxHp: 200 }],
-        'gothIhop': [{ name: "Goth Raven", origin: "Azarath", power: 35, maxHp: 130 }],
-        'maidCafe': [{ name: "Doug", origin: "Archive", power: 50, maxHp: 200 }, { name: "Zelda", origin: "Hyrule", power: 25, maxHp: 105 }]
+        'standard': [{ name: "Astolfo", origin: "Fate", power: 30, maxHp: 120, encounterDesc: "A mysterious pink-haired paladin emerges from the astral rift!" }, { name: "Felix Argyle", origin: "Re:Zero", power: 28, maxHp: 110, encounterDesc: "A cheerful feline healer steps forward with a wave!" }],
+        'femboyHooters': [{ name: "Astolfo (Hooters)", origin: "Femboy Hooters", power: 32, maxHp: 125, encounterDesc: "Astolfo greets you holding a tray of multiverse wings!" }, { name: "Venti", origin: "Hooters", power: 29, maxHp: 115, encounterDesc: "A breezy bard glides through the portal humming a tune!" }],
+        'bikiniBottom': [{ name: "SpongeBob", origin: "Bikini Bottom", power: 20, maxHp: 90, encounterDesc: "A porous yellow fry cook arrives ready to flip krabby patties!" }, { name: "Patrick Star", origin: "Bikini Bottom", power: 35, maxHp: 150, encounterDesc: "A pink starfish tumbles out from under a rock dimension!" }],
+        'halloween': [{ name: "Jack Skellington", origin: "Halloween Town", power: 34, maxHp: 110, encounterDesc: "The Pumpkin King bows gracefully from the shadows!" }],
+        'christmasPortal': [{ name: "Santa Claus", origin: "North Pole", power: 40, maxHp: 200, encounterDesc: "Jolly laughter rings out as a festive titan appears with gifts!" }],
+        'gothIhop': [{ name: "Goth Raven", origin: "Azarath", power: 35, maxHp: 130, encounterDesc: "Dark shadows swirl as a brooding sorceress manifests!" }],
+        'maidCafe': [{ name: "Doug", origin: "Archive", power: 50, maxHp: 200, encounterDesc: "An elite multiverse collector greets you with premium ores!" }, { name: "Zelda", origin: "Hyrule", power: 25, maxHp: 105, encounterDesc: "A royal princess glides through with an ancient aura!" }]
     };
 
     let defaultGameState = {
@@ -279,6 +281,7 @@
         }
     }
 
+    // --- SOCKET HANDLERS ---
     if (socket) {
         socket.on('globalOnlineUpdate', (data) => {
             const countEl = document.getElementById("global-online-count");
@@ -440,6 +443,7 @@
         syncTrainerPresence();
     }
 
+    // --- SAVE INTRO & DELETE MANAGEMENT ---
     function showIntroScreen() {
         playMusic('intro');
         clearConsole("center", "#050014", "#00ffff");
@@ -457,8 +461,22 @@
             }
             slotButtons.push({ text: label, class: hasData ? "btn btn-dlc" : "btn btn-sys", action: () => selectSaveSlot(i, hasData) });
         }
+        slotButtons.push({ text: "🗑️ Delete Save Slot", class: "btn btn-back", action: showDeleteSavePrompt });
         document.getElementById("console").innerHTML = `<h1 style="color: #00ffff; font-size: 24px;">UNIDEX LEGENDS</h1><p style="color: #ffff00; font-size: 12px;">Select Save Slot to begin:</p>`;
         renderButtons(slotButtons);
+    }
+
+    function showDeleteSavePrompt() {
+        let slotToDel = prompt("Enter the Slot Number (1, 2, or 3) you wish to DELETE and wipe clean:", "1");
+        if (slotToDel === "1" || slotToDel === "2" || slotToDel === "3") {
+            if (confirm(`⚠️ DANGER: Are you sure you want to permanently delete Save Slot ${slotToDel}?`)) {
+                localStorage.removeItem(getSaveKey(slotToDel));
+                alert(`🗑️ Slot ${slotToDel} has been wiped clean!`);
+                showIntroScreen();
+            }
+        } else {
+            alert("❌ Invalid slot number entered.");
+        }
     }
 
     function selectSaveSlot(slotNum, hasData) {
@@ -475,8 +493,9 @@
         showMainMenu();
     }
 
-    function startSinglePlayerCombat(mobName, mobHp, mobDmg, reward, type="travel") {
-        playMusic('battle');
+    // --- COMBAT ENGINE ---
+    function startSinglePlayerCombat(mobName, mobHp, mobDmg, reward, type="travel", bgMusic="battle") {
+        playMusic(bgMusic);
         clearConsole("center", "#000", "#fff");
         document.getElementById("console").innerHTML = `<div class="${type === 'mine' ? 'mining-animation' : 'travel-animation'}"><h2 style="color:#fff;">Traveling to ${mobName}...</h2></div>`;
         renderButtons([]);
@@ -553,19 +572,22 @@
         }, 600);
     }
 
+    // --- WORLD MAP REGIONS ---
     function showWorldMapMenu() {
         playMusic('intro');
         clearConsole("center", "#001a1a", "#00ff88");
         game.location = "World Map"; saveGame(); updateUI();
         document.getElementById("console").innerHTML = `<h2 style="color:#00ff88; font-size:16px;">🗺️ MULTIVERSE MAP</h2><p style="color:#aaa; font-size:11.5px;">Select a region to explore or conquer:</p>`;
         renderButtons([
-            { text: "🌲 Whispering Forest", class: "btn btn-map", action: () => startSinglePlayerCombat("Wild Treant", 90, 14, 600, "travel") },
-            { text: "⛏️ Stardew Mines", class: "btn btn-mine", action: () => startSinglePlayerCombat("Cave Bat", 75, 12, 450, "mine") },
-            { text: "🌋 The Fire Volcano", class: "btn btn-combat", action: () => startSinglePlayerCombat("Fire Elemental", 150, 22, 900, "travel") },
+            { text: "🌲 Whispering Forest", class: "btn btn-map", action: () => { game.location = "Whispering Forest"; saveGame(); updateUI(); startSinglePlayerCombat("Wild Treant", 90, 14, 600, "travel", "summer"); } },
+            { text: "🌋 The Fire Volcano", class: "btn btn-combat", action: () => { game.location = "Fire Volcano"; saveGame(); updateUI(); startSinglePlayerCombat("Magma Golem", 160, 24, 950, "travel", "villan"); } },
+            { text: "🏜️ Sunscorched Desert", class: "btn btn-mine", action: () => { game.location = "Sunscorched Desert"; saveGame(); updateUI(); startSinglePlayerCombat("Sand Scorpion", 120, 18, 750, "travel", "halloween"); } },
+            { text: "⛏️ Stardew Mines", class: "btn btn-mine", action: () => { game.location = "Stardew Mines"; saveGame(); updateUI(); startSinglePlayerCombat("Cave Bat", 75, 12, 450, "mine", "doug shop"); } },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
 
+    // --- MAIN DASHBOARD ---
     function showMainMenu() {
         playMusic('mainhq');
         clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #1a1500 0%, #080702 85%)", "#ffaa00");
@@ -595,6 +617,7 @@
         ]);
     }
 
+    // --- SPIRE OF TRIALS ---
     function showSpireDungeonMenu() {
         playMusic('battle');
         clearConsole("center", "#150030", "#ff00ff");
@@ -626,6 +649,7 @@
         }
     }
 
+    // --- FORGE ---
     function showBlacksmithForgeMenu() {
         playMusic('doug shop');
         clearConsole("flex-start", "#2b1100", "#ff8800");
@@ -649,6 +673,7 @@
         alert(`🔨 Successfully forged and equipped [${gearName}]!`); showBlacksmithForgeMenu();
     }
 
+    // --- ROSTER MANAGEMENT ---
     function showRosterMenu() {
         playMusic('staff');
         clearConsole("flex-start", "#100028", "#ff00ff");
@@ -724,6 +749,7 @@
         ]);
     }
 
+    // --- CASINO ---
     function showCasinoHubMenu() {
         playMusic('intro');
         clearConsole("center", "#333300", "#ffff00");
@@ -752,6 +778,26 @@
         showCasinoHubMenu();
     }
 
+    function showLuckyWheelScreen() {
+        clearConsole("center", "#333300", "#ffff00");
+        document.getElementById("console").innerHTML = `<div id="wheel-icon" style="font-size: 36px; margin-bottom: 4px;">🎡</div><h2 style="color: #ffff00; font-size:16px;">🎰 LUCKY WHEEL</h2><p style="color: #aaa; font-size:11.5px;">Spin for rewards! (Cost: $100)</p>`;
+        renderButtons([
+            { text: "🔄 Spin ($100)", class: "btn btn-spin", action: () => {
+                if ((game.funds || 0) >= 100) {
+                    game.funds -= 100;
+                    document.getElementById("wheel-icon").className = "wheel-spinning";
+                    setTimeout(() => {
+                        if (!game.inventory) game.inventory = [];
+                        if (Math.random() > 0.5) { game.funds += 400; alert("Jackpot! Won $400!"); } else { game.inventory.push("Diamond"); alert("Won a rare Diamond!"); }
+                        saveGame(); updateUI(); showLuckyWheelScreen();
+                    }, 2200);
+                } else { alert("Not enough funds!"); }
+            }},
+            { text: "⬅ Back to Casino", class: "btn btn-back", action: showCasinoHubMenu }
+        ]);
+    }
+
+    // --- MARKET ---
     function showLiveMarketBoard() {
         clearConsole("flex-start", "#002b1b", "#00ff88");
         let html = `<h2 style="color:#00ff88; font-size:16px; margin: 2px 0;">🏪 GLOBAL TRADE BOARD</h2><div style="width:100%; max-width:380px; max-height:160px; overflow-y:auto; margin-bottom: 6px;">`;
@@ -785,6 +831,19 @@
         if (socket) socket.emit('buyMarketListing', { listingId, buyerName: game.playerName });
     }
 
+    function showMarketMenu() {
+        playMusic('shop');
+        clearConsole("flex-start", "#3d1c00", "#ff8c00");
+        document.getElementById("console").innerHTML = `<h2 style="color: #ffaa00; font-size:16px;">🏪 MARKET DISTRICT</h2>`;
+        renderButtons([
+            { text: "📜 Global Trade Board", class: "btn btn-farm", action: showLiveMarketBoard },
+            { text: "💰 Doug's Ores", class: "btn btn-mine", action: () => { game.funds = (game.funds || 0) + 300; if(!game.inventory) game.inventory = []; game.inventory.push("Copper Ore"); saveGame(); updateUI(); alert("Sold ores for $300!"); showMarketMenu(); } },
+            { text: "🛍️ Don's Store", class: "btn btn-sys", action: () => { if((game.funds || 0) >= 150) { game.funds -= 150; if(!game.inventory) game.inventory = []; game.inventory.push("Healing Potion"); saveGame(); updateUI(); alert("Bought Potion!"); } else { alert("Not enough funds!"); } showMarketMenu(); } },
+            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
+        ]);
+    }
+
+    // --- CROP GARDEN ---
     function showCropGardenMenu() {
         playMusic('farm');
         clearConsole("flex-start", "#00200a", "#00ff88");
@@ -812,37 +871,7 @@
         game.farm.plots[idx] = { crop: null, stage: 0, ready: false }; if (!game.inventory) game.inventory = []; game.inventory.push("Energy Core"); game.funds = (game.funds || 0) + 400; saveGame(); updateUI(); alert("🌾 Harvested crop for 1x Energy Core & $400 gold!"); showCropGardenMenu();
     }
 
-    function showMarketMenu() {
-        playMusic('shop');
-        clearConsole("flex-start", "#3d1c00", "#ff8c00");
-        document.getElementById("console").innerHTML = `<h2 style="color: #ffaa00; font-size:16px;">🏪 MARKET DISTRICT</h2>`;
-        renderButtons([
-            { text: "📜 Global Trade Board", class: "btn btn-farm", action: showLiveMarketBoard },
-            { text: "💰 Doug's Ores", class: "btn btn-mine", action: () => { game.funds = (game.funds || 0) + 300; if(!game.inventory) game.inventory = []; game.inventory.push("Copper Ore"); saveGame(); updateUI(); alert("Sold ores for $300!"); showMarketMenu(); } },
-            { text: "🛍️ Don's Store", class: "btn btn-sys", action: () => { if((game.funds || 0) >= 150) { game.funds -= 150; if(!game.inventory) game.inventory = []; game.inventory.push("Healing Potion"); saveGame(); updateUI(); alert("Bought Potion!"); } else { alert("Not enough funds!"); } showMarketMenu(); } },
-            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
-        ]);
-    }
-
-    function showLuckyWheelScreen() {
-        clearConsole("center", "#333300", "#ffff00");
-        document.getElementById("console").innerHTML = `<div id="wheel-icon" style="font-size: 36px; margin-bottom: 4px;">🎡</div><h2 style="color: #ffff00; font-size:16px;">🎰 LUCKY WHEEL</h2><p style="color: #aaa; font-size:11.5px;">Spin for rewards! (Cost: $100)</p>`;
-        renderButtons([
-            { text: "🔄 Spin ($100)", class: "btn btn-spin", action: () => {
-                if ((game.funds || 0) >= 100) {
-                    game.funds -= 100;
-                    document.getElementById("wheel-icon").className = "wheel-spinning";
-                    setTimeout(() => {
-                        if (!game.inventory) game.inventory = [];
-                        if (Math.random() > 0.5) { game.funds += 400; alert("Jackpot! Won $400!"); } else { game.inventory.push("Diamond"); alert("Won a rare Diamond!"); }
-                        saveGame(); updateUI(); showLuckyWheelScreen();
-                    }, 2200);
-                } else { alert("Not enough funds!"); }
-            }},
-            { text: "⬅ Back to Casino", class: "btn btn-back", action: showCasinoHubMenu }
-        ]);
-    }
-
+    // --- MULTIPLAYER & RAID HUB ---
     function showOnlineHubMenu() {
         playMusic('dlc hub');
         clearConsole("center", "#003366", "#00aaff");
@@ -902,6 +931,92 @@
         if (socket) socket.emit('attackRaidBoss', { damage: dmg, trainerName: game.playerName, championName: champ.name });
     }
 
+    function sendPvPRequest(targetId, targetName) {
+        const champ = getActiveChampion();
+        if (socket) {
+            socket.emit('requestPvP', { roomId: currentRoomId, targetId, challengerName: game.playerName, champion: champ.name });
+            alert(`⚔️ PvP challenge sent to ${targetName}!`);
+        }
+    }
+
+    function initiateItemTrade(targetId, targetName) {
+        if (!game.inventory || !game.inventory.length) { alert("Backpack empty!"); return; }
+        let itemToTrade = prompt(`Select item to trade:\n${game.inventory.join(', ')}`, game.inventory[0]);
+        if (itemToTrade && game.inventory.includes(itemToTrade)) {
+            let idx = game.inventory.indexOf(itemToTrade);
+            game.inventory.splice(idx, 1);
+            saveGame(); updateUI();
+            if (socket) socket.emit('offerTradeItem', { roomId: currentRoomId, targetId, item: itemToTrade, senderName: game.playerName });
+            alert(`🤝 Offered [${itemToTrade}]!`);
+        }
+    }
+
+    function initiateCharacterTrade(targetId, targetName) {
+        if (!game.staff || game.staff.length <= 1) { alert("❌ Need more than 1 companion!"); return; }
+        let listStr = game.staff.map((c, i) => `${i + 1}. ${c.name}`).join('\n');
+        let sel = parseInt(prompt(`Select hero number:\n${listStr}`)) - 1;
+        if (!isNaN(sel) && game.staff[sel] && !game.staff[sel].locked) {
+            let chosen = game.staff.splice(sel, 1)[0];
+            saveGame(); updateUI();
+            if (socket) socket.emit('offerTradeCharacter', { roomId: currentRoomId, targetId, character: chosen, senderName: game.playerName });
+            alert(`🎭 Offered [${chosen.name}]!`);
+        } else {
+            alert("❌ Invalid selection or hero is locked!");
+        }
+    }
+
+    function renderLivePvPScreen() {
+        const s = activePvPSession;
+        if (!s) return;
+        clearConsole("center", "#2b000f", "#ff0055");
+        const isMyTurn = socket.id === s.turn;
+        const champ = getActiveChampion();
+
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#ff0055; font-size:16px;">⚔️ LIVE PVP DUEL</h2>
+            <div style="display:flex; justify-content:space-around; width:100%; margin: 6px 0;">
+                <div class="dex-card" style="width:48%; display:block; text-align:center;">
+                    <strong style="color:#00ffff;">${champ.name}</strong><br>
+                    ❤️ HP: <span style="color:#33ff33;">${socket.id === s.p1Id ? s.p1Hp : s.p2Hp} / 120</span>
+                </div>
+                <div class="dex-card" style="width:48%; display:block; text-align:center;">
+                    <strong style="color:#ff0055;">Opponent</strong><br>
+                    ❤️ HP: <span style="color:#ff3333;">${socket.id === s.p1Id ? s.p2Hp : s.p1Hp} / 120</span>
+                </div>
+            </div>
+            <p style="color:#ffff00; font-size:12px;">${s.log}</p>
+        `;
+
+        if (isMyTurn) {
+            renderButtons([
+                { text: "⚔️ Strike", class: "btn btn-combat", action: () => executePvPAction("strike") },
+                { text: "🛡️ Guard (-50%)", class: "btn btn-sys", action: () => executePvPAction("guard") },
+                { text: "⚡ Special (15 Stm)", class: "btn btn-dlc", action: () => executePvPAction("special") }
+            ]);
+        } else {
+            renderButtons([]);
+        }
+    }
+
+    function executePvPAction(actionType) {
+        if (!activePvPSession) return;
+        if (actionType === "special") {
+            if ((game.stamina || 0) < 15) { alert("❌ Not enough stamina!"); return; }
+            game.stamina -= 15;
+            saveGame(); updateUI();
+        }
+        const champ = getActiveChampion();
+        if (socket) {
+            socket.emit('executeLivePvPAction', {
+                battleId: activePvPSession.battleId,
+                actionType: actionType,
+                power: champ.power || 25,
+                championName: champ.name
+            });
+        }
+    }
+
+    // --- PORTAL ENCOUNTERS (ORIGINAL STYLE RESTORED) ---
     function showFreePortalsMenu() {
         playMusic('rift');
         clearConsole("center", "#4d004d", "#ff00ff");
@@ -930,6 +1045,7 @@
     }
 
     function showPremiumSectors() {
+        playMusic('dlc hub');
         clearConsole("center", "#4d004d", "#ff00ff");
         document.getElementById("console").innerHTML = `<h2 style="color: #ff00ff; font-size:16px;">🌟 PREMIUM SECTORS</h2>`;
         renderButtons([
@@ -954,7 +1070,8 @@
                     <div class="ball-bottom"></div>
                 </div>
             </div>
-            <p style="color:#fff; margin-top:20px;">Capturing entity from ${poolKey} dimension...</p>
+            <p style="color:#00ffff; font-size:12px; margin-top:10px;"><em>"${chosen.encounterDesc || 'An entity approaches through the cosmic rift...'}"</em></p>
+            <p style="color:#fff;">Capturing <strong>${hero.name}</strong> from ${hero.origin}...</p>
         `;
         renderButtons([]);
         
@@ -965,11 +1082,12 @@
         setTimeout(() => {
             if(!game.staff) game.staff = [];
             game.staff.push(hero); saveGame(); updateUI();
-            alert(`Recruited ${hero.name} from ${hero.origin}!`);
+            alert(`🎉 Recruited ${hero.name} from ${hero.origin}!`);
             showRosterMenu();
-        }, 2000);
+        }, 2200);
     }
 
+    // --- INVENTORY ---
     function showInventoryMenu() {
         clearConsole("flex-start", "#1a0f00", "#33ccff");
         let html = `<h2 style="color: #33ccff; font-size:15px;">🎒 INVENTORY</h2>`;
@@ -991,6 +1109,7 @@
         }
     }
 
+    // --- MODALS & CHATS ---
     function showLivePlayersModal() {
         clearConsole("center", "#001f3f", "#00ffff");
         let html = `<h2 style="color: #00ffff; font-size: 15px;">🌐 ONLINE TRAINERS</h2><div style="width: 95%; max-width: 360px; max-height: 160px; overflow-y: auto;">`;
