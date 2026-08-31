@@ -25,7 +25,6 @@ io.on('connection', (socket) => {
     onlineUsers.set(socket.id, { name: "Guest Trainer", location: "Nexus HQ" });
     broadcastGlobalStats();
 
-    // Send existing chat history to new connection
     socket.emit('chatHistory', globalChatHistory);
 
     socket.on('registerTrainerPresence', (data) => {
@@ -37,16 +36,14 @@ io.on('connection', (socket) => {
     });
 
     socket.on('sendGlobalMessage', (msgData) => {
-        const entry = { name: msgData.name || "Trainer", text: msgData.text || "", time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+        const entry = { 
+            name: msgData.name || "Trainer", 
+            text: msgData.text || "", 
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+        };
         globalChatHistory.push(entry);
-        if (globalChatHistory.length > 50) globalChatHistory.shift(); // Keep last 50 messages
+        if (globalChatHistory.length > 50) globalChatHistory.shift();
         io.emit('receiveGlobalMessage', entry);
-    });
-
-    socket.on('joinRoom', ({ roomId, player }) => {
-        socket.join(roomId);
-        socket.currentRoom = roomId;
-        // room logic...
     });
 
     socket.on('disconnect', () => {

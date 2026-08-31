@@ -8,118 +8,62 @@
         html, body {
             background-color: #030305; color: #00ff66;
             font-family: 'Courier New', Courier, monospace;
-            margin: 0; padding: 6px;
-            width: 100vw; height: 100vh; height: 100dvh;
-            overflow: hidden; display: flex; flex-direction: column;
-            user-select: none; touch-action: manipulation;
+            margin: 0; padding: 6px; width: 100vw; height: 100vh; height: 100dvh;
+            overflow: hidden; display: flex; flex-direction: column; user-select: none; touch-action: manipulation;
             padding-bottom: max(6px, env(safe-area-inset-bottom));
         }
-
         #stats-bar {
             background: linear-gradient(180deg, #12121c 0%, #08080f 100%);
-            border: 1px solid #00ffff55;
-            box-shadow: 0 0 12px rgba(0, 255, 255, 0.2);
-            padding: 4px 8px; margin-bottom: 6px; border-radius: 6px;
-            font-size: 11.5px; flex-shrink: 0; display: none;
-            justify-content: space-between; align-items: center;
-            flex-wrap: wrap; gap: 4px;
+            border: 1px solid #00ffff55; padding: 4px 8px; margin-bottom: 6px; border-radius: 6px;
+            font-size: 11.5px; flex-shrink: 0; display: none; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;
         }
-        .stat-highlight { color: #ff00ff; font-weight: bold; text-shadow: 0 0 8px #ff00ff88; }
-        .stat-money { color: #ffff00; font-weight: bold; text-shadow: 0 0 8px #ffff0088; }
-        
-        #screen-wrapper {
-            position: relative; flex: 1 1 auto; min-height: 120px;
-            display: flex; width: 100%; margin-bottom: 6px; overflow: hidden;
-        }
-
+        .stat-highlight { color: #ff00ff; font-weight: bold; }
+        .stat-money { color: #ffff00; font-weight: bold; }
+        #screen-wrapper { position: relative; flex: 1 1 auto; min-height: 100px; display: flex; width: 100%; margin-bottom: 6px; overflow: hidden; }
         #console {
-            flex: 1 1 100%; min-height: 0; background-color: #020204;
-            border: 2px solid #222233; padding: 10px; overflow-y: auto;
-            border-radius: 8px; font-size: 13.5px; line-height: 1.4;
-            box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.95), 0 0 20px rgba(0, 255, 100, 0.15);
-            display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;
-            position: relative; -webkit-overflow-scrolling: touch; scroll-behavior: smooth;
+            flex: 1 1 100%; min-height: 0; background-color: #020204; border: 2px solid #222233;
+            padding: 10px; overflow-y: auto; border-radius: 8px; font-size: 13.5px; line-height: 1.4;
+            display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center; position: relative;
+            -webkit-overflow-scrolling: touch;
         }
-
-        #console::-webkit-scrollbar, #controls::-webkit-scrollbar { width: 8px; height: 8px; }
-        #console::-webkit-scrollbar-track, #controls::-webkit-scrollbar-track { background: #080811; border-radius: 4px; }
-        #console::-webkit-scrollbar-thumb, #controls::-webkit-scrollbar-thumb { background: #00ffff55; border: 1px solid #00ffff; border-radius: 4px; }
-
-        .touch-scroll-panel {
-            position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-            display: flex; flex-direction: column; gap: 6px; z-index: 10; pointer-events: auto;
-        }
-        .touch-scroll-btn {
-            background: rgba(10, 10, 20, 0.85); color: #00ffff; border: 1px solid #00ffff;
-            box-shadow: 0 0 8px rgba(0, 255, 255, 0.4); border-radius: 50%; width: 32px; height: 32px;
-            font-size: 14px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none;
-        }
-        .touch-scroll-btn:active { background: #00ffff; color: #000; }
-
-        #console::after {
-            content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.04), rgba(0, 255, 0, 0.015), rgba(0, 0, 255, 0.04));
-            z-index: 2; background-size: 100% 3px, 6px 100%; pointer-events: none; opacity: 0.65;
-        }
-
-        .log-entry { margin-bottom: 5px; border-bottom: 1px solid #14141e; padding-bottom: 3px; width: 100%; text-align: left; position: relative; z-index: 3; }
-
+        .log-entry { margin-bottom: 5px; border-bottom: 1px solid #14141e; padding-bottom: 3px; width: 100%; text-align: left; }
+        
+        /* Fixed mobile control panel height so all tabs/portals are reachable */
         #controls {
             display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px;
-            flex-shrink: 0; width: 100%; max-height: 42vh; overflow-y: auto; -webkit-overflow-scrolling: touch; z-index: 4; padding: 2px 2px 8px 2px;
+            flex-shrink: 0; width: 100%; max-height: 48vh; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 10px;
         }
         @media (min-width: 650px) { #controls { grid-template-columns: repeat(4, 1fr); max-height: 250px; } }
         
         .btn {
             background: #12121c; color: #00ff66; border: 1px solid #00ff6666; padding: 8px 4px;
-            font-family: 'Courier New', Courier, monospace; font-size: 12px; font-weight: bold;
-            cursor: pointer; border-radius: 4px; text-align: center; transition: all 0.15s ease;
-            touch-action: manipulation; min-height: 38px; display: flex; align-items: center; justify-content: center;
+            font-family: 'Courier New'; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 4px; text-align: center; min-height: 38px; display: flex; align-items: center; justify-content: center;
         }
-        .btn:hover, .btn.gamepad-focused { background: #1c1c2e; box-shadow: 0 0 10px rgba(0, 255, 100, 0.8); outline: 2px solid #00ffff; }
-        .btn:active, .btn.selected { background-color: #00ff66; color: #000; outline: 2px solid #ff00ff; }
-        
         .btn-sys { border-color: #00ffff; color: #00ffff; }
         .btn-dlc { border-color: #ff00ff; color: #ff00ff; }
-        .btn-villain { border-color: #ff0055; color: #ff0055; background: #2b0011; }
         .btn-back { border-color: #ff3333; color: #ff3333; }
         .btn-farm { border-color: #00ff88; color: #00ff88; background: #001f0c; }
-        .btn-gear { border-color: #33ccff; color: #33ccff; background: #001122; }
+        .btn-gear { border-color: #33ccff; color: #33ccff; }
         .btn-map { border-color: #00ffcc; color: #00ffcc; background: #002222; }
         .btn-mine { border-color: #ffaa00; color: #ffaa00; background: #221500; }
-        .btn-combat { border-color: #ff0033; color: #ff0033; background: #33000a; }
-        .btn-start { border-color: #00ffff; color: #00ffff; font-size: 13.5px; grid-column: span 2; background: #002222; }
-        .btn-maid { border-color: #ff66ff; color: #ff66ff; background: #220022; }
-        .btn-dex { border-color: #ffff00; color: #ffff00; background: #222200; }
-        .btn-cyber { border-color: #ff9900; color: #ff9900; background: #2a1500; }
+        .btn-dex { border-color: #ffff00; color: #ffff00; }
         .btn-spin { border-color: #ffff00; color: #ffff00; background: #333300; }
-        
-        .clickable-portrait { cursor: pointer; transition: transform 0.2s ease, border-color 0.2s ease; border: 3px solid transparent; border-radius: 10px; padding: 4px; background: rgba(0,0,0,0.4); }
-        .clickable-portrait:hover { transform: scale(1.05); border-color: #00ffff; box-shadow: 0 0 12px rgba(0,255,255,0.4); }
-        .dex-card { background: #08080f; border: 1px solid #222238; border-radius: 6px; padding: 8px; margin: 4px 0; width: 98%; text-align: left; position: relative; z-index: 3; box-shadow: 0 2px 6px rgba(0,0,0,0.6); display: flex; align-items: center; gap: 10px; }
+        .dex-card { background: #08080f; border: 1px solid #222238; border-radius: 6px; padding: 8px; margin: 4px 0; width: 98%; text-align: left; display: flex; align-items: center; gap: 10px; }
     </style>
 </head>
 <body>
-    <div id="save-toast">💾 Game Saved</div>
     <div id="stats-bar">
         <div>🌍 <span id="loc-display">Nexus HQ</span> | Trainer: <span class="stat-highlight" id="player-name-display">Trainer</span></div>
-        <div style="display: flex; align-items: center; gap: 6px;">
-            <span onclick="showLivePlayersModal()" style="cursor: pointer; color: #00ff88; background: #002211; border: 1px solid #00ff88; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Click to view online players">
+        <div>
+            <span onclick="showLivePlayersModal()" style="cursor: pointer; color: #00ff88; background: #002211; border: 1px solid #00ff88; padding: 2px 6px; border-radius: 4px; font-weight: bold;">
                 🟢 Online: <span id="global-online-count">1</span>
             </span>
-            💼 <span id="manager-title-display" style="color:#00ffcc; font-weight:bold;">Novice</span> | 💰 $<span class="stat-money" id="funds-display">5000</span> | Day <span id="day-display">1</span> | ⚡ <span id="stamina-display">100</span> | 🌌 <span id="dex-count-display">0/2000</span>
-            <input type="range" id="master-volume" min="0" max="1" step="0.05" value="0.35" oninput="updateMasterVolume(this.value)" style="width: 55px; cursor: pointer;" title="Master Volume">
-            <button onclick="toggleAudioMute()" style="background:#111; color:#00ffff; border:1px solid #00ffff; border-radius:3px; padding:2px 5px; font-size:10px; cursor:pointer;" id="audio-toggle-btn">🔊</button>
-            <button onclick="toggleFullScreen()" style="background:#111; color:#00ffcc; border:1px solid #00ffcc; border-radius:3px; padding:2px 5px; font-size:10px; cursor:pointer;" title="Toggle Fullscreen">⛶</button>
+            💰 $<span class="stat-money" id="funds-display">5000</span> | Day <span id="day-display">1</span> | ⚡ <span id="stamina-display">100</span>
         </div>
     </div>
     
     <div id="screen-wrapper">
         <div id="console"></div>
-        <div class="touch-scroll-panel">
-            <div class="touch-scroll-btn" onclick="scrollConsole(-140)" title="Scroll Up">▲</div>
-            <div class="touch-scroll-btn" onclick="scrollConsole(140)" title="Scroll Down">▼</div>
-        </div>
     </div>
 
     <div id="controls"></div>
@@ -128,22 +72,9 @@
     let socket = null;
     try { socket = io({ transports: ['websocket', 'polling'] }); } catch(e) {}
 
-    let REAL_CHARACTERS_DB = [];
-    let currentSaveSlot = 1;
-    let currentRoomId = null;
-    let onlineRoomPlayers = [];
     let globalActiveTrainers = [];
     let globalChatMessages = [];
-    
-    let masterVolume = 0.35;
-    let isAudioMuted = false;
-    let lastActiveTrack = 'intro';
-    let gamepadBtnIndex = 0;
-
-    function scrollConsole(offset) {
-        const consoleDiv = document.getElementById("console");
-        if (consoleDiv) { consoleDiv.scrollBy({ top: offset, behavior: 'smooth' }); }
-    }
+    let game = { playerName: "Trainer", funds: 5000, stamina: 100, day: 1, location: "Nexus HQ", inventory: ["Energy Core", "Pokéball"] };
 
     function syncTrainerPresence() {
         if (socket && socket.connected) {
@@ -156,19 +87,15 @@
 
     if (socket) {
         socket.on('globalOnlineUpdate', (data) => {
-            const countEl = document.getElementById("global-online-count");
-            if (countEl) countEl.innerText = data.totalOnline;
+            document.getElementById("global-online-count").innerText = data.totalOnline;
             globalActiveTrainers = data.activePlayers || [];
         });
 
-        socket.on('chatHistory', (history) => {
-            globalChatMessages = history || [];
-        });
+        socket.on('chatHistory', (history) => { globalChatMessages = history || []; });
 
         socket.on('receiveGlobalMessage', (msg) => {
             globalChatMessages.push(msg);
             if (globalChatMessages.length > 50) globalChatMessages.shift();
-            // Refresh chat box if currently open
             let chatBox = document.getElementById("global-chat-box");
             if (chatBox) {
                 chatBox.innerHTML = globalChatMessages.map(m => `<div style="margin-bottom:4px; text-align:left;"><span style="color:#00ffff;">[${m.time}]</span> <strong>${m.name}:</strong> ${m.text}</div>`).join('');
@@ -177,36 +104,67 @@
         });
     }
 
+    function clearConsole(align="flex-start", bgGradient="#15002b", borderColor="#00ffff") {
+        const consoleDiv = document.getElementById("console");
+        consoleDiv.innerHTML = "";
+        consoleDiv.style.justifyContent = align;
+        consoleDiv.style.background = bgGradient;
+        consoleDiv.style.borderColor = borderColor;
+        consoleDiv.scrollTop = 0;
+    }
+
+    function log(msg, colorClass="") {
+        const consoleDiv = document.getElementById("console");
+        consoleDiv.innerHTML += `<div class="log-entry ${colorClass}">${msg}</div>`;
+        consoleDiv.scrollTop = consoleDiv.scrollHeight;
+    }
+
+    function renderButtons(buttons) {
+        const controls = document.getElementById("controls");
+        controls.innerHTML = "";
+        buttons.forEach((b) => {
+            let btn = document.createElement("button");
+            btn.className = (b.class || "btn");
+            btn.innerText = b.text;
+            btn.onclick = b.action;
+            controls.appendChild(btn);
+        });
+    }
+
+    function updateUI() {
+        document.getElementById("funds-display").innerText = Math.floor(game.funds || 0);
+        document.getElementById("stamina-display").innerText = game.stamina || 0;
+        document.getElementById("day-display").innerText = game.day || 1;
+        document.getElementById("player-name-display").innerText = game.playerName || "Trainer";
+        document.getElementById("loc-display").innerText = game.location || "Nexus HQ";
+        syncTrainerPresence();
+    }
+
     function showLivePlayersModal() {
-        clearConsole("center", "radial-gradient(circle at 50% 30%, #001f3f 0%, #000814 85%)", "#00ffff");
+        clearConsole("center", "#001f3f", "#00ffff");
         let html = `
-            <h2 style="color: #00ffff; font-size: 18px; margin-bottom: 4px;">🌐 ACTIVE MULTIVERSE TRAINERS</h2>
-            <p style="color: #aaa; font-size: 12px; margin-bottom: 8px;">Total Active Players Online: <strong>${globalActiveTrainers.length}</strong></p>
-            <div style="width: 95%; max-width: 360px; max-height: 180px; overflow-y: auto; margin-bottom: 10px;">
+            <h2 style="color: #00ffff; font-size: 16px;">🌐 ACTIVE MULTIVERSE TRAINERS</h2>
+            <p style="color: #aaa; font-size: 12px;">Total Online: <strong>${globalActiveTrainers.length}</strong></p>
+            <div style="width: 95%; max-width: 360px; max-height: 160px; overflow-y: auto; margin-bottom: 8px;">
         `;
         globalActiveTrainers.forEach(t => {
-            html += `<div class="dex-card" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; font-size: 12px;">
-                <span style="color: #fff;">👤 <strong>${t.name}</strong></span>
-                <span style="color: #ffaa00; font-size: 11px;">📍 ${t.location}</span>
-            </div>`;
+            html += `<div class="dex-card" style="font-size: 12px; padding: 6px;"><span>👤 <strong>${t.name}</strong></span> <span style="color:#ffaa00; margin-left:auto;">📍 ${t.location}</span></div>`;
         });
         html += `</div>`;
         document.getElementById("console").innerHTML = html;
-        renderButtons([{ text: "⬅ Return to HQ", class: "btn btn-back", action: showMainMenu }]);
+        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
     }
 
     function showGlobalChatScreen() {
-        playBGM('hq');
-        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #001a22 0%, #000508 85%)", "#00ffff");
+        clearConsole("flex-start", "#001a22", "#00ffff");
         document.getElementById("console").innerHTML = `
-            <h2 style="color: #00ffff; font-size: 16px; margin: 4px 0;">💬 GLOBAL MULTIVERSE CHAT</h2>
-            <p style="color: #aaa; font-size: 11px; margin-bottom: 4px;">Chat live with all players currently connected across timelines!</p>
-            <div id="global-chat-box" style="width:100%; max-width:400px; height:150px; background:#05050a; border:1px solid #00ffff55; border-radius:4px; padding:8px; overflow-y:auto; font-size:12px; margin-bottom:8px;">
+            <h2 style="color: #00ffff; font-size: 15px; margin: 4px 0;">💬 GLOBAL MULTIVERSE CHAT</h2>
+            <div id="global-chat-box" style="width:100%; max-width:400px; height:130px; background:#05050a; border:1px solid #00ffff55; border-radius:4px; padding:8px; overflow-y:auto; font-size:12px; margin-bottom:8px;">
                 ${globalChatMessages.map(m => `<div style="margin-bottom:4px; text-align:left;"><span style="color:#00ffff;">[${m.time}]</span> <strong>${m.name}:</strong> ${m.text}</div>`).join('') || '<div style="color:#666;">No messages yet. Say hello!</div>'}
             </div>
             <div style="display:flex; gap:6px; width:100%; max-width:400px;">
                 <input type="text" id="chat-input-text" placeholder="Type a message..." style="flex:1; background:#111; color:#0f0; border:1px solid #0ff; padding:6px; font-family:'Courier New'; font-size:12px; border-radius:4px;" />
-                <button class="btn btn-sys" style="padding:6px 12px; font-size:11px;" onclick="sendGlobalChatMsg()">Send</button>
+                <button class="btn btn-sys" style="padding:6px 12px;" onclick="sendGlobalChatMsg()">Send</button>
             </div>
         `;
         renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
@@ -226,209 +184,12 @@
         input.value = "";
     }
 
-    const REGIONS_DATA = {
-        'forest': { name: "Whispering Forest", bg: "radial-gradient(circle at 50% 30%, #002200 0%, #000c00 85%)", color: "#00ff88", animClass: "", icon: "🌲", monsters: [{ name: "Wild Forest Goblin", hp: 90, dmg: 10, reward: 500 }] },
-        'desert': { name: "Sunscorched Desert", bg: "radial-gradient(circle at 50% 30%, #3d2600 0%, #140c00 85%)", color: "#ffaa00", animClass: "desert-scene", icon: "🏜️", monsters: [{ name: "Sand Scuttler", hp: 100, dmg: 15, reward: 600 }] },
-        'volcano': { name: "Obsidian Volcano", bg: "radial-gradient(circle at 50% 30%, #3d0000 0%, #140000 85%)", color: "#ff3300", animClass: "volcano-scene", icon: "🌋", monsters: [{ name: "Magma Elemental", hp: 150, dmg: 24, reward: 1300 }] }
-    };
-
-    const PORTAL_CHAR_POOLS = {
-        'standard': [
-            { name: "Astolfo", origin: "Fate/Apocrypha", type: "Fairy", id: 9001 },
-            { name: "Felix Argyle", origin: "Re:Zero", type: "Water", id: 9002 },
-            { name: "Venti", origin: "Genshin Impact", type: "Flying", id: 9003 },
-            { name: "fr3xi0us", origin: "Project Nights Anthology", type: "Ghost", id: 9004 }
-        ]
-    };
-
-    const AUDIO_TRACKS = {
-        intro: new Audio('/music/intro.mp3'),
-        hq: new Audio('/music/mainhq.mp3'),
-        shop: new Audio('/music/shop.mp3'),
-        farm: new Audio('/music/farm.mp3'),
-        staff: new Audio('/music/staff.mp3'),
-        dex: new Audio('/music/dex.mp3'),
-        trade: new Audio('/music/trade.mp3'),
-        dlcHub: new Audio('/music/dlc hub.mp3'),
-        rift: new Audio('/music/rift.mp3'),
-        villain: new Audio('/music/villan.mp3'),
-        battle: new Audio('/music/battle.mp3'),
-        rest: new Audio('/music/sleep.mp3'),
-        horror: new Audio('/music/horror.mp3'),
-        credits: new Audio('/music/credits.mp3')
-    };
-
-    let currentTrackName = null;
-    function playBGM(trackKey) {
-        lastActiveTrack = trackKey;
-        if (isAudioMuted) return;
-        if (currentTrackName === trackKey) return;
-        stopAllMusic();
-        let track = AUDIO_TRACKS[trackKey] || AUDIO_TRACKS.intro;
-        if (track) { track.loop = true; track.volume = masterVolume; track.play().catch(() => {}); currentTrackName = trackKey; }
-    }
-
-    function stopAllMusic() {
-        Object.values(AUDIO_TRACKS).forEach(t => { try { t.pause(); t.currentTime = 0; } catch (e) {} });
-        currentTrackName = null;
-    }
-
-    function updateMasterVolume(val) { masterVolume = parseFloat(val); if (currentTrackName && AUDIO_TRACKS[currentTrackName]) AUDIO_TRACKS[currentTrackName].volume = masterVolume; }
-    function toggleAudioMute() { isAudioMuted = !isAudioMuted; let btn = document.getElementById("audio-toggle-btn"); if (isAudioMuted) { stopAllMusic(); if (btn) btn.innerText = "🔇"; } else { if (btn) btn.innerText = "🔊"; playBGM(lastActiveTrack); } }
-    function toggleFullScreen() { if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(() => {}); } else { if (document.exitFullscreen) document.exitFullscreen(); } }
-
-    async function loadCharacterDatabase() {
-        try { const res = await fetch('/characters.json?t=' + Date.now()); REAL_CHARACTERS_DB = await res.json(); } catch (e) { REAL_CHARACTERS_DB = []; }
-    }
-
-    function getAllDexEntries() {
-        let poolEntries = [];
-        Object.values(PORTAL_CHAR_POOLS).forEach(pool => { pool.forEach(c => poolEntries.push({ id: c.id, name: c.name, origin: c.origin })); });
-        let existingIds = new Set(REAL_CHARACTERS_DB.map(c => c.id));
-        return REAL_CHARACTERS_DB.concat(poolEntries.filter(c => !existingIds.has(c.id)));
-    }
-
-    function defaultGameState() {
-        return {
-            h_name: "UniDex Legends", location: "Nexus HQ", funds: 5000,
-            day: 1, stamina: 100, playerName: "Trainer", gender: "Boy",
-            managerPower: 30,
-            equippedGear: { weapon: "None", armor: "None", helmet: "None", accessory: "None" },
-            inventory: ["Pokéball", "Energy Core", "Copper Ore", "Diamond"], 
-            staff: [], pokedex: {}, specialDex: {}, dlcUnlocked: false,
-            achievements: {},
-            currentDailyEvent: { name: "Calm Multiverse", desc: "A peaceful day across timelines." },
-            homeDecor: { tier: 1, name: "Standard Suite", items: [] },
-            farm: { plots: [{ crop: null, daysLeft: 0, watered: false }] },
-            spouse: null
-        };
-    }
-
-    let game = defaultGameState();
-
-    function showSaveToast() {
-        let toast = document.getElementById("save-toast");
-        if (!toast) return;
-        toast.style.display = "block"; toast.style.animation = "none"; toast.offsetHeight;
-        toast.style.animation = "saveToastFade 2s ease-in-out forwards";
-        setTimeout(() => { toast.style.display = "none"; }, 2000);
-    }
-
-    function clearConsole(align="flex-start", bgGradient="radial-gradient(circle at 50% 30%, #15002b 0%, #05000a 80%)", borderColor="#00ffff") {
-        const consoleDiv = document.getElementById("console");
-        consoleDiv.innerHTML = ""; consoleDiv.style.justifyContent = align; consoleDiv.style.background = bgGradient; consoleDiv.style.borderColor = borderColor; consoleDiv.scrollTop = 0;
-    }
-
-    function log(msg, colorClass="") {
-        const consoleDiv = document.getElementById("console");
-        consoleDiv.innerHTML += `<div class="log-entry ${colorClass}">${msg}</div>`;
-        consoleDiv.scrollTop = consoleDiv.scrollHeight;
-    }
-
-    function portrait(src, alt, maxHeight = 190) {
-        return `<img src="${src}" alt="${alt}" style="max-height: ${maxHeight}px; max-width: 90%; object-fit: contain; margin-bottom: 8px; border-radius: 8px; border: 2px solid #00ffff; background: #0d0d0d; box-shadow: 0 0 15px rgba(0,255,255,0.3);" onerror="this.style.display='none';" />`;
-    }
-
-    function getCharacterPortrait(name) {
-        let cleanName = (name || "").toLowerCase().replace(/[^a-z0-9]/g, '_');
-        if (cleanName.includes('fr3xi0us')) return `/pictures/fr3xi0us.png`;
-        if (cleanName.includes('felix')) return `/pictures/felix.png`;
-        if (cleanName.includes('doug')) return `/pictures/doug.png`;
-        if (cleanName.includes('don')) return `/pictures/don.png`;
-        return `/pictures/${cleanName}.jpg`;
-    }
-
-    function updateUI() {
-        if (!game.inventory) game.inventory = [];
-        if (!game.staff) game.staff = [];
-        if (!game.pokedex) game.pokedex = {};
-        document.getElementById("funds-display").innerText = Math.floor(game.funds || 0);
-        document.getElementById("stamina-display").innerText = game.stamina || 0;
-        document.getElementById("day-display").innerText = game.day || 1;
-        document.getElementById("player-name-display").innerText = game.playerName || "Trainer";
-        document.getElementById("loc-display").innerText = game.location || "Nexus HQ";
-        syncTrainerPresence();
-    }
-
-    function getSaveKey(slot) { return `unidexSave_slot_${slot}`; }
-    function saveGame() {
-        localStorage.setItem(getSaveKey(currentSaveSlot), JSON.stringify(game));
-        syncTrainerPresence();
-        showSaveToast();
-    }
-
-    function renderButtons(buttons) {
-        const controls = document.getElementById("controls");
-        controls.innerHTML = "";
-        buttons.forEach((b) => {
-            let btn = document.createElement("button");
-            btn.className = (b.class || "btn");
-            btn.innerText = b.text;
-            btn.onclick = b.action;
-            controls.appendChild(btn);
-        });
-    }
-
-    function showIntroScreen() {
-        playBGM('intro');
-        clearConsole("center", "radial-gradient(circle at 50% 30%, #050014 0%, #000 85%)", "#00ffff");
-        document.getElementById("stats-bar").style.display = "none";
-        let slotButtons = [];
-        for (let i = 1; i <= 3; i++) {
-            let rawData = localStorage.getItem(getSaveKey(i));
-            let label = `Slot ${i}: Empty (New Game)`;
-            let hasData = false;
-            if (rawData) {
-                try {
-                    let parsed = JSON.parse(rawData);
-                    if (parsed && parsed.playerName) {
-                        label = `▶ Slot ${i}: ${parsed.playerName} (Day ${parsed.day || 1}) - $${Math.floor(parsed.funds || 0)}`;
-                        hasData = true;
-                    }
-                } catch(e) {}
-            }
-            slotButtons.push({ text: label, class: hasData ? "btn btn-dlc" : "btn btn-sys", action: () => selectSaveSlot(i, hasData) });
-        }
-        document.getElementById("console").innerHTML = `<h1 style="color: #00ffff; font-size: 24px;">UNIDEX LEGENDS</h1><p style="color: #ffff00; font-size: 12px;">Select save slot:</p>`;
-        renderButtons(slotButtons);
-    }
-
-    function selectSaveSlot(slotNum, hasData) {
-        currentSaveSlot = slotNum;
-        if (hasData) {
-            try { game = Object.assign(defaultGameState(), JSON.parse(localStorage.getItem(getSaveKey(slotNum)))); } catch (err) { game = defaultGameState(); }
-            showMainMenu();
-        } else {
-            game = defaultGameState();
-            showMainMenu();
-        }
-    }
-
-    function showMainMenu() {
-        playBGM('hq');
-        clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #1a1500 0%, #080702 85%)", "#ffaa00");
-        document.getElementById("stats-bar").style.display = "flex";
-        updateUI();
-        log(`--- NEXUS HQ (Midnoria Region - Slot ${currentSaveSlot}) | WELCOME, TRAINER ${game.playerName.toUpperCase()} ---`, "color-cyan");
-        renderButtons([
-            { text: "🗺️ World Map & Regions", class: "btn btn-map", action: showWorldMap },
-            { text: "⛏️ Stardew Mines", class: "btn btn-mine", action: showMiningHub },
-            { text: "💬 Global Chat", class: "btn btn-sys", action: showGlobalChatScreen },
-            { text: "🎒 Inventory & Gear", class: "btn btn-gear", action: showInventoryMenu },
-            { text: "🌐 Online Hub", class: "btn btn-sys", action: showOnlineLobbyGate },
-            { text: "💤 Sleep (Next Day)", action: () => { game.stamina = 100; game.day++; saveGame(); showMainMenu(); } },
-            { text: "📁 Switch Slot", class: "btn btn-back", action: showIntroScreen }
-        ]);
-    }
-
     function showInventoryMenu() {
-        playBGM('shop');
-        clearConsole("flex-start", "radial-gradient(ellipse at 50% 20%, #1a0f00 0%, #080400 80%)", "#33ccff");
-        let html = `<h2 style="color: #33ccff; font-size:18px;">🎒 INVENTORY & ITEMS</h2><p style="font-size:12px; color:#aaa;">Click items to use them:</p>`;
+        clearConsole("flex-start", "#1a0f00", "#33ccff");
+        let html = `<h2 style="color: #33ccff; font-size:16px;">🎒 INVENTORY & ITEMS</h2><p style="font-size:11px; color:#aaa;">Click items to use them:</p>`;
         game.inventory.forEach((item, idx) => {
-            let useAction = item === "Energy Core" ? `onclick="useEnergyCore(${idx})"` : '';
-            let btnLabel = item === "Energy Core" ? `<button class="btn btn-sys" style="padding:2px 6px; font-size:10px;">Use (+50 Stamina)</button>` : '';
-            html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center; font-size:12px;" ${useAction}>
+            let btnLabel = item === "Energy Core" ? `<button class="btn btn-sys" style="padding:2px 6px; font-size:10px;" onclick="useEnergyCore(${idx})">Use (+50 Stm)</button>` : '';
+            html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center; font-size:12px;">
                 <span>📦 ${item}</span>
                 ${btnLabel}
             </div>`;
@@ -441,37 +202,32 @@
         if (game.inventory[idx] === "Energy Core") {
             game.inventory.splice(idx, 1);
             game.stamina += 50;
-            saveGame(); updateUI();
+            updateUI();
             log("⚡ Energy Core activated! Gained +50 Stamina!", "color-cyan");
             showInventoryMenu();
         }
     }
 
-    function showWorldMap() {
-        game.location = "Whispering Forest";
-        updateUI(); saveGame();
-        clearConsole("center", "radial-gradient(circle,#002200,#000)", "#00ff88");
-        document.getElementById("console").innerHTML = `<h2>🌲 WHISPERING FOREST</h2><p>Explored the forest region.</p>`;
-        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
+    function showMainMenu() {
+        clearConsole("flex-start", "#1a1500", "#ffaa00");
+        document.getElementById("stats-bar").style.display = "flex";
+        updateUI();
+        log(`--- NEXUS HQ | WELCOME, TRAINER ${game.playerName.toUpperCase()} ---`, "color-cyan");
+        renderButtons([
+            { text: "🗺️ World Map", class: "btn btn-map", action: () => { game.location = "Whispering Forest"; updateUI(); showMainMenu(); } },
+            { text: "⛏️ Stardew Mines", class: "btn btn-mine", action: () => { game.location = "Stardew Mines"; updateUI(); showMainMenu(); } },
+            { text: "🛍️ Market District", class: "btn btn-farm", action: () => { alert("Market District opened!"); } },
+            { text: "🎰 Lucky Wheel", class: "btn btn-spin", action: () => { alert("Lucky Wheel opened!"); } },
+            { text: "💬 Global Chat", class: "btn btn-sys", action: showGlobalChatScreen },
+            { text: "🎒 Inventory", class: "btn btn-gear", action: showInventoryMenu },
+            { text: "🌌 Free Portals", class: "btn btn-sys", action: () => { alert("Portals opened!"); } },
+            { text: "🌐 Online Hub", class: "btn btn-sys", action: () => { alert("Online Hub opened!"); } },
+            { text: "💤 Sleep", action: () => { game.stamina = 100; game.day++; updateUI(); showMainMenu(); } },
+            { text: "📁 Switch Slot", class: "btn btn-back", action: () => { location.reload(); } }
+        ]);
     }
 
-    function showMiningHub() {
-        game.location = "Stardew Mines";
-        updateUI(); saveGame();
-        clearConsole("center", "radial-gradient(circle,#1a0f00,#000)", "#ff8800");
-        document.getElementById("console").innerHTML = `<h2>⛏️ STARDEW MINES</h2><p>Mining minerals and ores.</p>`;
-        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
-    }
-
-    function showOnlineLobbyGate() {
-        game.location = "Online Hub";
-        updateUI(); saveGame();
-        clearConsole("center", "radial-gradient(circle,#003366,#000)", "#00aaff");
-        document.getElementById("console").innerHTML = `<h2>🌐 ONLINE MULTIPLAYER HUB</h2><p>Connected to the global network.</p>`;
-        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
-    }
-
-    window.onload = async () => { await loadCharacterDatabase(); showIntroScreen(); };
+    window.onload = () => { showMainMenu(); };
 </script>
 </body>
 </html>
