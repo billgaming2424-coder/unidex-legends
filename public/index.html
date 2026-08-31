@@ -1,5 +1,7 @@
 <!DOCTYPE html>
+<!-- saved from url=(0031)file:///D:/downloads/index.html -->
 <html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>UniDex Legends</title>
     <script src="/socket.io/socket.io.js"></script>
@@ -11,13 +13,14 @@
             margin: 0; padding: 6px;
             width: 100vw;
             height: 100vh;
-            height: 100dvh;
+            height: 100dvh; /* Adapts cleanly to mobile browser URL bars */
             overflow: hidden; display: flex; flex-direction: column;
             user-select: none;
             touch-action: manipulation;
             padding-bottom: max(6px, env(safe-area-inset-bottom));
         }
 
+        /* Top HUD Bar */
         #stats-bar {
             background: linear-gradient(180deg, #12121c 0%, #08080f 100%);
             border: 1px solid #00ffff55;
@@ -30,6 +33,7 @@
         .stat-highlight { color: #ff00ff; font-weight: bold; text-shadow: 0 0 8px #ff00ff88; }
         .stat-money { color: #ffff00; font-weight: bold; text-shadow: 0 0 8px #ffff0088; }
         
+        /* Main Interactive Console Wrapper */
         #screen-wrapper {
             position: relative;
             flex: 1 1 auto;
@@ -52,24 +56,58 @@
             scroll-behavior: smooth;
         }
 
-        #console::-webkit-scrollbar, #controls::-webkit-scrollbar { width: 8px; height: 8px; }
-        #console::-webkit-scrollbar-track, #controls::-webkit-scrollbar-track { background: #080811; border-radius: 4px; }
-        #console::-webkit-scrollbar-thumb, #controls::-webkit-scrollbar-thumb { background: #00ffff55; border: 1px solid #00ffff; border-radius: 4px; }
+        /* Visible Neon Scrollbars */
+        #console::-webkit-scrollbar, #controls::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        #console::-webkit-scrollbar-track, #controls::-webkit-scrollbar-track {
+            background: #080811;
+            border-radius: 4px;
+        }
+        #console::-webkit-scrollbar-thumb, #controls::-webkit-scrollbar-thumb {
+            background: #00ffff55;
+            border: 1px solid #00ffff;
+            border-radius: 4px;
+        }
 
+        /* On-Screen Mobile Touch Scroll Nudge Buttons */
         .touch-scroll-panel {
-            position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-            display: flex; flex-direction: column; gap: 6px; z-index: 10; pointer-events: auto;
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            z-index: 10;
+            pointer-events: auto;
         }
         .touch-scroll-btn {
-            background: rgba(10, 10, 20, 0.85); color: #00ffff; border: 1px solid #00ffff;
-            box-shadow: 0 0 8px rgba(0, 255, 255, 0.4); border-radius: 50%;
-            width: 32px; height: 32px; font-size: 14px; font-weight: bold;
-            display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none;
+            background: rgba(10, 10, 20, 0.85);
+            color: #00ffff;
+            border: 1px solid #00ffff;
+            box-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            font-size: 14px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
         }
-        .touch-scroll-btn:active { background: #00ffff; color: #000; }
+        .touch-scroll-btn:active {
+            background: #00ffff;
+            color: #000;
+        }
 
+        /* CRT Scanline Overlay */
         #console::after {
-            content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
+            content: " "; display: block; position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
             background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.04), rgba(0, 255, 0, 0.015), rgba(0, 255, 0, 0.04));
             z-index: 2; background-size: 100% 3px, 6px 100%; pointer-events: none; opacity: 0.65;
         }
@@ -150,15 +188,24 @@
         .ball-center-band { position: absolute; top: 46%; left: 0; width: 100%; height: 8%; background: #111; z-index: 4; }
         .ball-center-btn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 16px; height: 16px; border-radius: 50%; background: #ffffff; border: 2px solid #111; z-index: 5; box-shadow: 0 0 4px #fff; }
 
+        /* Responsive Action Button Grid */
         #controls {
-            display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px;
-            flex-shrink: 0; width: 100%; max-height: 42vh; overflow-y: auto;
-            -webkit-overflow-scrolling: touch; z-index: 4; padding: 2px 2px 8px 2px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 5px;
+            flex-shrink: 0;
+            width: 100%;
+            max-height: 42vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            z-index: 4;
+            padding: 2px 2px 8px 2px;
         }
         @media (min-width: 650px) { #controls { grid-template-columns: repeat(4, 1fr); max-height: 250px; } }
         
         .btn {
-            background: #12121c; color: #00ff66; border: 1px solid #00ff6666; padding: 8px 4px;
+            background: #12121c; color: #00ff66; border: 1px solid #00ff6666;
+            padding: 8px 4px;
             font-family: 'Courier New', Courier, monospace; font-size: 12px; font-weight: bold;
             cursor: pointer; border-radius: 4px; text-align: center; transition: all 0.15s ease;
             touch-action: manipulation; min-height: 38px; display: flex; align-items: center; justify-content: center;
@@ -234,7 +281,9 @@
 
     function scrollConsole(offset) {
         const consoleDiv = document.getElementById("console");
-        if (consoleDiv) consoleDiv.scrollBy({ top: offset, behavior: 'smooth' });
+        if (consoleDiv) {
+            consoleDiv.scrollBy({ top: offset, behavior: 'smooth' });
+        }
     }
 
     function syncTrainerPresence() {
@@ -251,56 +300,6 @@
             const countEl = document.getElementById("global-online-count");
             if (countEl) countEl.innerText = data.totalOnline;
             globalActiveTrainers = data.activePlayers || [];
-        });
-
-        socket.on('receiveTradeOffer', ({ senderId, senderName, item }) => {
-            playBGM('trade');
-            if (confirm(`🤝 [ITEM OFFER]: ${senderName} offered 1x [${item}]! Send an item back?`)) {
-                let tradeItem = prompt(`Choose item from your bag to send back:\n${game.inventory.join(', ')}`, game.inventory[0]);
-                if (tradeItem && game.inventory.includes(tradeItem)) {
-                    let idx = game.inventory.indexOf(tradeItem);
-                    game.inventory.splice(idx, 1);
-                    game.inventory.push(item);
-                    saveGame(); updateUI();
-                    socket.emit('acceptTradeOffer', { targetId: senderId, targetItem: item, myItem: tradeItem, senderName: game.playerName });
-                    alert(`✅ Trade completed! Received [${item}]!`);
-                }
-            }
-            playBGM('hq');
-        });
-
-        socket.on('tradeCompleted', ({ receivedItem, partnerName }) => {
-            if (!game.inventory) game.inventory = [];
-            game.inventory.push(receivedItem);
-            saveGame(); updateUI();
-            alert(`🎉 Trade Successful! Received [${receivedItem}] from ${partnerName}!`);
-            showInventoryMenu();
-        });
-
-        socket.on('receiveCharacterTradeOffer', ({ senderId, senderName, character }) => {
-            playBGM('trade');
-            if (confirm(`🎭 [HERO OFFER]: ${senderName} offered [${character.name}]! Send a companion back?`)) {
-                if (game.staff.length <= 1) { alert("❌ You cannot trade your only companion!"); playBGM('hq'); return; }
-                let charNames = game.staff.map((c, i) => `${i + 1}. ${c.name}`).join('\n');
-                let sel = parseInt(prompt(`Select companion number to send:\n${charNames}`)) - 1;
-                if (!isNaN(sel) && game.staff[sel]) {
-                    let sent = game.staff.splice(sel, 1)[0];
-                    game.staff.push(character);
-                    saveGame(); updateUI();
-                    socket.emit('acceptCharacterTradeOffer', { targetId: senderId, targetCharacter: character, myCharacter: sent, senderName: game.playerName });
-                    alert(`🎉 Sent [${sent.name}] & Recruited [${character.name}]!`);
-                    showStaffMenu();
-                } else { alert("❌ Invalid choice!"); }
-            }
-            playBGM('hq');
-        });
-
-        socket.on('characterTradeCompleted', ({ receivedCharacter, partnerName }) => {
-            if (!game.staff) game.staff = [];
-            game.staff.push(receivedCharacter);
-            saveGame(); updateUI();
-            alert(`🎉 Recruited [${receivedCharacter.name}] from ${partnerName}!`);
-            showStaffMenu();
         });
     }
 
@@ -546,6 +545,7 @@
         }
     }
 
+    // --- GAMEPAD ENGINE ---
     function updateGamepadFocus() {
         const btns = Array.from(document.querySelectorAll("#controls .btn"));
         if (!btns.length) return;
@@ -709,10 +709,18 @@
 
     function getCharacterPortrait(name) {
         let cleanName = (name || "").toLowerCase().replace(/[^a-z0-9]/g, '_');
-        if (cleanName.includes('fr3xi0us') || cleanName.includes('frixious')) return `/pictures/fr3xi0us.png`;
-        if (cleanName.includes('felix') || cleanName.includes('argyle')) return `/pictures/felix.png`;
-        if (cleanName.includes('doug')) return `/pictures/doug.png`;
-        if (cleanName.includes('don')) return `/pictures/don.png`;
+        if (cleanName.includes('fr3xi0us') || cleanName.includes('frixious')) {
+            return `/pictures/fr3xi0us.png`;
+        }
+        if (cleanName.includes('felix') || cleanName.includes('argyle')) {
+            return `/pictures/felix.png`;
+        }
+        if (cleanName.includes('doug')) {
+            return `/pictures/doug.png`;
+        }
+        if (cleanName.includes('don')) {
+            return `/pictures/don.png`;
+        }
         return `/pictures/${cleanName}.jpg`;
     }
 
@@ -990,6 +998,7 @@
         ]);
     }
 
+    // --- MULTIVERSE LUCKY WHEEL MECHANIC ---
     function showLuckyWheelScreen() {
         playBGM('shop');
         clearConsole("center", "radial-gradient(circle at 50% 30%, #333300 0%, #080800 85%)", "#ffff00");
@@ -1006,7 +1015,10 @@
     }
 
     function triggerWheelSpin() {
-        if (game.funds < 100) { log("❌ You need at least $100 to spin!", "color-red"); return; }
+        if (game.funds < 100) {
+            log("❌ You need at least $100 to spin!", "color-red");
+            return;
+        }
         game.funds -= 100;
         updateUI(); saveGame();
 
@@ -1037,6 +1049,7 @@
         }, 2200);
     }
 
+    // --- EXPLORE & SHOPS (DOUG, DON, FR3XIOUS) ---
     function showExploreMenu() {
         playBGM('shop');
         clearConsole("flex-start", "radial-gradient(ellipse at 50% 20%, #3d1c00 0%, #140a00 70%)", "#ff8c00");
@@ -1227,6 +1240,7 @@
         renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
     }
 
+    // --- STAFF ROSTER & INTERACTIONS ---
     function showStaffMenu() {
         playBGM('staff');
         clearConsole("flex-start", "radial-gradient(circle at 50% 25%, #2b005c 0%, #0c001a 80%)", "#a020f0");
@@ -1282,6 +1296,7 @@
         ]);
     }
 
+    // --- PORTALS & EXCLUSIVE HOLIDAY THEMES ---
     function showFreePortalsMenu() {
         playBGM('dlcHub');
         clearConsole("center", "radial-gradient(circle at 50% 50%, #4d004d 0%, #1a001a 80%)", "#ff00ff");
@@ -1343,6 +1358,7 @@
         }, 2200);
     }
 
+    // --- PREMIUM DLC PORTALS ---
     function openDLCDispatch() {
         if (game.dlcUnlocked) { showPremiumDLCMenu(); return; }
         playBGM('dlcHub');
@@ -1380,13 +1396,13 @@
         ]);
     }
 
-    // --- REBUILT MULTIPLAYER ONLINE HUB ---
+    // --- MULTIPLAYER ONLINE HUB ---
     function showOnlineLobbyGate() {
         playBGM('trade');
         clearConsole("center", "radial-gradient(circle at 50% 30%, #003366 0%, #000c14 85%)", "#00aaff");
         document.getElementById("console").innerHTML = `
             <h2 style="color:#00ffff; font-size:18px;">🌐 ONLINE MULTIPLAYER HUB</h2>
-            <p style="color:#aaa; max-width:380px; font-size:12px;">Join a shared timeline room with your friends to view rosters, trade anything, fight PvP duels, or tackle Co-Op Raid Bosses!</p>
+            <p style="color:#aaa; max-width:380px; font-size:12px;">Join a shared timeline room with your friends to view rosters, trade, fight PvP duels, or tackle Co-Op Raid Bosses!</p>
             <input type="text" id="room-code-input" value="${currentRoomId || 'MIDNORIA'}" style="background:#111;color:#0ff;border:1px solid #0ff;padding:8px;font-family:'Courier New';font-size:13px;border-radius:4px;width:70%;max-width:180px;text-align:center;margin-top:6px;" />
         `;
         renderButtons([
@@ -1423,105 +1439,29 @@
 
         renderButtons([
             { text: "🐲 Start Co-Op Raid Boss", class: "btn btn-raid", action: startCoopRaidSession },
-            { text: "🤝 Trade Any Item/Hero", class: "btn btn-dex", action: showMultiplayerTradeScreen },
+            { text: "🤝 Trade Partner", class: "btn btn-dex", action: showMultiplayerTradeScreen },
             { text: "⬅ Leave Room", class: "btn btn-back", action: showMainMenu }
         ]);
     }
 
-    // --- REBUILT UNIVERSAL TRADING MENU ---
     function showMultiplayerTradeScreen() {
-        playBGM('trade');
-        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #201a00 0%, #050400 85%)", "#ffaa00");
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #201a00 0%, #050400 85%)", "#ffaa00");
         document.getElementById("console").innerHTML = `
-            <h2 style="color:#ffaa00; font-size:18px;">🤝 MULTIPLAYER TRADE HUB</h2>
-            <p style="color:#aaa; font-size:12px; max-width:360px;">Choose what you want to offer to Room <strong>${currentRoomId}</strong>:</p>
-            <div class="dex-card" style="display:block; text-align:left; font-size:12px; margin-bottom:8px;">
-                <strong style="color:#00ffff;">🎒 Backpack Items Available:</strong> ${game.inventory.length}<br>
-                <strong style="color:#ff66ff;">👥 Companions on Team:</strong> ${game.staff.length}
+            <h2 style="color:#ffaa00; font-size:18px;">🤝 MULTIPLAYER TRADE EXCHANGE</h2>
+            <p style="color:#aaa; font-size:12px; max-width:360px;">Trade minerals, items, or staff recruits across the room network.</p>
+            <div class="dex-card" style="display:block; text-align:left; font-size:12px;">
+                <strong style="color:#00ffff;">Offer Item:</strong> Diamond / Copper Ore / Pokéball<br>
+                <span style="color:#888; font-size:11px;">Select trade item to broadcast offer to lobby.</span>
             </div>
         `;
         renderButtons([
-            { text: "🎒 Trade an Item", class: "btn btn-mine", action: showItemTradeSelection },
-            { text: "🎭 Trade a Companion", class: "btn btn-maid", action: showCompanionTradeSelection },
+            { text: "💎 Broadcast Diamond Trade", class: "btn btn-mine", action: () => {
+                if (game.inventory.includes("Diamond")) {
+                    alert("Broadcasted Diamond trade offer to room members!");
+                } else { alert("You have no Diamonds to trade!"); }
+            }},
             { text: "⬅ Back to Lobby", class: "btn btn-back", action: renderActiveLobbyView }
         ]);
-    }
-
-    function showItemTradeSelection() {
-        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #201a00 0%, #050400 85%)", "#ffaa00");
-        let uniqueItems = [...new Set(game.inventory || [])];
-        document.getElementById("console").innerHTML = `
-            <h2 style="color:#ffaa00; font-size:16px;">🎒 SELECT ITEM TO TRADE</h2>
-            <p style="color:#aaa; font-size:12px;">Click any item below to broadcast an offer:</p>
-        `;
-        let btns = [];
-        if (uniqueItems.length === 0) {
-            btns.push({ text: "🎒 Backpack is Empty", class: "btn btn-sys", action: () => {} });
-        } else {
-            uniqueItems.forEach(itemName => {
-                let count = game.inventory.filter(i => i === itemName).length;
-                btns.push({
-                    text: `📦 ${itemName} (x${count})`,
-                    class: "btn btn-mine",
-                    action: () => broadcastTradeOffer('item', itemName)
-                });
-            });
-        }
-        btns.push({ text: "⬅ Back", class: "btn btn-back", action: showMultiplayerTradeScreen });
-        renderButtons(btns);
-    }
-
-    function showCompanionTradeSelection() {
-        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #201a00 0%, #050400 85%)", "#ffaa00");
-        document.getElementById("console").innerHTML = `
-            <h2 style="color:#ff66ff; font-size:16px;">🎭 SELECT COMPANION TO TRADE</h2>
-            <p style="color:#aaa; font-size:12px;">Choose a character to trade to other trainers:</p>
-        `;
-        let btns = [];
-        if (!game.staff || game.staff.length <= 1) {
-            btns.push({ text: "❌ Need >1 Companion to Trade", class: "btn btn-sys", action: () => alert("You cannot trade your only companion!") });
-        } else {
-            game.staff.forEach((member, idx) => {
-                btns.push({
-                    text: `${member.name} (${member.origin || 'Hero'})`,
-                    class: "btn btn-maid",
-                    action: () => broadcastTradeOffer('character', member, idx)
-                });
-            });
-        }
-        btns.push({ text: "⬅ Back", class: "btn btn-back", action: showMultiplayerTradeScreen });
-        renderButtons(btns);
-    }
-
-    function broadcastTradeOffer(type, tradeData, index = null) {
-        if (type === 'item') {
-            if (!game.inventory.includes(tradeData)) {
-                alert("❌ Item not found in backpack!");
-                return;
-            }
-            if (socket && socket.connected) {
-                socket.emit('offerTradeItem', {
-                    roomId: currentRoomId,
-                    item: tradeData,
-                    senderName: game.playerName
-                });
-                alert(`🤝 Broadcasted trade offer for 1x [${tradeData}] to Room ${currentRoomId}!`);
-            } else {
-                alert(`🤝 Selected [${tradeData}] for trade!`);
-            }
-        } else if (type === 'character') {
-            if (socket && socket.connected) {
-                socket.emit('offerTradeCharacter', {
-                    roomId: currentRoomId,
-                    character: tradeData,
-                    senderName: game.playerName
-                });
-                alert(`🎭 Broadcasted trade offer for companion [${tradeData.name}] to Room ${currentRoomId}!`);
-            } else {
-                alert(`🎭 Selected [${tradeData.name}] for trade!`);
-            }
-        }
-        showMultiplayerTradeScreen();
     }
 
     function challengePlayerPvP(opponentName) {
@@ -1689,6 +1629,7 @@
         showDexMenu(1, query);
     }
 
+    // --- REGIONS & MONSTER ENCOUNTERS ---
     function showWorldMap() {
         playBGM('hq');
         clearConsole("center", "radial-gradient(circle at 50% 40%, #002244 0%, #02060a 85%)", "#00ffcc");
@@ -1723,7 +1664,9 @@
         `;
         renderButtons([]);
 
-        setTimeout(() => { showRegionHub(regionKey); }, 1300);
+        setTimeout(() => {
+            showRegionHub(regionKey);
+        }, 1300);
     }
 
     function showRegionHub(regionKey) {
