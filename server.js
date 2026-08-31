@@ -1,5 +1,5 @@
 const express = require('express');
-const http = require('http');
+const http = http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 
@@ -7,11 +7,12 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
+// Serve all static files from root and public folder
 app.use(express.static(__dirname));
 app.use(express.static(path.join(__dirname, 'public')));
 
-const onlineUsers = new Map(); // socketId -> { name, location }
-const globalChatHistory = [];  // recent chat logs
+const onlineUsers = new Map();
+const globalChatHistory = [];
 
 function broadcastGlobalStats() {
     const userList = Array.from(onlineUsers.values());
@@ -22,7 +23,7 @@ function broadcastGlobalStats() {
 }
 
 io.on('connection', (socket) => {
-    onlineUsers.set(socket.id, { name: "Guest Trainer", location: "Nexus HQ" });
+    onlineUsers.set(socket.id, { name: "Trainer", location: "Nexus HQ" });
     broadcastGlobalStats();
 
     socket.emit('chatHistory', globalChatHistory);
