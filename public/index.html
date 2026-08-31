@@ -244,6 +244,9 @@
     <div id="stats-bar">
         <div>🌍 <span id="loc-display">Nexus HQ</span> | Trainer: <span class="stat-highlight" id="player-name-display">Trainer</span></div>
         <div style="display: flex; align-items: center; gap: 6px;">
+            <span onclick="showLivePlayersModal()" style="cursor: pointer; color: #00ff88; background: #002211; border: 1px solid #00ff88; padding: 2px 6px; border-radius: 4px; font-weight: bold;" title="Click to view online players">
+                🟢 Online: <span id="global-online-count">1</span>
+            </span>
             💼 <span id="manager-title-display" style="color:#00ffcc; font-weight:bold;">Novice</span> | 💰 $<span class="stat-money" id="funds-display">5000</span> | Day <span id="day-display">1</span> | ⚡ <span id="stamina-display">100</span> | 🌌 <span id="dex-count-display">0/2000</span>
             <input type="range" id="master-volume" min="0" max="1" step="0.05" value="0.35" oninput="updateMasterVolume(this.value)" style="width: 55px; cursor: pointer;" title="Master Volume">
             <button onclick="toggleAudioMute()" style="background:#111; color:#00ffff; border:1px solid #00ffff; border-radius:3px; padding:2px 5px; font-size:10px; cursor:pointer;" id="audio-toggle-btn">🔊</button>
@@ -269,6 +272,7 @@
     let currentSaveSlot = 1;
     let currentRoomId = null;
     let onlineRoomPlayers = [];
+    let globalActiveTrainers = [];
     
     let masterVolume = 0.35;
     let isAudioMuted = false;
@@ -280,6 +284,45 @@
         if (consoleDiv) {
             consoleDiv.scrollBy({ top: offset, behavior: 'smooth' });
         }
+    }
+
+    function syncTrainerPresence() {
+        if (socket && socket.connected) {
+            socket.emit('registerTrainerPresence', {
+                playerName: game.playerName || "Trainer",
+                location: game.location || "Nexus HQ"
+            });
+        }
+    }
+
+    if (socket) {
+        socket.on('globalOnlineUpdate', (data) => {
+            const countEl = document.getElementById("global-online-count");
+            if (countEl) countEl.innerText = data.totalOnline;
+            globalActiveTrainers = data.activePlayers || [];
+        });
+    }
+
+    function showLivePlayersModal() {
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #001f3f 0%, #000814 85%)", "#00ffff");
+        let html = `
+            <h2 style="color: #00ffff; font-size: 18px; margin-bottom: 4px;">🌐 ACTIVE MULTIVERSE TRAINERS</h2>
+            <p style="color: #aaa; font-size: 12px; margin-bottom: 8px;">Total Active Players Online: <strong>${globalActiveTrainers.length}</strong></p>
+            <div style="width: 95%; max-width: 360px; max-height: 180px; overflow-y: auto; margin-bottom: 10px;">
+        `;
+        
+        globalActiveTrainers.forEach(t => {
+            html += `
+                <div class="dex-card" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; font-size: 12px;">
+                    <span style="color: #fff;">👤 <strong>${t.name}</strong></span>
+                    <span style="color: #ffaa00; font-size: 11px;">📍 ${t.location}</span>
+                </div>
+            `;
+        });
+        
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([{ text: "⬅ Return to HQ", class: "btn btn-back", action: showMainMenu }]);
     }
 
     const REGIONS_DATA = {
@@ -702,12 +745,14 @@
         let unlockedCount = Object.keys(game.pokedex).length;
         let totalCount = getAllDexEntries().length;
         document.getElementById("dex-count-display").innerText = `${unlockedCount}/${totalCount}`;
+        syncTrainerPresence();
     }
 
     function getSaveKey(slot) { return `unidexSave_slot_${slot}`; }
     function saveGame() {
         checkAchievements();
         localStorage.setItem(getSaveKey(currentSaveSlot), JSON.stringify(game));
+        syncTrainerPresence();
         showSaveToast();
     }
 
