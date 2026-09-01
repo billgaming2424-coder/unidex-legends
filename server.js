@@ -15,6 +15,7 @@ const onlineUsers = new Map();
 const rooms = new Map();
 const globalChatHistory = [];
 const pvpBattles = new Map();
+const pendingPvpChallenges = new Map(); // key `${challengerId}_${targetId}` -> { challengerName, champion }
 const globalMarketListings = [];
 
 let raidBosses = {
@@ -104,6 +105,19 @@ adminIo.on('connection', (socket) => {
     });
 });
 
+// Removes a player from a room's roster (used both when they switch rooms and when
+// they disconnect entirely) and broadcasts the updated room list to whoever's left.
+function removeFromRoom(socketId, roomId) {
+    if (!roomId || !rooms.has(roomId)) return;
+    const roomList = rooms.get(roomId).filter(p => p.id !== socketId);
+    if (roomList.length) {
+        rooms.set(roomId, roomList);
+    } else {
+        rooms.delete(roomId);
+    }
+    io.to(roomId).emit('roomUpdate', { roomId, players: roomList });
+}
+
 io.on('connection', (socket) => {
     onlineUsers.set(socket.id, {
         id: socket.id,
@@ -172,8 +186,9 @@ io.on('connection', (socket) => {
     });
 
     socket.on('joinRoom', ({ roomId, player }) => {
-        if (socket.currentRoom) {
+        if (socket.currentRoom && socket.currentRoom !== roomId) {
             socket.leave(socket.currentRoom);
+            removeFromRoom(socket.id, socket.currentRoom);
         }
         socket.join(roomId);
         socket.currentRoom = roomId;
@@ -188,6 +203,16 @@ io.on('connection', (socket) => {
 
         io.to(roomId).emit('roomUpdate', { roomId, players: roomList });
         broadcastAdminStats();
+    });
+
+    socket.on('leaveRoom', () => {
+        if (socket.currentRoom) {
+            const oldRoom = socket.currentRoom;
+            socket.leave(oldRoom);
+            removeFromRoom(socket.id, oldRoom);
+            socket.currentRoom = null;
+            broadcastAdminStats();
+        }
     });
 
     socket.on('selectRaidTier', (tierKey) => {
@@ -242,7 +267,7 @@ io.on('connection', (socket) => {
 
     socket.on('buyMarketListing', ({ listingId, buyerName }) => {
         const idx = globalMarketListings.findIndex(l => l.id === listingId);
-        if (idx !== -1) {
+        if (idx !== -1 && globalMarketListings[idx].sellerId !== socket.id) {
             const itemObj = globalMarketListings.splice(idx, 1)[0];
             io.to(itemObj.sellerId).emit('itemSoldNotification', { item: itemObj.item, price: itemObj.price, buyer: buyerName });
             socket.emit('itemPurchasedSuccess', itemObj);
@@ -251,22 +276,27 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('offerTradeItem', ({ roomId, targetId, item, senderName }) => {
-        socket.to(targetId).emit('receiveTradeOffer', { senderId: socket.id, senderName, item });
+    socket.on('cancelMarketListing', ({ listingId }) => {
+        const idx = globalMarketListings.findIndex(l => l.id === listingId && l.sellerId === socket.id);
+        if (idx !== -1) {
+            const itemObj = globalMarketListings.splice(idx, 1)[0];
+            socket.emit('marketListingCancelled', itemObj);
+            io.emit('marketUpdate', globalMarketListings);
+            broadcastAdminStats();
+        }
     });
 
-    socket.on('acceptTradeOffer', ({ targetId, targetItem, myItem, senderName, offererName }) => {
-        socket.to(targetId).emit('tradeCompleted', { receivedItem: myItem, partnerName: senderName });
-        socket.emit('tradeCompleted', { receivedItem: targetItem, partnerName: offererName || "Partner" });
+    // Generalized trade protocol - one pipeline for items, characters, and cash alike.
+    // offerTrade carries {kind, payload}; acceptTrade carries what the accepter gives
+    // back (`give`) plus an echo of what they received (`receive`) so both sides can
+    // apply the swap to their own save without the server needing to know game state.
+    socket.on('offerTrade', ({ roomId, targetId, kind, payload, senderName }) => {
+        socket.to(targetId).emit('receiveTradeOffer', { senderId: socket.id, senderName, kind, payload });
     });
 
-    socket.on('offerTradeCharacter', ({ roomId, targetId, character, senderName }) => {
-        socket.to(targetId).emit('receiveCharacterTradeOffer', { senderId: socket.id, senderName, character });
-    });
-
-    socket.on('acceptCharacterTradeOffer', ({ targetId, targetCharacter, myCharacter, senderName, offererName }) => {
-        socket.to(targetId).emit('characterTradeCompleted', { receivedCharacter: myCharacter, partnerName: senderName });
-        socket.emit('characterTradeCompleted', { receivedCharacter: targetCharacter, partnerName: offererName || "Partner" });
+    socket.on('acceptTrade', ({ targetId, senderName, offererName, give, receive }) => {
+        socket.to(targetId).emit('tradeCompleted', { received: give, partnerName: senderName });
+        socket.emit('tradeCompleted', { received: receive, partnerName: offererName || "Partner" });
     });
 
     socket.on('declineTradeOffer', ({ targetId, declinerName }) => {
@@ -274,20 +304,29 @@ io.on('connection', (socket) => {
     });
 
     socket.on('requestPvP', ({ roomId, targetId, challengerName, champion }) => {
+        pendingPvpChallenges.set(`${socket.id}_${targetId}`, { challengerName, champion });
         socket.to(targetId).emit('pvpChallengeReceived', { challengerId: socket.id, challengerName, champion });
     });
 
-    socket.on('acceptPvP', ({ challengerId, accepterName, champion }) => {
-        const battleId = `PVP_${socket.id}_${challengerId}`;
+    socket.on('declinePvP', ({ challengerId, declinerName }) => {
+        pendingPvpChallenges.delete(`${challengerId}_${socket.id}`);
+        socket.to(challengerId).emit('pvpChallengeDeclined', { declinerName: declinerName || "The trainer" });
+    });
+
+    socket.on('acceptPvP', ({ challengerId, challengerName, accepterName, champion }) => {
+        const battleId = `PVP_${challengerId}_${socket.id}_${Date.now()}`;
         const p1Max = 120;
         const p2Max = 120;
+        const pending = pendingPvpChallenges.get(`${challengerId}_${socket.id}`);
+        pendingPvpChallenges.delete(`${challengerId}_${socket.id}`);
         pvpBattles.set(battleId, {
             p1Id: challengerId, p2Id: socket.id, turn: challengerId,
-            p1Name: "Challenger", p2Name: accepterName,
+            p1Name: (pending && pending.challengerName) || challengerName || "Challenger", p2Name: accepterName,
+            p1Champion: (pending && pending.champion) || champion, p2Champion: champion,
             p1Hp: p1Max, p2Hp: p2Max, p1Guard: false, p2Guard: false
         });
 
-        const payload = { battleId, p1Id: challengerId, p2Id: socket.id, p1Max, p2Max };
+        const payload = { battleId, p1Id: challengerId, p2Id: socket.id, p1Max, p2Max, turn: challengerId, challengerName: (pending && pending.challengerName) || challengerName, accepterName };
         io.to(challengerId).emit('startLivePvP', payload);
         socket.emit('startLivePvP', payload);
         broadcastAdminStats();
@@ -332,11 +371,24 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         onlineUsers.delete(socket.id);
         broadcastGlobalStats();
-        if (socket.currentRoom && rooms.has(socket.currentRoom)) {
-            let roomList = rooms.get(socket.currentRoom).filter(p => p.id !== socket.id);
-            rooms.set(socket.currentRoom, roomList);
-            io.to(socket.currentRoom).emit('roomUpdate', { roomId: socket.currentRoom, players: roomList });
+        if (socket.currentRoom) {
+            removeFromRoom(socket.id, socket.currentRoom);
             broadcastAdminStats();
+        }
+        // Don't leave the other side of a live duel stuck waiting forever.
+        for (const [battleId, b] of pvpBattles.entries()) {
+            if (b.p1Id === socket.id || b.p2Id === socket.id) {
+                const survivorId = b.p1Id === socket.id ? b.p2Id : b.p1Id;
+                io.to(survivorId).emit('pvpRoundUpdate', {
+                    battleId, turn: survivorId, p1Hp: b.p1Hp, p2Hp: b.p2Hp,
+                    lastActionLog: "Your opponent disconnected - you win by default!",
+                    isOver: true, winnerId: survivorId
+                });
+                pvpBattles.delete(battleId);
+            }
+        }
+        for (const key of pendingPvpChallenges.keys()) {
+            if (key.startsWith(`${socket.id}_`) || key.endsWith(`_${socket.id}`)) pendingPvpChallenges.delete(key);
         }
     });
 });

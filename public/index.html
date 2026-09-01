@@ -339,10 +339,16 @@
     let globalActiveTrainers = [];
     let currentTradePartners = [];
     let currentIncomingChoiceList = [];
-    let pendingOutgoingTrade = null; // { targetId, targetName, kind: 'item'|'character', item?, character?, staffIndex? }
-    let incomingTradeOffer = null;   // { senderId, senderName, kind: 'item'|'character', item?, character? }
+    let pendingOutgoingTrade = null; // { targetId, targetName, kind: 'item'|'character'|'cash', item?, character?, staffUid?, cash? }
+    let incomingTradeOffer = null;   // { senderId, senderName, kind: 'item'|'character'|'cash', item?, character?, cash? }
     let currentRaidBossState = null; // synced from the server: { name, hp, maxHp, level, reward, key }
     let raidScreenActive = false;
+    let roomChatLog = [];
+    let chatScreenActive = false;
+    let globalMarketListings = [];
+    let currentPvPBattle = null;     // { battleId, oppId, oppName, myHp, oppHp, myMax, oppMax, isMyTurn, championName, championPower }
+    let incomingPvPChallenge = null; // { challengerId, challengerName, champion }
+    let pendingPvPTarget = null;     // { id, name } - who we just challenged, waiting on their answer
     
     let masterVolume = 0.35;
     let isAudioMuted = false;
@@ -358,7 +364,7 @@
 
     function syncTrainerPresence() {
         if (socket && socket.connected) {
-            let lead = (game.staff && game.staff.length > 0) ? game.staff[0] : null;
+            let lead = (game.staff && game.staff.length > 0) ? getChampion() : null;
             socket.emit('registerTrainerPresence', {
                 playerName: game.playerName || "Trainer",
                 location: game.location || "Nexus HQ",
@@ -545,7 +551,7 @@
             desc: "🐉 Beta Tester Reward: Nullex, the Beta Wyrm (Legendary)!",
             apply: (g) => {
                 let legend = PORTAL_CHAR_POOLS.legendary[0];
-                g.staff.push({ name: legend.name, power: legend.power || 80, origin: legend.origin, dexId: legend.id, legendary: true });
+                addStaffMember({ name: legend.name, power: legend.power || 80, origin: legend.origin, dexId: legend.id, legendary: true });
                 recordDex(legend.id, false);
             }
         },
@@ -737,8 +743,8 @@
             day: 1, stamina: 100, playerName: "Trainer", gender: "Boy",
             managerPower: 30,
             equippedGear: { weapon: "None", armor: "None", helmet: "None", accessory: "None" },
-            inventory: ["Pokéball", "Pokéball", "Pokéball", "Copper Ore", "Diamond"], 
-            staff: [], pokedex: {}, specialDex: {}, dlcUnlocked: false, redeemedCodes: [],
+            inventory: ["Pokéball", "Pokéball", "Pokéball", "Copper Ore", "Diamond"],
+            staff: [], partyUids: [], championUid: null, pokedex: {}, specialDex: {}, dlcUnlocked: false, redeemedCodes: [],
             achievements: {},
             currentDailyEvent: { name: "Calm Multiverse", desc: "A peaceful day across timelines." },
             homeDecor: { tier: 1, name: "Standard Suite", items: [] },
@@ -830,6 +836,7 @@
     function updateUI() {
         if (!game.inventory) game.inventory = [];
         if (!game.staff) game.staff = [];
+        ensurePartySystem();
         if (!game.pokedex) game.pokedex = {};
         if (!game.specialDex) game.specialDex = {};
         if (!game.homeDecor) game.homeDecor = defaultGameState().homeDecor;
@@ -1085,7 +1092,8 @@
     function finalizeStarter(dexId, pwr) {
         stopStarterCries();
         let meta = PORTAL_CHAR_POOLS.standard.find(c => c.id === dexId) || { name: "Starter", origin: "Maid Cafe", type: "Normal" };
-        game.staff = [{ name: meta.name, rawName: meta.name, dexId: dexId, origin: meta.origin, hearts: 20, power: pwr, active: true, type: meta.type }];
+        game.staff = []; game.partyUids = []; game.championUid = null;
+        addStaffMember({ name: meta.name, rawName: meta.name, dexId: dexId, origin: meta.origin, hearts: 20, power: pwr, type: meta.type });
         recordDex(dexId, false);
         saveGame();
         showMainMenu();
@@ -1097,6 +1105,71 @@
         if (!game.pokedex[key]) game.pokedex[key] = { discovered: true, shiny: isShiny, count: 1 };
         else { game.pokedex[key].count++; if (isShiny) game.pokedex[key].shiny = true; }
         checkAchievements();
+    }
+
+    // --- CHAMPION & ACTIVE PARTY (max 6, Pokémon-style) ---
+    const MAX_PARTY_SIZE = 6;
+
+    function generateUid() {
+        return 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    }
+
+    // Backfills uids on older saves, keeps game.partyUids/game.championUid pointing at
+    // real roster members, and auto-populates the party from the roster the very first
+    // time a save from before the party system existed gets loaded.
+    function ensurePartySystem() {
+        if (!game.staff) game.staff = [];
+        game.staff.forEach(s => { if (!s.uid) s.uid = generateUid(); });
+        if (!Array.isArray(game.partyUids)) game.partyUids = [];
+        game.partyUids = game.partyUids.filter(uid => game.staff.some(s => s.uid === uid));
+        if (game.partyUids.length === 0 && game.staff.length > 0) {
+            game.partyUids = game.staff.slice(0, MAX_PARTY_SIZE).map(s => s.uid);
+        }
+        if (!game.championUid || !game.partyUids.includes(game.championUid)) {
+            game.championUid = game.partyUids[0] || null;
+        }
+    }
+
+    function getActiveParty() {
+        ensurePartySystem();
+        return game.partyUids.map(uid => game.staff.find(s => s.uid === uid)).filter(Boolean);
+    }
+
+    function getReserve() {
+        ensurePartySystem();
+        return game.staff.filter(s => !game.partyUids.includes(s.uid));
+    }
+
+    function getChampion() {
+        ensurePartySystem();
+        if (game.championUid) {
+            let c = game.staff.find(s => s.uid === game.championUid);
+            if (c) return c;
+        }
+        let party = getActiveParty();
+        return party.length ? party[0] : { name: "Trainer Partner", power: 35, uid: null };
+    }
+
+    // Snapshot of the active party for one battle: champion fights first, everyone
+    // starts at full HP for this encounter.
+    function buildCombatParty() {
+        let champion = getChampion();
+        let party = getActiveParty();
+        if (!party.length) party = [champion];
+        let ordered = [champion, ...party.filter(p => p.uid !== champion.uid)];
+        return ordered.map(p => ({ uid: p.uid, name: p.name, power: p.power || 30, hp: 100, maxHp: 100 }));
+    }
+
+    // Adds a newly recruited/traded-in character to the roster, auto-slotting them into
+    // the active party if there's room (<6), otherwise they land in the reserve/PC box.
+    function addStaffMember(memberData) {
+        if (!game.staff) game.staff = [];
+        if (!Array.isArray(game.partyUids)) game.partyUids = [];
+        let member = Object.assign({ uid: generateUid() }, memberData);
+        game.staff.push(member);
+        if (game.partyUids.length < MAX_PARTY_SIZE) game.partyUids.push(member.uid);
+        if (!game.championUid) game.championUid = member.uid;
+        return member;
     }
 
     // --- MAIN HQ DASHBOARD ---
@@ -1370,42 +1443,134 @@
     }
 
     // --- STAFF ROSTER & INTERACTIONS ---
+    function staffCardHtml(s, extraButtonsHtml) {
+        let isChampion = game.championUid && s.uid === game.championUid;
+        return `
+            <div class="dex-card" style="display:flex; justify-content:space-between; align-items:center; ${isChampion ? 'border-color:#ffd700; box-shadow:0 0 8px rgba(255,215,0,0.35);' : ''}">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <img src="${getCharacterPortrait(s.name)}" style="width:34px;height:34px;object-fit:contain;border-radius:6px;border:1px solid #a020f0;" onerror="this.style.display='none'"/>
+                    <div style="font-size:12px;">
+                        <strong>${isChampion ? '👑 ' : ''}${s.name}</strong><br>
+                        <span style="font-size:10.5px;color:#aaa;">Origin: ${s.origin || 'Unknown'} | Power: ${s.power || 0}</span>
+                    </div>
+                </div>
+                <div style="display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end;">
+                    ${extraButtonsHtml}
+                    <button class="btn btn-maid" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="interactWithStaff('${s.uid}')">💬 Talk</button>
+                    <button class="btn btn-back" style="padding:3px 8px; font-size:11px; min-height:28px; border-color:#ff3333; color:#ff6666;" onclick="confirmReleaseStaff('${s.uid}')">🗑️ Release</button>
+                </div>
+            </div>
+        `;
+    }
+
     function showStaffMenu() {
         playBGM('staff');
         clearConsole("flex-start", "radial-gradient(circle at 50% 25%, #2b005c 0%, #0c001a 80%)", "#a020f0");
-        let staff = game.staff || [];
+        ensurePartySystem();
+        let party = getActiveParty();
+        let reserve = getReserve();
         let html = `<h2 style="color:#a020f0; font-size:18px;">⚔️ STAFF ROSTER & INTERACTIONS</h2><div style="width:100%;">`;
-        
-        if (!staff.length) {
+
+        if (!game.staff.length) {
             html += `<p style="color:#aaa; font-size:12px;">No staff recruited yet.</p>`;
         } else {
-            staff.forEach((s, idx) => {
-                html += `
-                    <div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <img src="${getCharacterPortrait(s.name)}" style="width:34px;height:34px;object-fit:contain;border-radius:6px;border:1px solid #a020f0;" onerror="this.style.display='none'"/>
-                            <div style="font-size:12px;">
-                                <strong>${s.name}</strong><br>
-                                <span style="font-size:10.5px;color:#aaa;">Origin: ${s.origin || 'Unknown'} | Power: ${s.power || 0}</span>
-                            </div>
-                        </div>
-                        <div style="display:flex; gap:4px;">
-                            <button class="btn btn-maid" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="interactWithStaff(${idx})">💬 Talk</button>
-                            <button class="btn btn-back" style="padding:3px 8px; font-size:11px; min-height:28px; border-color:#ff3333; color:#ff6666;" onclick="confirmReleaseStaff(${idx})">🗑️ Release</button>
-                        </div>
-                    </div>
+            html += `<p style="color:#ffd700; font-size:11.5px; margin:6px 0 3px 0;">⭐ ACTIVE PARTY (${party.length}/${MAX_PARTY_SIZE})</p>`;
+            party.forEach((s) => {
+                let isChampion = game.championUid === s.uid;
+                let extra = `
+                    ${!isChampion ? `<button class="btn btn-start" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="setChampion('${s.uid}')">👑 Champion</button>` : ''}
+                    ${party.length > 1 ? `<button class="btn btn-sys" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="benchPartyMember('${s.uid}')">➖ Bench</button>` : ''}
                 `;
+                html += staffCardHtml(s, extra);
             });
+
+            html += `<p style="color:#66ccff; font-size:11.5px; margin:10px 0 3px 0;">📦 RESERVE (PC BOX) (${reserve.length})</p>`;
+            if (!reserve.length) {
+                html += `<p style="color:#888; font-size:11.5px;">Nobody in reserve right now.</p>`;
+            } else {
+                reserve.forEach((s) => {
+                    let extra = `<button class="btn btn-mine" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="addToParty('${s.uid}')">➕ Add to Party</button>`;
+                    html += staffCardHtml(s, extra);
+                });
+            }
         }
         html += `</div>`;
         document.getElementById("console").innerHTML = html;
         renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
     }
 
+    function setChampion(uid) {
+        let member = game.staff.find(s => s.uid === uid);
+        if (!member) return;
+        // Champion must be an active party member - promoting from reserve pulls them in
+        // first (swapping out the current champion if the party's already full).
+        if (!game.partyUids.includes(uid)) {
+            if (game.partyUids.length >= MAX_PARTY_SIZE) {
+                game.partyUids[0] = uid;
+            } else {
+                game.partyUids.push(uid);
+            }
+        }
+        game.championUid = uid;
+        saveGame(); updateUI();
+        showStaffMenu();
+    }
+
+    function benchPartyMember(uid) {
+        if (game.partyUids.length <= 1) {
+            alert("You need at least one active party member!");
+            return;
+        }
+        game.partyUids = game.partyUids.filter(u => u !== uid);
+        if (game.championUid === uid) game.championUid = game.partyUids[0] || null;
+        saveGame(); updateUI();
+        showStaffMenu();
+    }
+
+    function addToParty(uid) {
+        if (!game.staff.some(s => s.uid === uid)) return;
+        if (game.partyUids.includes(uid)) { showStaffMenu(); return; }
+        if (game.partyUids.length >= MAX_PARTY_SIZE) {
+            showPartySwapPicker(uid);
+            return;
+        }
+        game.partyUids.push(uid);
+        if (!game.championUid) game.championUid = uid;
+        saveGame(); updateUI();
+        showStaffMenu();
+    }
+
+    // Party's full (6/6) - let the player pick who gets benched to make room.
+    function showPartySwapPicker(incomingUid) {
+        let incoming = game.staff.find(s => s.uid === incomingUid);
+        if (!incoming) { showStaffMenu(); return; }
+        playBGM('staff');
+        clearConsole("flex-start", "radial-gradient(circle at 50% 25%, #2b005c 0%, #0c001a 80%)", "#a020f0");
+        let html = `<h2 style="color:#a020f0; font-size:16px;">Party's full! Bench someone to make room for ${incoming.name}:</h2><div style="width:100%;">`;
+        getActiveParty().forEach((s) => {
+            html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>${game.championUid === s.uid ? '👑 ' : ''}${s.name} (Pwr ${s.power || 0})</span>
+                <button class="btn btn-mine" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="swapIntoParty('${incomingUid}', '${s.uid}')">Swap In ${incoming.name}</button>
+            </div>`;
+        });
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([{ text: "⬅ Cancel", class: "btn btn-back", action: showStaffMenu }]);
+    }
+
+    function swapIntoParty(incomingUid, outgoingUid) {
+        let idx = game.partyUids.indexOf(outgoingUid);
+        if (idx === -1) { showStaffMenu(); return; }
+        game.partyUids[idx] = incomingUid;
+        if (game.championUid === outgoingUid) game.championUid = incomingUid;
+        saveGame(); updateUI();
+        showStaffMenu();
+    }
+
     // Lets a player release a staff member they've caught (typically an extra copy of
     // someone they already have) back into the multiverse, freeing up the roster.
-    function confirmReleaseStaff(idx) {
-        let member = game.staff[idx];
+    function confirmReleaseStaff(uid) {
+        let member = game.staff.find(s => s.uid === uid);
         if (!member) return;
         if (game.staff.length <= 1) {
             alert("You need at least one team member! Recruit another before releasing this one.");
@@ -1420,15 +1585,18 @@
             </p>
         `;
         renderButtons([
-            { text: "✔ Yes, release them", class: "btn btn-back", action: () => releaseStaffMember(idx) },
+            { text: "✔ Yes, release them", class: "btn btn-back", action: () => releaseStaffMember(uid) },
             { text: "❌ Nevermind", class: "btn btn-start", action: showStaffMenu }
         ]);
     }
 
-    function releaseStaffMember(idx) {
+    function releaseStaffMember(uid) {
+        let idx = game.staff.findIndex(s => s.uid === uid);
+        if (idx === -1) { showStaffMenu(); return; }
         let member = game.staff[idx];
-        if (!member) { showStaffMenu(); return; }
         game.staff.splice(idx, 1);
+        game.partyUids = game.partyUids.filter(u => u !== uid);
+        if (game.championUid === uid) game.championUid = null;
 
         // Releasing removes them from your active roster, but keeps the UniDex entry
         // discovered (just like a real Pokédex) - only the extra "count" goes down.
@@ -1443,8 +1611,8 @@
         showStaffMenu();
     }
 
-    function interactWithStaff(idx) {
-        let member = game.staff[idx];
+    function interactWithStaff(uid) {
+        let member = game.staff.find(s => s.uid === uid);
         if (!member) return;
         playBGM('staff');
         clearConsole("center", "radial-gradient(circle at 50% 30%, #2b005c 0%, #0c001a 80%)", "#a020f0");
@@ -1529,7 +1697,7 @@
         setTimeout(() => {
             const success = Math.random() < 0.65;
             if (success) {
-                game.staff.push({ name: activeEncounter.name, power: activeEncounter.power, origin: activeEncounter.origin, dexId: activeEncounter.dexId });
+                addStaffMember({ name: activeEncounter.name, power: activeEncounter.power, origin: activeEncounter.origin, dexId: activeEncounter.dexId });
                 recordDex(activeEncounter.dexId, false);
                 saveGame(); updateUI();
                 document.getElementById("capture-status").innerHTML = `<strong style="color:#55ff99;">🎉 CAPTURED ${activeEncounter.name}!</strong>`;
@@ -1638,7 +1806,12 @@
             { text: "Connect to Room", class: "btn btn-sys", action: () => {
                 currentRoomId = document.getElementById("room-code-input").value.trim().toUpperCase() || "AETHERIA";
                 if (socket) socket.emit('joinRoom', { roomId: currentRoomId, player: { name: game.playerName, staff: game.staff, power: game.managerPower } });
+                roomChatLog = [];
                 renderActiveLobbyView();
+            }},
+            { text: "🎲 Join Random Room", class: "btn btn-mine", action: () => {
+                if (!socket) return;
+                socket.emit('joinRandomRoom', { player: { name: game.playerName, staff: game.staff, power: game.managerPower } });
             }},
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
@@ -1656,10 +1829,10 @@
             html += `<div class="dex-card" style="font-size:12px;">👤 ${game.playerName} (You) - Host</div>`;
         } else {
             onlineRoomPlayers.forEach(p => {
-                let isMe = p.name === game.playerName;
+                let isMe = socket && p.id === socket.id;
                 html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center; font-size:12px;">
                     <div><strong>👤 ${p.name}</strong> ${isMe ? '<span style="color:#ffaa00;">(You)</span>' : ''}</div>
-                    ${!isMe ? `<button class="btn btn-combat" style="padding:2px 6px; font-size:10px; min-height:24px;" onclick="challengePlayerPvP('${p.name}')">⚔️ Duel</button>` : ''}
+                    ${!isMe ? `<button class="btn btn-combat" style="padding:2px 6px; font-size:10px; min-height:24px;" onclick="requestPvPDuel('${p.id}')">⚔️ Duel</button>` : ''}
                 </div>`;
             });
         }
@@ -1669,20 +1842,173 @@
         renderButtons([
             { text: "🐲 Start Co-Op Raid Boss", class: "btn btn-raid", action: showRaidTierSelect },
             { text: "🤝 Trade Partner", class: "btn btn-dex", action: showMultiplayerTradeScreen },
-            { text: "⬅ Leave Room", class: "btn btn-back", action: showMainMenu }
+            { text: "🏪 Player Market", class: "btn btn-sys", action: showGlobalMarketScreen },
+            { text: "💬 Room Chat", class: "btn btn-maid", action: showRoomChatScreen },
+            { text: "⬅ Leave Room", class: "btn btn-back", action: () => {
+                if (socket) socket.emit('leaveRoom');
+                onlineRoomPlayers = [];
+                showMainMenu();
+            }}
         ]);
+    }
+
+    // --- ROOM CHAT ---
+    function showRoomChatScreen() {
+        chatScreenActive = true;
+        renderRoomChatScreen();
+    }
+
+    function renderRoomChatScreen() {
+        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #002244 0%, #000814 85%)", "#00aaff");
+        let html = `
+            <h2 style="color:#00ffff; font-size:16px; margin-bottom:2px;">💬 ROOM CHAT — ${currentRoomId}</h2>
+            <div id="room-chat-log" style="width:100%; max-width:380px; height:180px; overflow-y:auto; background:#00121f; border:1px solid #005577; border-radius:6px; padding:6px; margin:4px 0; text-align:left;">
+        `;
+        if (!roomChatLog.length) {
+            html += `<p style="color:#666; font-size:11.5px; font-style:italic;">No messages yet. Say hi!</p>`;
+        } else {
+            roomChatLog.forEach(m => {
+                html += `<div style="font-size:12px; margin-bottom:4px;"><span style="color:#ffaa00;">[${m.time}] ${m.name}:</span> <span style="color:#fff;">${m.text}</span></div>`;
+            });
+        }
+        html += `</div>
+            <input type="text" id="room-chat-input" placeholder="Type a message..." style="background:#111;color:#0ff;border:1px solid #0ff;padding:8px;font-family:'Courier New';font-size:13px;border-radius:4px;width:82%;max-width:280px;" />
+        `;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([
+            { text: "📨 Send", class: "btn btn-sys", action: sendRoomChatMessage },
+            { text: "⬅ Back to Lobby", class: "btn btn-back", action: () => { chatScreenActive = false; renderActiveLobbyView(); } }
+        ]);
+        let input = document.getElementById("room-chat-input");
+        if (input) {
+            input.focus();
+            input.addEventListener("keydown", (e) => { if (e.key === "Enter") sendRoomChatMessage(); });
+        }
+        let log = document.getElementById("room-chat-log");
+        if (log) log.scrollTop = log.scrollHeight;
+    }
+
+    function sendRoomChatMessage() {
+        let input = document.getElementById("room-chat-input");
+        let text = input ? input.value.trim() : "";
+        if (!text || !socket || !currentRoomId) return;
+        socket.emit('sendRoomMessage', { roomId: currentRoomId, name: game.playerName, text: text.slice(0, 200) });
+        if (input) input.value = "";
+    }
+
+    // --- GLOBAL PLAYER MARKET ---
+    function showGlobalMarketScreen(message = "") {
+        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #201a00 0%, #050400 85%)", "#ffaa00");
+        let mine = globalMarketListings.filter(l => socket && l.sellerId === socket.id);
+        let others = globalMarketListings.filter(l => !socket || l.sellerId !== socket.id);
+        let html = `
+            <h2 style="color:#ffaa00; font-size:18px;">🏪 PLAYER MARKET</h2>
+            <p style="color:#aaa; font-size:12px; max-width:360px;">List an item for sale, or buy from other trainers online right now.</p>
+            ${message ? `<p style="font-size:12px;">${message}</p>` : ''}
+            <div style="width:100%; max-width:380px;">
+        `;
+        if (!others.length) {
+            html += `<p style="color:#888; font-size:12px;">No listings from other trainers right now.</p>`;
+        } else {
+            others.forEach(l => {
+                let affordable = (game.funds || 0) >= l.price;
+                html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>📦 ${l.item} — <strong style="color:#00ff88;">$${l.price}</strong> <span style="color:#888;font-size:10.5px;">(${l.sellerName})</span></span>
+                    <button class="btn ${affordable ? 'btn-mine' : 'btn-back'}" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="buyGlobalMarketListing('${l.id}')">${affordable ? 'Buy' : "Can't Afford"}</button>
+                </div>`;
+            });
+        }
+        if (mine.length) {
+            html += `<p style="color:#66ccff; font-size:11.5px; margin-top:8px;">Your Listings</p>`;
+            mine.forEach(l => {
+                html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>📦 ${l.item} — <strong style="color:#00ff88;">$${l.price}</strong></span>
+                    <button class="btn btn-back" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="cancelGlobalMarketListing('${l.id}')">Cancel</button>
+                </div>`;
+            });
+        }
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([
+            { text: "💰 Sell an Item", class: "btn btn-sys", action: showMarketSellPicker },
+            { text: "⬅ Back to Lobby", class: "btn btn-back", action: renderActiveLobbyView }
+        ]);
+    }
+
+    function showMarketSellPicker() {
+        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #201a00 0%, #050400 85%)", "#ffaa00");
+        let counts = {};
+        (game.inventory || []).forEach(i => counts[i] = (counts[i] || 0) + 1);
+        let items = Object.keys(counts);
+        let html = `<h2 style="color:#ffaa00; font-size:16px;">💰 Choose an Item to Sell</h2><div style="width:100%; max-width:380px;">`;
+        if (!items.length) {
+            html += `<p style="color:#888; font-size:12px;">You have nothing to sell.</p>`;
+        } else {
+            items.forEach(item => {
+                html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>${item} (x${counts[item]})</span>
+                    <button class="btn btn-mine" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="promptMarketPrice('${item.replace(/'/g, "\\'")}')">List</button>
+                </div>`;
+            });
+        }
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([{ text: "⬅ Cancel", class: "btn btn-back", action: showGlobalMarketScreen }]);
+    }
+
+    function promptMarketPrice(item) {
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #201a00 0%, #050400 85%)", "#ffaa00");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#ffaa00; font-size:16px;">💰 Set a Price for ${item}</h2>
+            <input type="number" id="market-price-input" placeholder="Price in $" min="1" style="background:#111;color:#0ff;border:1px solid #0ff;padding:8px;font-family:'Courier New';font-size:13px;border-radius:4px;width:70%;max-width:180px;text-align:center;margin-top:6px;" />
+        `;
+        renderButtons([
+            { text: "✔ List It", class: "btn btn-start", action: () => {
+                let priceInput = document.getElementById("market-price-input");
+                let price = priceInput ? parseInt(priceInput.value, 10) : NaN;
+                if (!price || price <= 0) { promptMarketPrice(item); return; }
+                let idx = game.inventory.indexOf(item);
+                if (idx === -1) { showGlobalMarketScreen(); return; }
+                game.inventory.splice(idx, 1);
+                saveGame(); updateUI();
+                socket.emit('createMarketListing', { item, price, sellerName: game.playerName });
+                showGlobalMarketScreen(`<span style="color:#55ff99;">✔ Listed ${item} for $${price}!</span>`);
+            }},
+            { text: "⬅ Cancel", class: "btn btn-back", action: showMarketSellPicker }
+        ]);
+    }
+
+    function buyGlobalMarketListing(listingId) {
+        let listing = globalMarketListings.find(l => l.id === listingId);
+        if (!listing || !socket) return;
+        if ((game.funds || 0) < listing.price) {
+            showGlobalMarketScreen(`<span style="color:#ff6666;">Not enough funds for that!</span>`);
+            return;
+        }
+        socket.emit('buyMarketListing', { listingId, buyerName: game.playerName });
+    }
+
+    function cancelGlobalMarketListing(listingId) {
+        if (!socket) return;
+        socket.emit('cancelMarketListing', { listingId });
     }
 
     // --- LIVE PLAYER-TO-PLAYER TRADING ---
     // Real trades: pick a partner in the room -> offer an item or a staff member ->
     // it's actually sent to them over the socket -> they pick something to give back ->
     // both sides' inventories/rosters update for real when the server confirms it.
+    function tradeOfferSummary(o) {
+        if (o.kind === 'item') return o.item;
+        if (o.kind === 'cash') return `$${o.cash}`;
+        return o.character.name;
+    }
+
     function showMultiplayerTradeScreen() {
         clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #201a00 0%, #050400 85%)", "#ffaa00");
         currentTradePartners = onlineRoomPlayers.filter(p => !socket || p.id !== socket.id);
         let html = `
             <h2 style="color:#ffaa00; font-size:18px;">🤝 MULTIPLAYER TRADE EXCHANGE</h2>
-            <p style="color:#aaa; font-size:12px; max-width:360px;">Pick a trainer in this room to send a trade offer to.</p>
+            <p style="color:#aaa; font-size:12px; max-width:360px;">Pick a trainer in this room to send a trade offer to. You can offer items, team members, or cash.</p>
             <div style="width:100%; max-width:380px;">
         `;
         if (!currentTradePartners.length) {
@@ -1706,7 +2032,13 @@
         clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #201a00 0%, #050400 85%)", "#ffaa00");
         let html = `
             <h2 style="color:#ffaa00; font-size:16px;">🤝 Offer To ${partner.name}</h2>
-            <p style="color:#aaa; font-size:11.5px;">🎒 Items</p>
+            <p style="color:#aaa; font-size:11.5px;">💰 Cash</p>
+            <div style="width:100%; max-width:380px; display:flex; gap:6px; align-items:center;">
+                <input type="number" id="trade-cash-input" placeholder="Amount" min="1" max="${Math.floor(game.funds || 0)}" style="background:#111;color:#0ff;border:1px solid #0ff;padding:6px;font-family:'Courier New';font-size:12px;border-radius:4px;width:110px;" />
+                <button class="btn btn-mine" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="sendCashTradeOffer(${partnerIdx})">Offer Cash</button>
+            </div>
+            <p style="color:#666; font-size:10.5px;">You have $${Math.floor(game.funds || 0)}.</p>
+            <p style="color:#aaa; font-size:11.5px; margin-top:6px;">🎒 Items</p>
             <div style="width:100%; max-width:380px;">
         `;
         let counts = {};
@@ -1726,10 +2058,10 @@
         if ((game.staff || []).length <= 1) {
             html += `<p style="color:#888; font-size:12px;">You need at least one team member — recruit more before trading one away.</p>`;
         } else {
-            game.staff.forEach((s, sIdx) => {
+            game.staff.forEach((s) => {
                 html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
                     <span>${s.name} (Pwr ${s.power || 0})</span>
-                    <button class="btn btn-mine" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="sendTradeOffer(${partnerIdx}, 'character', ${sIdx})">Offer</button>
+                    <button class="btn btn-mine" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="sendTradeOffer(${partnerIdx}, 'character', '${s.uid}')">Offer</button>
                 </div>`;
             });
         }
@@ -1738,26 +2070,41 @@
         renderButtons([{ text: "⬅ Back", class: "btn btn-back", action: showMultiplayerTradeScreen }]);
     }
 
+    function sendCashTradeOffer(partnerIdx) {
+        let input = document.getElementById("trade-cash-input");
+        let amount = input ? parseInt(input.value, 10) : NaN;
+        if (!amount || amount <= 0) return;
+        if (amount > (game.funds || 0)) { alert("You don't have that much cash!"); return; }
+        sendTradeOffer(partnerIdx, 'cash', amount);
+    }
+
     function sendTradeOffer(partnerIdx, kind, payload) {
         let partner = currentTradePartners[partnerIdx];
         if (!partner || !socket) return;
+        let offerPayload;
         if (kind === 'item') {
             pendingOutgoingTrade = { targetId: partner.id, targetName: partner.name, kind, item: payload };
-            socket.emit('offerTradeItem', { roomId: currentRoomId, targetId: partner.id, item: payload, senderName: game.playerName });
+            offerPayload = { item: payload };
+        } else if (kind === 'cash') {
+            pendingOutgoingTrade = { targetId: partner.id, targetName: partner.name, kind, cash: payload };
+            offerPayload = { cash: payload };
         } else {
-            let member = game.staff[payload];
+            let member = game.staff.find(s => s.uid === payload);
             if (!member) return;
             if (game.staff.length <= 1) { alert("You need at least one team member!"); return; }
-            pendingOutgoingTrade = { targetId: partner.id, targetName: partner.name, kind, character: member, staffIndex: payload };
-            socket.emit('offerTradeCharacter', { roomId: currentRoomId, targetId: partner.id, character: member, senderName: game.playerName });
+            pendingOutgoingTrade = { targetId: partner.id, targetName: partner.name, kind, character: member, staffUid: payload };
+            offerPayload = { character: member };
         }
+        socket.emit('offerTrade', { roomId: currentRoomId, targetId: partner.id, kind, payload: offerPayload, senderName: game.playerName });
         showTradeWaitingScreen();
     }
 
     function showTradeWaitingScreen() {
         if (!pendingOutgoingTrade) { renderActiveLobbyView(); return; }
         clearConsole("center", "radial-gradient(circle at 50% 30%, #201a00 0%, #050400 85%)", "#ffaa00");
-        let what = pendingOutgoingTrade.kind === 'item' ? pendingOutgoingTrade.item : pendingOutgoingTrade.character.name;
+        let what = pendingOutgoingTrade.kind === 'item' ? pendingOutgoingTrade.item
+            : pendingOutgoingTrade.kind === 'cash' ? `$${pendingOutgoingTrade.cash}`
+            : pendingOutgoingTrade.character.name;
         document.getElementById("console").innerHTML = `
             <h2 style="color:#ffaa00; font-size:16px;">🤝 Offer Sent</h2>
             <p style="color:#aaa; font-size:12px;">Waiting for <strong>${pendingOutgoingTrade.targetName}</strong> to respond to your offer of <strong>${what}</strong>...</p>
@@ -1770,71 +2117,109 @@
         let o = incomingTradeOffer;
         playBGM('trade');
         clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #201a00 0%, #050400 85%)", "#ffaa00");
-        let offeredName = o.kind === 'item' ? o.item : o.character.name;
         let html = `
             <h2 style="color:#ffaa00; font-size:16px;">🤝 Incoming Trade Offer!</h2>
-            <p style="color:#fff; font-size:12.5px;"><strong>${o.senderName}</strong> wants to trade you their <strong>${offeredName}</strong>!</p>
+            <p style="color:#fff; font-size:12.5px;"><strong>${o.senderName}</strong> wants to trade you their <strong>${tradeOfferSummary(o)}</strong>!</p>
             <p style="color:#aaa; font-size:11.5px;">Choose what to give in return:</p>
+            <p style="color:#aaa; font-size:11px;">💰 Cash</p>
+            <div style="width:100%; max-width:380px; display:flex; gap:6px; align-items:center;">
+                <input type="number" id="incoming-cash-input" placeholder="Amount" min="1" max="${Math.floor(game.funds || 0)}" style="background:#111;color:#0ff;border:1px solid #0ff;padding:6px;font-family:'Courier New';font-size:12px;border-radius:4px;width:110px;" />
+                <button class="btn btn-mine" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="finalizeIncomingCashTrade()">Give Cash</button>
+            </div>
             <div style="width:100%; max-width:380px;">
         `;
         currentIncomingChoiceList = [];
-        if (o.kind === 'item') {
-            let counts = {};
-            (game.inventory || []).forEach(i => counts[i] = (counts[i] || 0) + 1);
-            let items = Object.keys(counts);
-            currentIncomingChoiceList = items;
-            if (!items.length) {
-                html += `<p style="color:#888; font-size:12px;">You have nothing to trade back!</p>`;
-            } else {
-                items.forEach((item, idx) => {
-                    html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
-                        <span>${item} (x${counts[item]})</span>
-                        <button class="btn btn-mine" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="finalizeIncomingTrade('item', ${idx})">Give This</button>
-                    </div>`;
-                });
-            }
+        let counts = {};
+        (game.inventory || []).forEach(i => counts[i] = (counts[i] || 0) + 1);
+        let items = Object.keys(counts);
+        currentIncomingChoiceList = items;
+        html += `<p style="color:#aaa; font-size:11px; margin-top:6px;">🎒 Items</p>`;
+        if (!items.length) {
+            html += `<p style="color:#888; font-size:12px;">You have nothing to trade back!</p>`;
         } else {
-            if ((game.staff || []).length <= 1) {
-                html += `<p style="color:#888; font-size:12px;">You need at least one team member — recruit more before trading a character back!</p>`;
-            } else {
-                game.staff.forEach((s, idx) => {
-                    html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
-                        <span>${s.name} (Pwr ${s.power || 0})</span>
-                        <button class="btn btn-mine" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="finalizeIncomingTrade('character', ${idx})">Give This</button>
-                    </div>`;
-                });
-            }
+            items.forEach((item, idx) => {
+                html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>${item} (x${counts[item]})</span>
+                    <button class="btn btn-mine" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="finalizeIncomingTrade('item', ${idx})">Give This</button>
+                </div>`;
+            });
+        }
+        html += `<p style="color:#aaa; font-size:11px; margin-top:6px;">⚔️ Team Members</p>`;
+        if ((game.staff || []).length <= 1) {
+            html += `<p style="color:#888; font-size:12px;">You need at least one team member — recruit more before trading a character back!</p>`;
+        } else {
+            game.staff.forEach((s) => {
+                html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>${s.name} (Pwr ${s.power || 0})</span>
+                    <button class="btn btn-mine" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="finalizeIncomingTrade('character', '${s.uid}')">Give This</button>
+                </div>`;
+            });
         }
         html += `</div>`;
         document.getElementById("console").innerHTML = html;
         renderButtons([{ text: "❌ Decline Offer", class: "btn btn-back", action: declineIncomingTrade }]);
     }
 
-    function finalizeIncomingTrade(kind, choiceIdx) {
+    function finalizeIncomingCashTrade() {
+        let input = document.getElementById("incoming-cash-input");
+        let amount = input ? parseInt(input.value, 10) : NaN;
+        if (!amount || amount <= 0) return;
+        if (amount > (game.funds || 0)) { alert("You don't have that much cash!"); return; }
+        finalizeIncomingTrade('cash', amount);
+    }
+
+    function finalizeIncomingTrade(kind, choiceValue) {
         if (!incomingTradeOffer || !socket) return;
         let o = incomingTradeOffer;
+        // o is flattened (kind + item/cash/character live directly on it) - rebuild the
+        // {kind, payload} shape the generic trade pipeline (and applyReceivedTrade) expect.
+        let receivedPayload = { item: o.item, cash: o.cash, character: o.character };
+        let received = { kind: o.kind, payload: receivedPayload };
+        let give, receiveMessage;
 
         if (kind === 'item') {
-            let myItem = currentIncomingChoiceList[choiceIdx];
+            let myItem = currentIncomingChoiceList[choiceValue];
             if (!myItem) return;
             let idx = game.inventory.indexOf(myItem);
             if (idx !== -1) game.inventory.splice(idx, 1);
-            game.inventory.push(o.item);
-            socket.emit('acceptTradeOffer', { targetId: o.senderId, targetItem: o.item, myItem: myItem, senderName: game.playerName, offererName: o.senderName });
-            finishTradeUI(`You gave your ${myItem} and received ${o.item} from ${o.senderName}!`);
+            give = { kind: 'item', payload: { item: myItem } };
+            applyReceivedTrade(received.kind, received.payload);
+            receiveMessage = `You gave your ${myItem} and received ${tradeOfferSummary(o)} from ${o.senderName}!`;
+        } else if (kind === 'cash') {
+            game.funds -= choiceValue;
+            give = { kind: 'cash', payload: { cash: choiceValue } };
+            applyReceivedTrade(received.kind, received.payload);
+            receiveMessage = `You gave $${choiceValue} and received ${tradeOfferSummary(o)} from ${o.senderName}!`;
         } else {
             if ((game.staff || []).length <= 1) { alert("You need at least one team member!"); return; }
-            let myCharacter = game.staff[choiceIdx];
+            let myCharacter = game.staff.find(s => s.uid === choiceValue);
             if (!myCharacter) return;
-            game.staff.splice(choiceIdx, 1);
-            game.staff.push(o.character);
-            if (o.character.dexId != null) recordDex(o.character.dexId, false);
-            socket.emit('acceptCharacterTradeOffer', { targetId: o.senderId, targetCharacter: o.character, myCharacter: myCharacter, senderName: game.playerName, offererName: o.senderName });
-            finishTradeUI(`You gave ${myCharacter.name} and received ${o.character.name} from ${o.senderName}!`);
+            let idx = game.staff.findIndex(s => s.uid === choiceValue);
+            game.staff.splice(idx, 1);
+            game.partyUids = game.partyUids.filter(u => u !== choiceValue);
+            if (game.championUid === choiceValue) game.championUid = null;
+            give = { kind: 'character', payload: { character: myCharacter } };
+            applyReceivedTrade(received.kind, received.payload);
+            receiveMessage = `You gave ${myCharacter.name} and received ${tradeOfferSummary(o)} from ${o.senderName}!`;
         }
 
+        socket.emit('acceptTrade', { targetId: o.senderId, senderName: game.playerName, offererName: o.senderName, give, receive: received });
         saveGame(); updateUI();
+        finishTradeUI(receiveMessage);
         incomingTradeOffer = null;
+    }
+
+    // Applies whatever we just received in a trade (item, character, or cash) to our save.
+    function applyReceivedTrade(kind, payload) {
+        if (kind === 'item') {
+            game.inventory.push(payload.item);
+        } else if (kind === 'cash') {
+            game.funds = (game.funds || 0) + payload.cash;
+        } else if (kind === 'character') {
+            let { uid, ...restOfCharacter } = payload.character;
+            addStaffMember(restOfCharacter);
+            if (payload.character.dexId != null) recordDex(payload.character.dexId, false);
+        }
     }
 
     function declineIncomingTrade() {
@@ -1851,22 +2236,84 @@
         renderButtons([{ text: "✔ Return to Lobby", class: "btn btn-start", action: renderActiveLobbyView }]);
     }
 
-    function challengePlayerPvP(opponentName) {
+    // --- LIVE ONLINE PvP DUELS ---
+    // A real 1v1 champion duel against another connected trainer, using the server's
+    // authoritative battle state so both sides see identical HP and turn order.
+    function requestPvPDuel(targetId) {
+        if (!socket) return;
+        let partner = onlineRoomPlayers.find(p => p.id === targetId);
+        let champion = getChampion();
+        pendingPvPTarget = { id: targetId, name: partner ? partner.name : "Trainer" };
+        socket.emit('requestPvP', { roomId: currentRoomId, targetId, challengerName: game.playerName, champion: champion.name });
         playBGM('battle');
-        let leadCompanion = (game.staff && game.staff.length > 0) ? game.staff[0] : { name: "Trainer Partner", power: 35 };
-        activeCombatSession = {
-            enemyName: `${opponentName}'s Champion`,
-            enemyHP: 160,
-            enemyMaxHP: 160,
-            enemyDmg: 18,
-            rewardCash: 1500,
-            regionKey: null,
-            companionName: leadCompanion.name,
-            companionHP: 100,
-            companionMaxHP: 100,
-            companionPower: leadCompanion.power || 35
-        };
-        renderPokemonCombatScreen();
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #330011 0%, #08000a 85%)", "#ff0055");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#ff0055; font-size:16px;">⚔️ Challenge Sent!</h2>
+            <p style="color:#aaa; font-size:12px;">Waiting for <strong>${pendingPvPTarget.name}</strong> to accept your duel...</p>
+        `;
+        renderButtons([{ text: "❌ Cancel", class: "btn btn-back", action: () => { pendingPvPTarget = null; renderActiveLobbyView(); } }]);
+    }
+
+    function showIncomingPvPChallenge() {
+        if (!incomingPvPChallenge) { renderActiveLobbyView(); return; }
+        let c = incomingPvPChallenge;
+        playBGM('battle');
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #330011 0%, #08000a 85%)", "#ff0055");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#ff0055; font-size:16px;">⚔️ Duel Challenge!</h2>
+            <p style="color:#fff; font-size:12.5px;"><strong>${c.challengerName}</strong> wants to duel you! Their champion: <strong>${c.champion}</strong></p>
+        `;
+        renderButtons([
+            { text: "⚔️ Accept", class: "btn btn-combat", action: () => {
+                let champion = getChampion();
+                socket.emit('acceptPvP', { challengerId: c.challengerId, challengerName: c.challengerName, accepterName: game.playerName, champion: champion.name });
+                incomingPvPChallenge = null;
+            }},
+            { text: "❌ Decline", class: "btn btn-back", action: () => {
+                socket.emit('declinePvP', { challengerId: c.challengerId, declinerName: game.playerName });
+                incomingPvPChallenge = null;
+                renderActiveLobbyView();
+            }}
+        ]);
+    }
+
+    function renderLivePvPScreen(logMessage) {
+        let b = currentPvPBattle;
+        if (!b) { renderActiveLobbyView(); return; }
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #33000a 0%, #080002 85%)", "#ff0044");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color: #ff0033; font-size:16px;">⚔️ DUEL vs ${b.oppName.toUpperCase()}</h2>
+            <div style="display: flex; justify-content: space-around; width: 100%; margin: 8px 0;">
+                <div class="dex-card" style="text-align: center; width: 48%; display: block; border-color: #00ff66; padding:6px;">
+                    ${portrait(getCharacterPortrait(b.championName), b.championName, 75)}
+                    <strong style="color: #00ffff; font-size:12px;">${b.championName}</strong><br>
+                    ❤️ <span style="color:#33ff33; font-size:11px;">${b.myHp} / ${b.myMax}</span>
+                </div>
+                <div class="dex-card" style="text-align: center; width: 48%; display: block; border-color: #ff0055; padding:6px;">
+                    ${portrait(getCharacterPortrait(b.oppChampionName || b.oppName), b.oppChampionName || b.oppName, 75)}
+                    <strong style="color: #ff0055; font-size:12px;">${b.oppName}</strong><br>
+                    ❤️ <span style="color:#ff3333; font-size:11px;">${b.oppHp} / ${b.oppMax}</span>
+                </div>
+            </div>
+            <p style="color: #ffff00; font-size: 12px; margin:2px 0;">${logMessage || (b.isMyTurn ? "Your move!" : `Waiting on ${b.oppName}...`)}</p>
+        `;
+        if (b.isMyTurn) {
+            renderButtons([
+                { text: "⚔️ Strike", class: "btn btn-combat", action: () => executePvPAction('strike') },
+                { text: "💥 Special", class: "btn btn-combat", action: () => executePvPAction('special') },
+                { text: "🛡️ Guard", class: "btn btn-mine", action: () => executePvPAction('guard') }
+            ]);
+        } else {
+            renderButtons([]);
+        }
+    }
+
+    function executePvPAction(actionType) {
+        let b = currentPvPBattle;
+        if (!b || !b.isMyTurn || !socket) return;
+        b.isMyTurn = false;
+        socket.emit('executeLivePvPAction', { battleId: b.battleId, actionType, power: b.championPower, championName: b.championName });
+        renderLivePvPScreen(`You used ${actionType.toUpperCase()}! Waiting for the result...`);
     }
 
     // --- LIVE CO-OP RAID BOSS ---
@@ -1917,13 +2364,27 @@
 
     function executeRaidStrike() {
         if (!socket || !socket.connected) { alert("Not connected to the server - can't reach the raid boss right now."); return; }
-        let lead = (game.staff && game.staff.length > 0) ? game.staff[0] : { name: "Trainer Partner", power: 35 };
+        let lead = getChampion();
         let dmg = (lead.power || 35) + Math.floor(Math.random() * 20);
         socket.emit('attackRaidBoss', { damage: dmg, trainerName: game.playerName, championName: lead.name });
     }
 
     if (socket) {
-        socket.on('roomUpdate', ({ roomId, players }) => { onlineRoomPlayers = players; if (currentRoomId === roomId) renderActiveLobbyView(); });
+        socket.on('roomUpdate', ({ roomId, players }) => { onlineRoomPlayers = players; if (currentRoomId === roomId && !chatScreenActive) renderActiveLobbyView(); });
+
+        socket.on('assignedRandomRoom', (roomId) => {
+            if (!roomId) return;
+            currentRoomId = roomId;
+            socket.emit('joinRoom', { roomId: currentRoomId, player: { name: game.playerName, staff: game.staff, power: game.managerPower } });
+            roomChatLog = [];
+            renderActiveLobbyView();
+        });
+
+        socket.on('receiveRoomMessage', (entry) => {
+            roomChatLog.push(entry);
+            if (roomChatLog.length > 50) roomChatLog.shift();
+            if (chatScreenActive) renderRoomChatScreen();
+        });
 
         socket.on('raidBossUpdate', (boss) => {
             currentRaidBossState = boss;
@@ -1956,35 +2417,18 @@
             }
         });
 
+        // --- Generalized trade protocol: item / character / cash all flow through the
+        // same offerTrade -> receiveTradeOffer -> acceptTrade -> tradeCompleted pipeline.
         socket.on('receiveTradeOffer', (data) => {
-            incomingTradeOffer = { senderId: data.senderId, senderName: data.senderName, kind: 'item', item: data.item };
-            showIncomingTradeOffer();
-        });
-
-        socket.on('receiveCharacterTradeOffer', (data) => {
-            incomingTradeOffer = { senderId: data.senderId, senderName: data.senderName, kind: 'character', character: data.character };
+            incomingTradeOffer = { senderId: data.senderId, senderName: data.senderName, kind: data.kind, ...data.payload };
             showIncomingTradeOffer();
         });
 
         socket.on('tradeCompleted', (data) => {
-            if (!pendingOutgoingTrade || pendingOutgoingTrade.kind !== 'item') return;
-            let idx = game.inventory.indexOf(pendingOutgoingTrade.item);
-            if (idx !== -1) game.inventory.splice(idx, 1);
-            game.inventory.push(data.receivedItem);
+            if (!pendingOutgoingTrade) return;
+            applyReceivedTrade(data.received.kind, data.received.payload);
             saveGame(); updateUI();
-            finishTradeUI(`You gave your ${pendingOutgoingTrade.item} and received ${data.receivedItem} from ${data.partnerName}!`);
-            pendingOutgoingTrade = null;
-        });
-
-        socket.on('characterTradeCompleted', (data) => {
-            if (!pendingOutgoingTrade || pendingOutgoingTrade.kind !== 'character') return;
-            let removeIdx = game.staff.findIndex(s => s === pendingOutgoingTrade.character);
-            if (removeIdx === -1) removeIdx = pendingOutgoingTrade.staffIndex;
-            if (removeIdx >= 0 && removeIdx < game.staff.length) game.staff.splice(removeIdx, 1);
-            game.staff.push(data.receivedCharacter);
-            if (data.receivedCharacter.dexId != null) recordDex(data.receivedCharacter.dexId, false);
-            saveGame(); updateUI();
-            finishTradeUI(`You gave ${pendingOutgoingTrade.character.name} and received ${data.receivedCharacter.name} from ${data.partnerName}!`);
+            finishTradeUI(`You gave your ${tradeOfferSummary(pendingOutgoingTrade)} and received ${tradeOfferSummary({ kind: data.received.kind, ...data.received.payload })} from ${data.partnerName}!`);
             pendingOutgoingTrade = null;
         });
 
@@ -1993,6 +2437,91 @@
                 alert(`${data.declinerName || "The trainer"} declined your trade offer.`);
                 pendingOutgoingTrade = null;
                 renderActiveLobbyView();
+            }
+        });
+
+        // --- Global player market ---
+        socket.on('marketUpdate', (listings) => {
+            globalMarketListings = listings || [];
+        });
+
+        socket.on('itemPurchasedSuccess', (listing) => {
+            game.funds -= listing.price;
+            game.inventory.push(listing.item);
+            saveGame(); updateUI();
+            showGlobalMarketScreen(`<span style="color:#55ff99;">✔ Bought ${listing.item} for $${listing.price}!</span>`);
+        });
+
+        socket.on('itemSoldNotification', (data) => {
+            game.funds += data.price;
+            saveGame(); updateUI();
+            alert(`💰 ${data.buyer} bought your ${data.item} for $${data.price}!`);
+        });
+
+        socket.on('marketListingCancelled', (listing) => {
+            game.inventory.push(listing.item);
+            saveGame(); updateUI();
+            showGlobalMarketScreen(`<span style="color:#66ccff;">Listing cancelled — ${listing.item} returned to your bag.</span>`);
+        });
+
+        // --- Live online PvP duels ---
+        socket.on('pvpChallengeReceived', (data) => {
+            incomingPvPChallenge = { challengerId: data.challengerId, challengerName: data.challengerName, champion: data.champion };
+            showIncomingPvPChallenge();
+        });
+
+        socket.on('pvpChallengeDeclined', (data) => {
+            if (pendingPvPTarget) {
+                alert(`${data.declinerName || "The trainer"} declined your duel challenge.`);
+                pendingPvPTarget = null;
+                renderActiveLobbyView();
+            }
+        });
+
+        socket.on('startLivePvP', (data) => {
+            let mySide = socket.id === data.p1Id ? 1 : 2;
+            let champion = getChampion();
+            let oppName = mySide === 1
+                ? (incomingPvPChallenge ? incomingPvPChallenge.challengerName : (pendingPvPTarget ? pendingPvPTarget.name : "Opponent"))
+                : (data.challengerName || (pendingPvPTarget ? pendingPvPTarget.name : "Opponent"));
+            currentPvPBattle = {
+                battleId: data.battleId,
+                mySide: mySide,
+                oppName: oppName,
+                championName: champion.name,
+                championPower: champion.power || 35,
+                myHp: mySide === 1 ? data.p1Max : data.p2Max,
+                myMax: mySide === 1 ? data.p1Max : data.p2Max,
+                oppHp: mySide === 1 ? data.p2Max : data.p1Max,
+                oppMax: mySide === 1 ? data.p2Max : data.p1Max,
+                isMyTurn: data.turn ? (data.turn === socket.id) : (mySide === 1)
+            };
+            pendingPvPTarget = null;
+            incomingPvPChallenge = null;
+            playBGM('battle');
+            renderLivePvPScreen();
+        });
+
+        socket.on('pvpRoundUpdate', (data) => {
+            let b = currentPvPBattle;
+            if (!b || data.battleId !== b.battleId) return;
+            b.myHp = b.mySide === 1 ? data.p1Hp : data.p2Hp;
+            b.oppHp = b.mySide === 1 ? data.p2Hp : data.p1Hp;
+            b.isMyTurn = data.turn === socket.id;
+            renderLivePvPScreen(data.lastActionLog);
+            if (data.isOver) {
+                let won = data.winnerId === socket.id;
+                setTimeout(() => {
+                    clearConsole("center", won ? "radial-gradient(circle,#003300,#000)" : "radial-gradient(circle,#330000,#000)", won ? "#00ff88" : "#ff3333");
+                    if (won) game.funds += 1500;
+                    saveGame(); updateUI();
+                    document.getElementById("console").innerHTML = `
+                        <h2 style="font-size:18px;">${won ? '🏆 DUEL WON!' : '💀 DUEL LOST'}</h2>
+                        <p style="font-size:12px;">${won ? 'Earned $1500!' : 'Better luck next time, trainer.'}</p>
+                    `;
+                    renderButtons([{ text: "✔ Return to Lobby", class: "btn btn-start", action: renderActiveLobbyView }]);
+                    currentPvPBattle = null;
+                }, 1200);
             }
         });
     }
@@ -2146,7 +2675,6 @@
         playBGM('battle');
         let reg = REGIONS_DATA[regionKey];
         let randomMob = reg.monsters[Math.floor(Math.random() * reg.monsters.length)];
-        let leadCompanion = (game.staff && game.staff.length > 0) ? game.staff[0] : { name: "Trainer Partner", power: 35 };
 
         activeCombatSession = {
             enemyName: randomMob.name,
@@ -2155,10 +2683,8 @@
             enemyDmg: randomMob.dmg,
             rewardCash: randomMob.reward,
             regionKey: regionKey,
-            companionName: leadCompanion.name,
-            companionHP: 100,
-            companionMaxHP: 100,
-            companionPower: leadCompanion.power || 35
+            party: buildCombatParty(),
+            activeIdx: 0
         };
         renderPokemonCombatScreen();
     }
@@ -2212,7 +2738,6 @@
 
     function startCombatEncounter(enemyName) {
         playBGM('battle');
-        let leadCompanion = (game.staff && game.staff.length > 0) ? game.staff[0] : { name: "Trainer Partner", power: 35 };
         activeCombatSession = {
             enemyName: enemyName,
             enemyHP: 100,
@@ -2220,67 +2745,158 @@
             enemyDmg: 12,
             rewardCash: 1000,
             regionKey: null,
-            companionName: leadCompanion.name,
-            companionHP: 100,
-            companionMaxHP: 100,
-            companionPower: leadCompanion.power || 35
+            party: buildCombatParty(),
+            activeIdx: 0
         };
         renderPokemonCombatScreen();
     }
 
     function renderPokemonCombatScreen() {
         let s = activeCombatSession;
+        let fighter = s.party[s.activeIdx];
         clearConsole("center", "radial-gradient(circle at 50% 30%, #33000a 0%, #080002 85%)", "#ff0044");
+        let partyStrip = s.party.map((p, i) => {
+            let faint = p.hp <= 0;
+            let isActive = i === s.activeIdx;
+            let color = faint ? '#552222' : (isActive ? '#00ff99' : '#ffaa00');
+            return `<span title="${p.name}: ${p.hp}/${p.maxHp} HP" style="display:inline-block; width:10px; height:10px; border-radius:50%; margin:0 2px; background:${color}; border:1px solid #000;"></span>`;
+        }).join('');
+        let healCount = (game.inventory || []).filter(i => i === 'Healing Potion').length;
         document.getElementById("console").innerHTML = `
             <h2 style="color: #ff0033; font-size:16px;">⚔️ BATTLE vs ${s.enemyName.toUpperCase()}</h2>
             <div style="display: flex; justify-content: space-around; width: 100%; margin: 8px 0;">
                 <div class="dex-card" style="text-align: center; width: 48%; display: block; border-color: #00ff66; padding:6px;">
-                    ${portrait(getCharacterPortrait(s.companionName), s.companionName, 75)}
-                    <strong style="color: #00ffff; font-size:12px;">${s.companionName}</strong><br>
-                    ❤️ <span style="color:#33ff33; font-size:11px;" id="comp-hp">${s.companionHP} / ${s.companionMaxHP}</span>
+                    ${portrait(getCharacterPortrait(fighter.name), fighter.name, 75)}
+                    <strong style="color: #00ffff; font-size:12px;">${fighter.name}</strong><br>
+                    ❤️ <span style="color:#33ff33; font-size:11px;">${fighter.hp} / ${fighter.maxHp}</span>
                 </div>
                 <div class="dex-card" style="text-align: center; width: 48%; display: block; border-color: #ff0055; padding:6px;">
                     <strong style="color: #ff0055; font-size:12px;">${s.enemyName}</strong><br>
-                    ❤️ <span style="color:#ff3333; font-size:11px;" id="enemy-hp">${s.enemyHP} / ${s.enemyMaxHP}</span>
+                    ❤️ <span style="color:#ff3333; font-size:11px;">${s.enemyHP} / ${s.enemyMaxHP}</span>
                 </div>
             </div>
-            <p style="color: #ffff00; font-size: 12px; margin:2px 0;" id="combat-log">What will ${s.companionName} do?</p>
+            <div style="margin:2px 0 4px 0;">${partyStrip}</div>
+            <p style="color: #ffff00; font-size: 12px; margin:2px 0;">${s.lastLog || `What will ${fighter.name} do?`}</p>
         `;
         renderButtons([
             { text: "⚔️ Strike", class: "btn btn-combat", action: () => executePokemonAction('strike') },
+            { text: "💥 Special", class: "btn btn-combat", action: () => executePokemonAction('special') },
+            { text: "🛡️ Guard", class: "btn btn-mine", action: () => executePokemonAction('guard') },
+            { text: `🧪 Use Item (${healCount})`, class: "btn btn-sys", action: () => executePokemonAction('item') },
+            { text: "🔄 Swap Fighter", class: "btn btn-dex", action: () => showCombatSwapPicker(false) },
             { text: "🏃 Run Away", class: "btn btn-back", action: s.regionKey ? () => showRegionHub(s.regionKey) : showMiningHub }
         ]);
     }
 
     function executePokemonAction(actionType) {
         let s = activeCombatSession;
-        let dmg = s.companionPower + Math.floor(Math.random() * 12);
-        s.enemyHP = Math.max(0, s.enemyHP - dmg);
-        document.getElementById("enemy-hp").innerText = `${s.enemyHP} / ${s.enemyMaxHP}`;
-        document.getElementById("combat-log").innerHTML = `<span style="color:#00ffff;">${s.companionName} dealt ${dmg} damage!</span>`;
+        let fighter = s.party[s.activeIdx];
+        if (!fighter || fighter.hp <= 0) return;
+
+        if (actionType === 'item') {
+            let idx = game.inventory.indexOf('Healing Potion');
+            if (idx === -1) {
+                s.lastLog = `<span style="color:#ff6666;">No Healing Potions in your bag!</span>`;
+                renderPokemonCombatScreen();
+                return;
+            }
+            game.inventory.splice(idx, 1);
+            fighter.hp = Math.min(fighter.maxHp, fighter.hp + 50);
+            saveGame(); updateUI();
+            s.lastLog = `<span style="color:#33ff99;">${fighter.name} drinks a Healing Potion! +50 HP</span>`;
+            renderPokemonCombatScreen();
+            enemyCounterAttack();
+            return;
+        }
+
+        let guarding = actionType === 'guard';
+        let dmg = 0;
+        if (!guarding) {
+            let mult = actionType === 'special' ? 1.8 : 1.0;
+            dmg = Math.floor((fighter.power + Math.random() * 12) * mult);
+            s.enemyHP = Math.max(0, s.enemyHP - dmg);
+        }
+        s.playerGuarding = guarding;
+        s.lastLog = guarding
+            ? `<span style="color:#66ccff;">${fighter.name} takes a defensive stance!</span>`
+            : `<span style="color:#00ffff;">${fighter.name} ${actionType === 'special' ? 'unleashes a SPECIAL attack' : 'strikes'} for ${dmg} damage!</span>`;
+        renderPokemonCombatScreen();
 
         if (s.enemyHP <= 0) {
-            setTimeout(() => {
-                game.funds += (s.rewardCash || 1000);
-                updateUI(); saveGame();
-                clearConsole("center", "radial-gradient(circle,#003300,#000)", "#00ff88");
-                document.getElementById("console").innerHTML = `<h2 style="font-size:18px;">🎉 BATTLE WON!</h2><p style="font-size:12px;">Earned $${s.rewardCash || 1000}!</p>`;
-                if (REAL_CHARACTERS_DB.length > 0 && Math.random() < 0.5) {
-                    renderButtons([{ text: "👀 Something's rustling nearby...", class: "btn btn-start", action: spawnWildUniDexEncounter }]);
-                } else {
-                    renderButtons([{ text: "Return to HQ", class: "btn btn-back", action: showMainMenu }]);
-                }
-            }, 1200);
+            setTimeout(winCombat, 1200);
+            return;
+        }
+        enemyCounterAttack();
+    }
+
+    function enemyCounterAttack() {
+        let s = activeCombatSession;
+        setTimeout(() => {
+            let fighter = s.party[s.activeIdx];
+            let incoming = s.enemyDmg;
+            if (s.playerGuarding) incoming = Math.floor(incoming * 0.5);
+            s.playerGuarding = false;
+            fighter.hp = Math.max(0, fighter.hp - incoming);
+
+            if (fighter.hp <= 0) {
+                let alive = s.party.filter(p => p.hp > 0);
+                if (!alive.length) { loseCombat(); return; }
+                clearConsole("center", "radial-gradient(circle at 50% 30%, #33000a 0%, #080002 85%)", "#ff0044");
+                document.getElementById("console").innerHTML = `<h2 style="font-size:16px;">💥 ${fighter.name} fainted!</h2><p style="font-size:12px;">${s.enemyName} hit for ${incoming}! Send out your next fighter.</p>`;
+                renderButtons([{ text: "🔄 Choose Next Fighter", class: "btn btn-start", action: () => showCombatSwapPicker(true) }]);
+            } else {
+                s.lastLog = `<span style="color:#ff8888;">${s.enemyName} hit ${fighter.name} for ${incoming} damage!</span>`;
+                renderPokemonCombatScreen();
+            }
+        }, 900);
+    }
+
+    function winCombat() {
+        let s = activeCombatSession;
+        game.funds += (s.rewardCash || 1000);
+        updateUI(); saveGame();
+        clearConsole("center", "radial-gradient(circle,#003300,#000)", "#00ff88");
+        document.getElementById("console").innerHTML = `<h2 style="font-size:18px;">🎉 BATTLE WON!</h2><p style="font-size:12px;">Earned $${s.rewardCash || 1000}!</p>`;
+        if (REAL_CHARACTERS_DB.length > 0 && Math.random() < 0.5) {
+            renderButtons([{ text: "👀 Something's rustling nearby...", class: "btn btn-start", action: spawnWildUniDexEncounter }]);
         } else {
-            setTimeout(() => {
-                s.companionHP = Math.max(0, s.companionHP - s.enemyDmg);
-                document.getElementById("comp-hp").innerText = `${s.companionHP} / ${s.companionMaxHP}`;
-                if (s.companionHP <= 0) {
-                    clearConsole("center", "radial-gradient(circle,#330000,#000)", "#ff3333");
-                    document.getElementById("console").innerHTML = `<h2 style="font-size:18px;">💀 DEFEATED...</h2><p style="font-size:12px;">Fled back to HQ.</p>`;
-                    renderButtons([{ text: "Return to HQ", class: "btn btn-back", action: showMainMenu }]);
-                }
-            }, 1000);
+            renderButtons([{ text: "Return to HQ", class: "btn btn-back", action: showMainMenu }]);
+        }
+    }
+
+    function loseCombat() {
+        clearConsole("center", "radial-gradient(circle,#330000,#000)", "#ff3333");
+        document.getElementById("console").innerHTML = `<h2 style="font-size:18px;">💀 YOUR PARTY WAS DEFEATED!</h2><p style="font-size:12px;">Fled back to HQ. Better luck next time, trainer.</p>`;
+        renderButtons([{ text: "Return to HQ", class: "btn btn-back", action: showMainMenu }]);
+    }
+
+    // forced = true after a faint (must pick someone, no cancel, no free enemy turn);
+    // forced = false is a voluntary swap mid-battle, which still costs you the turn.
+    function showCombatSwapPicker(forced) {
+        let s = activeCombatSession;
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #33000a 0%, #080002 85%)", "#ff0044");
+        let html = `<h2 style="font-size:16px; color:#ff0055;">🔄 ${forced ? 'Choose Your Next Fighter' : 'Swap Active Fighter'}</h2><div style="width:100%; max-width:380px;">`;
+        s.party.forEach((p, i) => {
+            let faint = p.hp <= 0;
+            let isActive = i === s.activeIdx;
+            html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center; opacity:${faint ? 0.45 : 1};">
+                <span>${faint ? '💀' : '⚔️'} ${p.name} (${p.hp}/${p.maxHp} HP)${isActive && !forced ? ' <span style="color:#ffaa00;">(Active)</span>' : ''}</span>
+                ${(!faint && !isActive) ? `<button class="btn btn-mine" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="confirmCombatSwap(${i}, ${forced})">Send Out</button>` : ''}
+            </div>`;
+        });
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons(forced ? [] : [{ text: "⬅ Cancel", class: "btn btn-back", action: renderPokemonCombatScreen }]);
+    }
+
+    function confirmCombatSwap(idx, forced) {
+        let s = activeCombatSession;
+        s.activeIdx = idx;
+        let fighter = s.party[idx];
+        s.lastLog = `<span style="color:#00ffcc;">Go, ${fighter.name}!</span>`;
+        renderPokemonCombatScreen();
+        if (!forced) {
+            enemyCounterAttack();
         }
     }
 
