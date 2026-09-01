@@ -302,9 +302,157 @@
         .clickable-portrait:hover { transform: scale(1.05); border-color: #00ffff; box-shadow: 0 0 12px rgba(0,255,255,0.4); }
         .dex-card { background: #08080f; border: 1px solid #222238; border-radius: 6px; padding: 8px; margin: 4px 0; width: 98%; text-align: left; position: relative; z-index: 3; box-shadow: 0 2px 6px rgba(0,0,0,0.6); display: flex; align-items: center; gap: 10px; }
         .dex-caught-badge { margin-left: auto; width: 16px; height: 16px; flex-shrink: 0; filter: drop-shadow(0 0 2px rgba(255,60,60,0.6)); }
+
+        /* ================= CHASE STUDIOS INTRO ================= */
+        #studio-intro {
+            position: fixed; inset: 0; z-index: 99999;
+            background: #07050d;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            overflow: hidden; cursor: pointer;
+            transition: opacity 0.8s ease;
+        }
+        #studio-intro.studio-intro-hidden { opacity: 0; pointer-events: none; }
+        #studio-intro::before {
+            content: ""; position: absolute; inset: -20%;
+            background: radial-gradient(circle at 50% 45%, rgba(147,51,234,0.28) 0%, rgba(34,211,238,0.10) 35%, rgba(7,5,13,0) 70%);
+            animation: studioVoidPulse 4.5s ease-in-out infinite;
+            pointer-events: none;
+        }
+        @keyframes studioVoidPulse {
+            0%, 100% { opacity: 0.55; transform: scale(1); }
+            50% { opacity: 0.9; transform: scale(1.08); }
+        }
+        .studio-intro-particles { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+        .studio-intro-particle {
+            position: absolute; bottom: -10px; left: 0; width: 3px; height: 3px; border-radius: 50%;
+            opacity: 0; animation: studioParticleFloat linear infinite;
+        }
+        @keyframes studioParticleFloat {
+            0% { transform: translateY(0) translateX(0); opacity: 0; }
+            10% { opacity: 0.9; }
+            90% { opacity: 0.5; }
+            100% { transform: translateY(-560px) translateX(var(--drift, 0px)); opacity: 0; }
+        }
+        .studio-intro-particle:nth-child(1) { left: 10%; animation-duration: 6.5s; animation-delay: 0.2s; --drift: 14px;  background:#22d3ee; }
+        .studio-intro-particle:nth-child(2) { left: 22%; animation-duration: 7.8s; animation-delay: 1.4s; --drift: -16px; background:#c084fc; }
+        .studio-intro-particle:nth-child(3) { left: 34%; animation-duration: 6.1s; animation-delay: 2.6s; --drift: 10px;  background:#9333ea; }
+        .studio-intro-particle:nth-child(4) { left: 46%; animation-duration: 8.4s; animation-delay: 0.7s; --drift: -8px;  background:#22d3ee; }
+        .studio-intro-particle:nth-child(5) { left: 58%; animation-duration: 6.9s; animation-delay: 3.1s; --drift: 18px;  background:#c084fc; }
+        .studio-intro-particle:nth-child(6) { left: 68%; animation-duration: 7.2s; animation-delay: 1.9s; --drift: -14px; background:#9333ea; }
+        .studio-intro-particle:nth-child(7) { left: 78%; animation-duration: 8.9s; animation-delay: 0.4s; --drift: 20px;  background:#22d3ee; }
+        .studio-intro-particle:nth-child(8) { left: 88%; animation-duration: 6.3s; animation-delay: 2.9s; --drift: -10px; background:#c084fc; }
+
+        .studio-intro-logo-wrap { position: relative; width: 170px; height: 170px; }
+        /* A separate blurred glow layer, animated on opacity/transform only (compositor-
+           friendly) so the "arcane pulse" doesn't repeatedly recompute an SVG drop-shadow
+           filter every frame - that's expensive to repaint and can visibly stutter the
+           rest of the page on lower-end hardware. */
+        .studio-intro-glow {
+            position: absolute; inset: -30px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(34,211,238,0.55) 0%, rgba(147,51,234,0.35) 45%, rgba(147,51,234,0) 75%);
+            filter: blur(18px);
+            opacity: 0; transform: scale(0.7);
+            animation: studioGlowPulse 2.4s ease-in-out 1.5s infinite;
+            pointer-events: none;
+        }
+        @keyframes studioGlowPulse {
+            0%, 100% { opacity: 0.35; transform: scale(0.85); }
+            50%      { opacity: 0.75; transform: scale(1.05); }
+        }
+        .studio-intro-logo {
+            position: relative; width: 170px; height: 170px;
+            opacity: 0; transform: scale(0.4) rotate(-6deg);
+            animation: studioLogoScaleIn 1s cubic-bezier(0.22, 1, 0.36, 1) 0.5s forwards;
+            filter: drop-shadow(0 0 14px rgba(34,211,238,0.4));
+        }
+        .studio-intro-logo svg { display: block; width: 100%; height: 100%; }
+        @keyframes studioLogoScaleIn {
+            0% { opacity: 0; transform: scale(0.4) rotate(-6deg); }
+            60% { opacity: 1; transform: scale(1.08) rotate(1deg); }
+            100% { opacity: 1; transform: scale(1) rotate(0deg); }
+        }
+        .studio-intro-title {
+            margin-top: 26px; font-family: 'Courier New', monospace; font-weight: bold;
+            font-size: 34px; letter-spacing: 10px; color: #f5f3ff; text-align: center;
+            text-shadow: 0 0 12px rgba(34,211,238,0.55), 0 0 26px rgba(147,51,234,0.45);
+            opacity: 0; transform: translateY(10px);
+            animation: studioTextReveal 0.9s ease 1.5s forwards;
+        }
+        .studio-intro-motto {
+            margin-top: 10px; font-family: 'Courier New', monospace;
+            font-size: 12.5px; letter-spacing: 4px; color: #c084fc; text-align: center;
+            opacity: 0; transform: translateY(8px);
+            animation: studioTextReveal 0.9s ease 2.1s forwards;
+        }
+        @keyframes studioTextReveal { to { opacity: 1; transform: translateY(0); } }
+        .studio-intro-skip-hint {
+            position: absolute; bottom: 26px; font-family: 'Courier New', monospace;
+            font-size: 10.5px; letter-spacing: 1.5px; color: #4c1d95;
+            opacity: 0; animation: studioTextReveal 0.9s ease 2.8s forwards;
+        }
     </style>
 </head>
 <body>
+    <div id="studio-intro" role="presentation" aria-label="Chase Studios">
+        <div class="studio-intro-particles">
+            <div class="studio-intro-particle"></div>
+            <div class="studio-intro-particle"></div>
+            <div class="studio-intro-particle"></div>
+            <div class="studio-intro-particle"></div>
+            <div class="studio-intro-particle"></div>
+            <div class="studio-intro-particle"></div>
+            <div class="studio-intro-particle"></div>
+            <div class="studio-intro-particle"></div>
+        </div>
+        <div class="studio-intro-logo-wrap">
+          <div class="studio-intro-glow"></div>
+          <div class="studio-intro-logo">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="170" height="170">
+              <defs>
+                <radialGradient id="voidBg" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="#171026"/>
+                  <stop offset="100%" stop-color="#07050d"/>
+                </radialGradient>
+                <linearGradient id="obsidianBlade" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#334155"/>
+                  <stop offset="50%" stop-color="#e2e8f0"/>
+                  <stop offset="100%" stop-color="#1e293b"/>
+                </linearGradient>
+                <linearGradient id="purpleTrim" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#c084fc"/>
+                  <stop offset="50%" stop-color="#9333ea"/>
+                  <stop offset="100%" stop-color="#581c87"/>
+                </linearGradient>
+                <linearGradient id="voidMana" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#22d3ee"/>
+                  <stop offset="50%" stop-color="#818cf8"/>
+                  <stop offset="100%" stop-color="#c084fc"/>
+                </linearGradient>
+                <filter id="shadowA" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000000" flood-opacity="0.9"/>
+                </filter>
+              </defs>
+              <rect width="500" height="500" rx="44" fill="url(#voidBg)" stroke="#2e1065" stroke-width="4"/>
+              <g filter="url(#shadowA)" transform="translate(0, -10)">
+                <polygon points="250,75 390,145 355,325 250,390 145,325 110,145" fill="#0b0714" stroke="#3b0764" stroke-width="5" stroke-linejoin="round"/>
+                <path d="M 335 165 L 220 165 C 160 165 135 195 135 250 C 135 305 160 335 220 335 L 335 335" fill="none" stroke="url(#voidMana)" stroke-width="26" stroke-linecap="square"/>
+                <circle cx="250" cy="80" r="14" fill="url(#purpleTrim)" stroke="#07050d" stroke-width="3"/>
+                <polygon points="250,60 258,74 242,74" fill="url(#purpleTrim)"/>
+                <rect x="243" y="94" width="14" height="34" rx="2" fill="#1e1b4b" stroke="#07050d" stroke-width="2"/>
+                <polygon points="180,135 250,148 320,135 305,160 250,155 195,160" fill="url(#purpleTrim)" stroke="#07050d" stroke-width="3" stroke-linejoin="round"/>
+                <polygon points="250,140 258,148 250,156 242,148" fill="#22d3ee" stroke="#07050d" stroke-width="1.5"/>
+                <polygon points="238,160 262,160 259,360 250,395 241,360" fill="url(#obsidianBlade)" stroke="#07050d" stroke-width="3" stroke-linejoin="round"/>
+                <line x1="250" y1="168" x2="250" y2="350" stroke="#22d3ee" stroke-width="3"/>
+                <polygon points="160,200 166,212 178,214 169,223 172,235 160,228 148,235 151,223 142,214 154,212" fill="#22d3ee"/>
+                <polygon points="340,285 345,295 355,297 347,305 350,315 340,310 330,315 333,305 325,297 335,295" fill="#c084fc"/>
+              </g>
+            </svg>
+          </div>
+        </div>
+        <div class="studio-intro-title">CHASE STUDIOS</div>
+        <div class="studio-intro-motto">EVERY GENRE. NO LIMITS.</div>
+        <div class="studio-intro-skip-hint">Click or press any key to skip</div>
+    </div>
     <div id="save-toast">💾 Game Saved</div>
     <div id="join-toast-container"></div>
     <div id="stats-bar">
@@ -3905,7 +4053,103 @@
         }
     }
 
-    window.onload = async () => { await loadCharacterDatabase(); showIntroScreen(); };
+    // --- CHASE STUDIOS SPLASH ---
+    let studioAudioCtx = null;
+    function getStudioAudioCtx() {
+        try {
+            if (!studioAudioCtx) {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (AC) studioAudioCtx = new AC();
+            }
+            return studioAudioCtx;
+        } catch (e) { return null; }
+    }
+
+    function playStudioChime() {
+        if (isAudioMuted) return;
+        const ctx = getStudioAudioCtx();
+        if (!ctx) return;
+        const fire = () => {
+            try {
+                const now = ctx.currentTime;
+                const master = ctx.createGain();
+                master.gain.value = masterVolume;
+                master.connect(ctx.destination);
+                // Soft arcane shimmer: cyan fundamental, amethyst fifth, and a high overtone.
+                const notes = [
+                    { freq: 587.33, delay: 0.00, peak: 0.18 },
+                    { freq: 880.00, delay: 0.06, peak: 0.13 },
+                    { freq: 1174.66, delay: 0.14, peak: 0.08 }
+                ];
+                notes.forEach(n => {
+                    const osc = ctx.createOscillator();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(n.freq, now + n.delay);
+                    const g = ctx.createGain();
+                    g.gain.setValueAtTime(0.0001, now + n.delay);
+                    g.gain.linearRampToValueAtTime(n.peak, now + n.delay + 0.08);
+                    g.gain.exponentialRampToValueAtTime(0.0001, now + n.delay + 1.6);
+                    osc.connect(g).connect(master);
+                    osc.start(now + n.delay);
+                    osc.stop(now + n.delay + 1.7);
+                });
+            } catch (e) {}
+        };
+        // Browsers block audio until a user gesture has occurred - if the context is
+        // still suspended (autoplay blocked), quietly resume-and-fire, and if that
+        // rejects (no gesture yet at all) just skip the chime rather than throwing.
+        if (ctx.state === 'suspended') { ctx.resume().then(fire).catch(() => {}); }
+        else { fire(); }
+    }
+
+    let studioIntroResolved = false;
+    let studioIntroTimers = [];
+
+    function clearStudioIntroTimers() {
+        studioIntroTimers.forEach(t => clearTimeout(t));
+        studioIntroTimers = [];
+    }
+
+    function studioIntroKeyHandler() { finishStudioIntro(); }
+
+    function finishStudioIntro() {
+        if (studioIntroResolved) return;
+        studioIntroResolved = true;
+        clearStudioIntroTimers();
+        const el = document.getElementById('studio-intro');
+        if (el) {
+            el.removeEventListener('click', finishStudioIntro);
+            document.removeEventListener('keydown', studioIntroKeyHandler);
+            el.classList.add('studio-intro-hidden');
+            setTimeout(() => { el.remove(); }, 850);
+        }
+        bootGame();
+    }
+
+    async function bootGame() {
+        await loadCharacterDatabase();
+        showIntroScreen();
+    }
+
+    function initStudioIntro() {
+        const el = document.getElementById('studio-intro');
+        if (!el) { bootGame(); return; }
+        el.addEventListener('click', finishStudioIntro);
+        document.addEventListener('keydown', studioIntroKeyHandler);
+        studioIntroTimers.push(setTimeout(playStudioChime, 550));
+        studioIntroTimers.push(setTimeout(finishStudioIntro, 4600));
+    }
+
+    // Deliberately NOT window.onload - that waits for every resource on the page to
+    // finish, including the ~25 music/character-cry Audio() objects created above, which
+    // can take a while and would leave the player staring at a blank tab before the
+    // splash even starts. This script tag runs at the end of <body>, so the DOM is
+    // already parsed by the time we get here - start the intro immediately.
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initStudioIntro);
+    } else {
+        initStudioIntro();
+    }
 </script>
 </body>
 </html>
