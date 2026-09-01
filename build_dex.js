@@ -86,7 +86,166 @@ const CARTOON_AND_LEGEND_RECRUITS = [
     { name: "Joker", origin: "Shujin Academy", type: "Dark", persona: "Smug", portal: "gothIhop" },
     { name: "Kratos", origin: "Sparta", type: "Fighting", persona: "Tsundere", portal: "waffleHouse" },
     { name: "Dante", origin: "Devil May Cry", type: "Fire", persona: "Smug", portal: "gothIhop" },
-    { name: "Vergil", origin: "Devil May Cry", type: "Ice", persona: "Smug", portal: "gothIhop" }
+    { name: "Vergil", origin: "Devil May Cry", type: "Ice", persona: "Smug", portal: "gothIhop" },
+
+    // --- Expansion batch: appended (never inserted earlier) so every existing save's
+    // dex IDs 1-76 keep pointing at the same character - only new IDs are added on top. ---
+
+    // Dragon Ball expansion
+    { name: "Bulma Briefs", origin: "Capsule Corporation", type: "Normal", persona: "Smug", portal: "cyberCity" },
+    { name: "Trunks", origin: "Capsule Corporation", type: "Fire", persona: "Tsundere", portal: "waffleHouse" },
+    { name: "Android 18", origin: "Red Ribbon Army Ruins", type: "Steel", persona: "Smug", portal: "cyberCity" },
+    { name: "Frieza", origin: "Planet Frieza 79", type: "Ice", persona: "Smug", portal: "gothIhop" },
+    { name: "Cell", origin: "Cell Games Arena", type: "Bug", persona: "Smug", portal: "gothIhop" },
+    { name: "Majin Buu", origin: "Earth (Otherworld)", type: "Psychic", persona: "Wholesome", portal: "multiverseToons" },
+    { name: "Beerus", origin: "Universe 7", type: "Cosmic", persona: "Smug", portal: "gothIhop" },
+    { name: "Whis", origin: "Universe 7", type: "Cosmic", persona: "Mystic", portal: "maidCafe" },
+
+    // Naruto expansion
+    { name: "Kakashi Hatake", origin: "Hidden Leaf", type: "Electric", persona: "Mystic", portal: "waffleHouse" },
+    { name: "Hinata Hyuga", origin: "Hidden Leaf", type: "Fighting", persona: "Wholesome", portal: "maidCafe" },
+    { name: "Itachi Uchiha", origin: "Hidden Leaf", type: "Dark", persona: "Goth", portal: "gothIhop" },
+    { name: "Gaara", origin: "Hidden Sand", type: "Ground", persona: "Goth", portal: "gothIhop" },
+    { name: "Jiraiya", origin: "Mount Myoboku", type: "Normal", persona: "Smug", portal: "waffleHouse" },
+    { name: "Tsunade", origin: "Hidden Leaf", type: "Fighting", persona: "Tsundere", portal: "waffleHouse" },
+    { name: "Rock Lee", origin: "Hidden Leaf", type: "Fighting", persona: "Wholesome", portal: "waffleHouse" },
+    { name: "Madara Uchiha", origin: "Valley of the End", type: "Dark", persona: "Smug", portal: "gothIhop" },
+
+    // One Piece expansion
+    { name: "Nami", origin: "Cocoyasi Village", type: "Electric", persona: "Smug", portal: "bikiniBottom" },
+    { name: "Nico Robin", origin: "Ohara", type: "Psychic", persona: "Mystic", portal: "gothIhop" },
+    { name: "Sanji", origin: "Baratie", type: "Fire", persona: "Smug", portal: "waffleHouse" },
+    { name: "Tony Tony Chopper", origin: "Drum Island", type: "Normal", persona: "Wholesome", portal: "multiverseToons" },
+    { name: "Portgas D. Ace", origin: "East Blue", type: "Fire", persona: "Wholesome", portal: "waffleHouse" },
+    { name: "Trafalgar Law", origin: "North Blue", type: "Dark", persona: "Smug", portal: "gothIhop" },
+    { name: "Boa Hancock", origin: "Amazon Lily", type: "Fairy", persona: "Smug", portal: "maidCafe" },
+    { name: "Shanks", origin: "East Blue", type: "Fire", persona: "Mystic", portal: "waffleHouse" },
+
+    // Bleach & My Hero Academia
+    { name: "Rukia Kuchiki", origin: "Soul Society", type: "Ice", persona: "Tsundere", portal: "gothIhop" },
+    { name: "Toshiro Hitsugaya", origin: "Soul Society", type: "Ice", persona: "Tsundere", portal: "gothIhop" },
+    { name: "Kenpachi Zaraki", origin: "Soul Society", type: "Fighting", persona: "Smug", portal: "waffleHouse" },
+    { name: "Izuku Midoriya", origin: "U.A. High School", type: "Fighting", persona: "Wholesome", portal: "multiverseToons" },
+    { name: "Katsuki Bakugo", origin: "U.A. High School", type: "Fire", persona: "Tsundere", portal: "waffleHouse" },
+    { name: "All Might", origin: "U.A. High School", type: "Fighting", persona: "Wholesome", portal: "waffleHouse" },
+    { name: "Ochaco Uraraka", origin: "U.A. High School", type: "Cosmic", persona: "Wholesome", portal: "maidCafe" },
+    { name: "Shoto Todoroki", origin: "U.A. High School", type: "Ice", persona: "Tsundere", portal: "gothIhop" },
+
+    // Demon Slayer & Attack on Titan
+    { name: "Tanjiro Kamado", origin: "Taisho-era Japan", type: "Fire", persona: "Wholesome", portal: "waffleHouse" },
+    { name: "Nezuko Kamado", origin: "Taisho-era Japan", type: "Fire", persona: "Wholesome", portal: "maidCafe" },
+    { name: "Zenitsu Agatsuma", origin: "Taisho-era Japan", type: "Electric", persona: "Wholesome", portal: "multiverseToons" },
+    { name: "Giyu Tomioka", origin: "Taisho-era Japan", type: "Water", persona: "Goth", portal: "gothIhop" },
+    { name: "Eren Yeager", origin: "Shiganshina District", type: "Ground", persona: "Tsundere", portal: "waffleHouse" },
+    { name: "Mikasa Ackerman", origin: "Shiganshina District", type: "Fighting", persona: "Tsundere", portal: "waffleHouse" },
+    { name: "Levi Ackerman", origin: "Survey Corps HQ", type: "Fighting", persona: "Smug", portal: "gothIhop" },
+    { name: "Armin Arlert", origin: "Shiganshina District", type: "Psychic", persona: "Wholesome", portal: "multiverseToons" },
+
+    // Nintendo & retro gaming expansion
+    { name: "Bowser", origin: "Dark Land", type: "Fire", persona: "Smug", portal: "cyberCity" },
+    { name: "Princess Peach", origin: "Mushroom Kingdom", type: "Fairy", persona: "Wholesome", portal: "maidCafe" },
+    { name: "Yoshi", origin: "Dinosaur Land", type: "Grass", persona: "Wholesome", portal: "multiverseToons" },
+    { name: "Kirby", origin: "Dream Land", type: "Fairy", persona: "Wholesome", portal: "multiverseToons" },
+    { name: "Meta Knight", origin: "Dream Land", type: "Dark", persona: "Mystic", portal: "gothIhop" },
+    { name: "Samus Aran", origin: "Planet Zebes", type: "Steel", persona: "Tsundere", portal: "cyberCity" },
+    { name: "Mega Man", origin: "Light Labs", type: "Electric", persona: "Wholesome", portal: "cyberCity" },
+    { name: "Pac-Man", origin: "Pac-Land", type: "Normal", persona: "Wholesome", portal: "multiverseToons" },
+    { name: "Donkey Kong", origin: "DK Island", type: "Fighting", persona: "Wholesome", portal: "multiverseToons" },
+    { name: "Princess Zelda (Wisdom)", origin: "Hyrule Kingdom", type: "Psychic", persona: "Mystic", portal: "maidCafe" },
+    { name: "Impa", origin: "Kakariko Village", type: "Steel", persona: "Mystic", portal: "waffleHouse" },
+    { name: "Midna", origin: "Twilight Realm", type: "Dark", persona: "Smug", portal: "gothIhop" },
+
+    // Fantasy & modern RPG icons
+    { name: "Geralt of Rivia", origin: "The Continent", type: "Dark", persona: "Tsundere", portal: "gothIhop" },
+    { name: "Yennefer of Vengerberg", origin: "Vengerberg", type: "Psychic", persona: "Smug", portal: "gothIhop" },
+    { name: "Aloy", origin: "The Sacred Land", type: "Ground", persona: "Tsundere", portal: "waffleHouse" },
+    { name: "Kirito", origin: "Aincrad", type: "Steel", persona: "Wholesome", portal: "cyberCity" },
+    { name: "Asuna Yuuki", origin: "Aincrad", type: "Fire", persona: "Wholesome", portal: "maidCafe" },
+    { name: "Edward Elric", origin: "Resembool", type: "Steel", persona: "Tsundere", portal: "waffleHouse" },
+    { name: "Alphonse Elric", origin: "Resembool", type: "Steel", persona: "Wholesome", portal: "multiverseToons" },
+    { name: "Roy Mustang", origin: "Central City", type: "Fire", persona: "Smug", portal: "gothIhop" },
+
+    // More Western animation
+    { name: "Steven Universe", origin: "Beach City", type: "Cosmic", persona: "Wholesome", portal: "multiverseToons" },
+    { name: "Garnet", origin: "Beach City", type: "Rock", persona: "Mystic", portal: "waffleHouse" },
+    { name: "Amethyst", origin: "Beach City", type: "Ground", persona: "Smug", portal: "cyberCity" },
+    { name: "Pearl", origin: "Beach City", type: "Fairy", persona: "Tsundere", portal: "maidCafe" },
+    { name: "Twilight Sparkle", origin: "Equestria", type: "Cosmic", persona: "Wholesome", portal: "maidCafe" },
+    { name: "Rainbow Dash", origin: "Equestria", type: "Flying", persona: "Smug", portal: "multiverseToons" },
+    { name: "He-Man", origin: "Eternia", type: "Fighting", persona: "Wholesome", portal: "waffleHouse" },
+    { name: "She-Ra", origin: "Etheria", type: "Fighting", persona: "Wholesome", portal: "maidCafe" },
+    { name: "Voltron (Black Lion)", origin: "Planet Arus", type: "Steel", persona: "Mystic", portal: "cyberCity" },
+    { name: "Azula", origin: "Fire Nation", type: "Fire", persona: "Smug", portal: "gothIhop" },
+    { name: "Iroh", origin: "Fire Nation", type: "Fire", persona: "Wholesome", portal: "waffleHouse" },
+    { name: "Appa", origin: "Southern Air Temple", type: "Flying", persona: "Wholesome", portal: "multiverseToons" },
+
+    // Fighting games & shooters
+    { name: "Ryu", origin: "Street Fighter Dojo", type: "Fighting", persona: "Wholesome", portal: "waffleHouse" },
+    { name: "Chun-Li", origin: "Street Fighter Dojo", type: "Fighting", persona: "Tsundere", portal: "waffleHouse" },
+    { name: "Scorpion", origin: "Netherrealm", type: "Fire", persona: "Goth", portal: "gothIhop" },
+    { name: "Sub-Zero", origin: "Lin Kuei Temple", type: "Ice", persona: "Goth", portal: "gothIhop" },
+    { name: "Tracer", origin: "Overwatch HQ", type: "Electric", persona: "Wholesome", portal: "cyberCity" },
+    { name: "Reaper", origin: "Overwatch HQ", type: "Dark", persona: "Goth", portal: "gothIhop" },
+    { name: "D.Va", origin: "Overwatch HQ", type: "Steel", persona: "Smug", portal: "cyberCity" },
+    { name: "2B", origin: "YoRHa Bunker", type: "Steel", persona: "Goth", portal: "gothIhop" },
+
+    // Genshin Impact & Persona expansion
+    { name: "Paimon", origin: "Teyvat", type: "Fairy", persona: "Wholesome", portal: "maidCafe" },
+    { name: "Klee", origin: "Mondstadt", type: "Fire", persona: "Wholesome", portal: "multiverseToons" },
+    { name: "Zhongli", origin: "Liyue Harbor", type: "Rock", persona: "Mystic", portal: "waffleHouse" },
+    { name: "Raiden Shogun", origin: "Inazuma", type: "Electric", persona: "Smug", portal: "gothIhop" },
+    { name: "Morgana", origin: "Shujin Academy", type: "Dark", persona: "Smug", portal: "gothIhop" },
+    { name: "Yusuke Kitagawa", origin: "Shujin Academy", type: "Fire", persona: "Smug", portal: "waffleHouse" },
+    { name: "Ann Takamaki", origin: "Shujin Academy", type: "Fire", persona: "Tsundere", portal: "maidCafe" },
+
+    // Sailor Moon & JoJo's Bizarre Adventure
+    { name: "Sailor Moon", origin: "Crystal Tokyo", type: "Cosmic", persona: "Wholesome", portal: "maidCafe" },
+    { name: "Sailor Mercury", origin: "Crystal Tokyo", type: "Water", persona: "Wholesome", portal: "maidCafe" },
+    { name: "Tuxedo Mask", origin: "Crystal Tokyo", type: "Cosmic", persona: "Mystic", portal: "waffleHouse" },
+    { name: "Jotaro Kujo", origin: "Morioh Town", type: "Steel", persona: "Smug", portal: "gothIhop" },
+    { name: "Dio Brando", origin: "Morioh Town", type: "Dark", persona: "Smug", portal: "gothIhop" },
+    { name: "Josuke Higashikata", origin: "Morioh Town", type: "Rock", persona: "Smug", portal: "waffleHouse" },
+
+    // Halo, Doom & Metal Gear expansion
+    { name: "Cortana", origin: "UNSC Infinity", type: "Cosmic", persona: "Mystic", portal: "cyberCity" },
+    { name: "Arbiter", origin: "Sanghelios", type: "Steel", persona: "Tsundere", portal: "waffleHouse" },
+    { name: "Grunt (Doom)", origin: "Argent D'Nur", type: "Fire", persona: "Smug", portal: "gothIhop" },
+    { name: "Revenant", origin: "Argent D'Nur", type: "Dark", persona: "Goth", portal: "gothIhop" },
+    { name: "Big Boss", origin: "Outer Heaven", type: "Normal", persona: "Smug", portal: "waffleHouse" },
+    { name: "Grey Fox", origin: "Shadow Moses", type: "Steel", persona: "Goth", portal: "gothIhop" },
+
+    // God of War & Devil May Cry expansion
+    { name: "Atreus", origin: "Midgard", type: "Ice", persona: "Wholesome", portal: "multiverseToons" },
+    { name: "Freya", origin: "Vanaheim", type: "Fairy", persona: "Mystic", portal: "maidCafe" },
+    { name: "Nero", origin: "Devil May Cry", type: "Steel", persona: "Tsundere", portal: "gothIhop" },
+    { name: "Lady", origin: "Devil May Cry", type: "Normal", persona: "Smug", portal: "waffleHouse" },
+
+    // Final Fantasy expansion
+    { name: "Tifa Lockhart", origin: "Final Fantasy VII", type: "Fighting", persona: "Wholesome", portal: "maidCafe" },
+    { name: "Aerith Gainsborough", origin: "Final Fantasy VII", type: "Grass", persona: "Wholesome", portal: "maidCafe" },
+    { name: "Barret Wallace", origin: "Final Fantasy VII", type: "Steel", persona: "Tsundere", portal: "waffleHouse" },
+    { name: "Yuna", origin: "Spira", type: "Psychic", persona: "Wholesome", portal: "maidCafe" },
+    { name: "Lightning", origin: "Cocoon", type: "Steel", persona: "Tsundere", portal: "gothIhop" },
+    { name: "Noctis Lucis Caelum", origin: "Insomnia", type: "Dark", persona: "Smug", portal: "gothIhop" },
+
+    // More classic cartoons
+    { name: "Tom (Tom & Jerry)", origin: "Suburban House", type: "Normal", persona: "Smug", portal: "multiverseToons" },
+    { name: "Jerry (Tom & Jerry)", origin: "Suburban House", type: "Normal", persona: "Smug", portal: "multiverseToons" },
+    { name: "Bugs Bunny", origin: "Looney Tunes Burrow", type: "Normal", persona: "Smug", portal: "waffleHouse" },
+    { name: "Daffy Duck", origin: "Looney Tunes Burrow", type: "Normal", persona: "Tsundere", portal: "waffleHouse" },
+    { name: "Taz", origin: "Tasmania", type: "Fighting", persona: "Smug", portal: "waffleHouse" },
+    { name: "Popeye", origin: "Sweethaven", type: "Fighting", persona: "Wholesome", portal: "waffleHouse" },
+    { name: "Woody Woodpecker", origin: "Woody's Forest", type: "Flying", persona: "Smug", portal: "multiverseToons" },
+
+    // Modern streaming-era anime
+    { name: "Anya Forger", origin: "Ostania", type: "Psychic", persona: "Wholesome", portal: "maidCafe" },
+    { name: "Loid Forger", origin: "Ostania", type: "Dark", persona: "Smug", portal: "cyberCity" },
+    { name: "Yor Forger", origin: "Ostania", type: "Fighting", persona: "Tsundere", portal: "gothIhop" },
+    { name: "Rimuru Tempest", origin: "Tempest Nation", type: "Water", persona: "Wholesome", portal: "waffleHouse" },
+    { name: "Rem (Re:Zero)", origin: "Roswaal Mansion", type: "Ice", persona: "Wholesome", portal: "maidCafe" },
+    { name: "Emilia", origin: "Roswaal Mansion", type: "Ice", persona: "Wholesome", portal: "maidCafe" },
+    { name: "Megumin", origin: "Axel Town", type: "Fire", persona: "Smug", portal: "gothIhop" },
+    { name: "Kazuma Satou", origin: "Axel Town", type: "Normal", persona: "Smug", portal: "waffleHouse" }
 ];
 
 const ELEMENTS = ["Normal", "Fire", "Water", "Electric", "Grass", "Ice", "Fighting", "Poison", "Ground", "Flying", "Psychic", "Bug", "Rock", "Ghost", "Dragon", "Dark", "Steel", "Fairy", "Cosmic", "Luck"];
@@ -137,4 +296,4 @@ for (let i = fullDatabase.length + 1; i <= TOTAL_RECRUITS; i++) {
 const outputPath = path.join(__dirname, 'public', 'characters.json');
 fs.writeFileSync(outputPath, JSON.stringify(fullDatabase, null, 2), 'utf8');
 
-console.log(`Successfully built and saved ${fullDatabase.length} recruits to ${outputPath}!`);
+console.log(`Successfully built and saved ${fullDatabase.length} recruits to ${outputPath}!`);

@@ -246,6 +246,11 @@
         .ball-bottom { width: 100%; height: 50%; background: #ffffff; }
         .ball-center-band { position: absolute; top: 46%; left: 0; width: 100%; height: 8%; background: #111; z-index: 4; }
         .ball-center-btn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 16px; height: 16px; border-radius: 50%; background: #ffffff; border: 2px solid #111; z-index: 5; box-shadow: 0 0 4px #fff; }
+        @keyframes redLightBlink { 0%, 49% { background: #ff1a1a; box-shadow: 0 0 8px #ff1a1a; } 50%, 100% { background: #ffffff; box-shadow: 0 0 4px #fff; } }
+        .pokeball-sprite.capturing .ball-center-btn { animation: redLightBlink 0.4s steps(1) infinite; }
+        .pokeball-sprite.capturing { animation: ballShakeCapture 0.4s ease-in-out infinite; }
+        @keyframes ballShakeCapture { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-12deg); } 75% { transform: rotate(12deg); } }
+        .shiny-frame { display: inline-block; border: 3px solid #ffdd00; border-radius: 12px; box-shadow: 0 0 20px rgba(255,221,0,0.7); padding: 2px; }
 
         /* Responsive Action Button Grid */
         #controls {
@@ -332,6 +337,66 @@
     let REAL_CHARACTERS_DB = [];
     let currentSaveSlot = 1;
 
+    // --- SHINY MECHANIC & BALL CATALOG ---
+    const SHINY_CHANCE = 1 / 64;
+    const BALL_CATCH_BONUS = { "Pokéball": 0, "Great Ball": 0.15, "Ultra Ball": 0.30, "Master Ball": 1 };
+    const BALL_EMOJI = { "Pokéball": "🔴", "Great Ball": "🔵", "Ultra Ball": "🟠", "Master Ball": "🟣" };
+    const BALL_ORDER = ["Pokéball", "Great Ball", "Ultra Ball", "Master Ball"];
+
+    function countOwnedBalls(ballType) {
+        return game.inventory.filter(i => i === ballType).length;
+    }
+
+    function consumeBall(ballType) {
+        let idx = game.inventory.indexOf(ballType);
+        if (idx !== -1) game.inventory.splice(idx, 1);
+    }
+
+    function getAvailableBallTypes() {
+        return BALL_ORDER.filter(b => countOwnedBalls(b) > 0);
+    }
+
+    // --- FARM: CROPS & CATTLE ---
+    const CROP_CATALOG = {
+        strawberries: { name: "Strawberries", emoji: "🍓", seedCost: 10, growDays: 2, sellPrice: 15 },
+        starfruits: { name: "Starfruits", emoji: "⭐", seedCost: 20, growDays: 3, sellPrice: 30 },
+        voidberries: { name: "Voidberries", emoji: "🟣", seedCost: 50, growDays: 4, sellPrice: 60 }
+    };
+    const ANIMAL_CATALOG = {
+        chicken: { name: "Chicken", emoji: "🐔", cost: 200, product: "Egg", productEmoji: "🥚", sellPrice: 10 },
+        sheep: { name: "Sheep", emoji: "🐑", cost: 500, product: "Wool", productEmoji: "🧶", sellPrice: 35 },
+        cow: { name: "Cow", emoji: "🐄", cost: 800, product: "Milk", productEmoji: "🥛", sellPrice: 20 }
+    };
+
+    function ensureFarmDefaults() {
+        if (!game.farm) game.farm = defaultGameState().farm;
+        if (!game.farm.seeds) game.farm.seeds = { strawberries: 0, starfruits: 0, voidberries: 0 };
+        if (!game.farm.harvested) game.farm.harvested = { strawberries: 0, starfruits: 0, voidberries: 0 };
+        if (!Array.isArray(game.farm.plots) || !game.farm.plots.length) {
+            game.farm.plots = [{ crop: null, daysLeft: 0, watered: false }, { crop: null, daysLeft: 0, watered: false }, { crop: null, daysLeft: 0, watered: false }];
+        }
+        if (!Array.isArray(game.farm.animals)) game.farm.animals = [];
+        if (!game.farm.animalProducts) game.farm.animalProducts = { Egg: 0, Wool: 0, Milk: 0 };
+    }
+
+    // Called once per day-advance (Sleep) - watered plots grow, fed animals produce, then
+    // both reset for the new day so the player has to tend to them again.
+    function tickFarmDay() {
+        ensureFarmDefaults();
+        game.farm.plots.forEach(plot => {
+            if (!plot.crop) return;
+            if (plot.watered) plot.daysLeft = Math.max(0, plot.daysLeft - 1);
+            plot.watered = false;
+        });
+        game.farm.animals.forEach(a => {
+            if (a.fedToday) {
+                let def = ANIMAL_CATALOG[a.type];
+                if (def) game.farm.animalProducts[def.product] = (game.farm.animalProducts[def.product] || 0) + 1;
+            }
+            a.fedToday = false;
+        });
+    }
+
     // Small inline Poké Ball icon shown next to UniDex entries the player has captured.
     const POKEBALL_SVG = `<svg class="dex-caught-badge" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" title="Captured">
         <circle cx="16" cy="16" r="14" fill="#fff" stroke="#111" stroke-width="2"/>
@@ -352,8 +417,8 @@
     let roomChatLog = [];
     let chatScreenActive = false;
     let globalMarketListings = [];
-    let currentPvPBattle = null;     // { battleId, oppId, oppName, myHp, oppHp, myMax, oppMax, isMyTurn, championName, championPower }
-    let incomingPvPChallenge = null; // { challengerId, challengerName, champion }
+    let currentPvPBattle = null;     // { battleId, mySide, oppName, myParty, oppParty, myActiveIdx, oppActiveIdx, isMyTurn, needsMySwap }
+    let incomingPvPChallenge = null; // { challengerId, challengerName, party }
     let pendingPvPTarget = null;     // { id, name } - who we just challenged, waiting on their answer
     
     let masterVolume = 0.35;
@@ -551,12 +616,44 @@
         'paddysPortal': [
             { name: "Uncle Sam", origin: "Independence Realm", type: "Normal", id: 7801 },
             { name: "Leprechaun Seamus", origin: "Emerald Isle", type: "Fairy", id: 7802 },
-            { name: "Clover Spirit", origin: "Mystic Hill", type: "Plant", id: 7803 }
+            { name: "Clover Spirit", origin: "Mystic Hill", type: "Grass", id: 7803 }
         ],
         'summerPortal': [
             { name: "Easter Bunny", origin: "Spring Meadow", type: "Normal", id: 8001 },
             { name: "Lifeguard Mitch", origin: "Goo Lagoon Beach", type: "Fighting", id: 8002 },
             { name: "Surfer Bro Kai", origin: "Sunset Shores", type: "Water", id: 8003 }
+        ],
+        'animeArena': [
+            { name: "Light Yagami", origin: "Death Note Realm", type: "Dark", id: 10001 },
+            { name: "L", origin: "Death Note Realm", type: "Psychic", id: 10002 },
+            { name: "Killua Zoldyck", origin: "Greed Island", type: "Electric", id: 10003 },
+            { name: "Gon Freecss", origin: "Whale Island", type: "Fighting", id: 10004 },
+            { name: "Inuyasha", origin: "Feudal Japan", type: "Fighting", id: 10005 },
+            { name: "Kagome Higurashi", origin: "Feudal Japan", type: "Psychic", id: 10006 }
+        ],
+        'superheroMultiverse': [
+            { name: "Batman", origin: "Gotham City", type: "Dark", id: 10101 },
+            { name: "Superman", origin: "Metropolis", type: "Cosmic", id: 10102 },
+            { name: "Wonder Woman", origin: "Themyscira", type: "Fighting", id: 10103 },
+            { name: "Iron Man", origin: "Malibu Point 10880", type: "Steel", id: 10104 },
+            { name: "Spider-Gwen", origin: "Earth-65", id: 10105, type: "Bug" },
+            { name: "Wolverine", origin: "Alberta, Canada", type: "Steel", id: 10106 }
+        ],
+        'fantasyQuest': [
+            { name: "Frieren", origin: "Northern Continent", type: "Ice", id: 10201 },
+            { name: "Fern", origin: "Northern Continent", type: "Psychic", id: 10202 },
+            { name: "Himmel", origin: "Northern Continent", type: "Fighting", id: 10203 },
+            { name: "Sailor Jupiter", origin: "Crystal Tokyo", type: "Grass", id: 10204 },
+            { name: "Sailor Mars", origin: "Crystal Tokyo", type: "Fire", id: 10205 },
+            { name: "Sailor Venus", origin: "Crystal Tokyo", type: "Fairy", id: 10206 }
+        ],
+        'gameLegends': [
+            { name: "Crash Bandicoot", origin: "Wumpa Island", type: "Normal", id: 10301 },
+            { name: "Spyro the Dragon", origin: "Dragon Kingdom", type: "Dragon", id: 10302 },
+            { name: "Lara Croft", origin: "Croft Manor", type: "Rock", id: 10303 },
+            { name: "Ryu Hayabusa", origin: "Hayabusa Village", type: "Steel", id: 10304 },
+            { name: "Sora (Keyblade Wielder)", origin: "Destiny Islands", type: "Cosmic", id: 10305 },
+            { name: "Ratchet", origin: "Planet Veldin", type: "Electric", id: 10306 }
         ],
         // Exclusive characters only obtainable through Mystery Gift redeem codes -
         // never appear in wild encounters or portal pulls, but still show up (locked)
@@ -774,7 +871,9 @@
             farm: {
                 seeds: { strawberries: 2, starfruits: 1, voidberries: 0 },
                 harvested: { strawberries: 0, starfruits: 0, voidberries: 0 },
-                plots: [{ crop: null, daysLeft: 0, watered: false }, { crop: null, daysLeft: 0, watered: false }, { crop: null, daysLeft: 0, watered: false }]
+                plots: [{ crop: null, daysLeft: 0, watered: false }, { crop: null, daysLeft: 0, watered: false }, { crop: null, daysLeft: 0, watered: false }],
+                animals: [],
+                animalProducts: { Egg: 0, Wool: 0, Milk: 0 }
             },
             spouse: null
         };
@@ -962,7 +1061,7 @@
         if (!game.pokedex) game.pokedex = {};
         if (!game.specialDex) game.specialDex = {};
         if (!game.homeDecor) game.homeDecor = defaultGameState().homeDecor;
-        if (!game.farm) game.farm = defaultGameState().farm;
+        ensureFarmDefaults();
         if (!game.equippedGear) game.equippedGear = { weapon: "None", armor: "None", helmet: "None", accessory: "None" };
         if (!game.achievements) game.achievements = {};
         if (!game.redeemedCodes) game.redeemedCodes = [];
@@ -1731,6 +1830,9 @@
             <p style="color: #aaa; font-size:12px;">${randomDonQuote}</p>
         `;
         renderButtons([
+            { text: "🔴 Poké Ball ($50)", action: () => buyGeneralItem("Pokéball", 50) },
+            { text: "🔵 Great Ball ($200)", action: () => buyGeneralItem("Great Ball", 200) },
+            { text: "🟠 Ultra Ball ($500)", action: () => buyGeneralItem("Ultra Ball", 500) },
             { text: "🧪 Healing Potion ($150)", action: () => buyGeneralItem("Healing Potion", 150) },
             { text: "⚔️ Steel Broadsword ($600)", action: () => buyGeneralItem("Steel Broadsword", 600) },
             { text: "🛡️ Iron Plate Armor ($800)", action: () => buyGeneralItem("Iron Plate Armor", 800) },
@@ -1836,8 +1938,246 @@
         playBGM('farm');
         clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #053b16 0%, #021408 80%)", "#00ff66");
         updateUI();
-        document.getElementById("console").innerHTML = `<h2 style="color:#00ff88; font-size:18px;">🌱 HYDROPONIC GREENHOUSE</h2><p style="font-size:12px;">Greenhouse operational.</p>`;
-        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
+        ensureFarmDefaults();
+        let farm = game.farm;
+        let readyCount = farm.plots.filter(p => p.crop && p.daysLeft <= 0).length;
+        let unfedCount = farm.animals.filter(a => !a.fedToday).length;
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#00ff88; font-size:18px;">🌱 HYDROPONIC GREENHOUSE & FARM</h2>
+            <p style="color:#aaa; font-size:12px; max-width:360px;">Grow crops and raise animals for passive income. Sleep (💤 Next Day) to let watered crops grow and fed animals produce overnight.</p>
+            <div class="dex-card" style="display:block; font-size:12px;">
+                🪴 Plots: ${farm.plots.filter(p => p.crop).length}/${farm.plots.length} planted${readyCount ? ` (<span style="color:#ffd700;">${readyCount} ready to harvest!</span>)` : ''}<br>
+                🐾 Animals: ${farm.animals.length}${unfedCount ? ` (<span style="color:#ff9933;">${unfedCount} need feeding</span>)` : ''}
+            </div>
+        `;
+        renderButtons([
+            { text: "🪴 Crop Plots", class: "btn btn-farm", action: showCropPlotsMenu },
+            { text: "🐄 Cattle Pen", class: "btn btn-farm", action: showCattlePenMenu },
+            { text: "💰 Sell Produce", class: "btn btn-farm", action: showSellProduceMenu },
+            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
+        ]);
+    }
+
+    function showCropPlotsMenu() {
+        playBGM('farm');
+        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #053b16 0%, #021408 80%)", "#00ff66");
+        ensureFarmDefaults();
+        let html = `<h2 style="color:#00ff88; font-size:18px;">🪴 CROP PLOTS</h2>`;
+        html += `<p style="color:#aaa; font-size:11.5px;">Seeds owned: ${Object.keys(CROP_CATALOG).map(k => `${CROP_CATALOG[k].emoji}${game.farm.seeds[k] || 0}`).join('  ')}</p>`;
+        html += `<div style="width:100%;">`;
+        game.farm.plots.forEach((plot, i) => {
+            let statusHtml;
+            if (!plot.crop) {
+                statusHtml = `<span style="color:#888;">Empty plot</span>`;
+            } else {
+                let def = CROP_CATALOG[plot.crop];
+                statusHtml = plot.daysLeft <= 0
+                    ? `<span style="color:#ffd700;">${def.emoji} ${def.name} - Ready to harvest!</span>`
+                    : `<span style="color:#66ccff;">${def.emoji} ${def.name} - ${plot.daysLeft} day(s) left${plot.watered ? ' (watered)' : ' (needs water)'}</span>`;
+            }
+            let actionBtn = '';
+            if (!plot.crop) {
+                actionBtn = `<button class="btn btn-farm" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="showPlantPicker(${i})">🌱 Plant</button>`;
+            } else if (plot.daysLeft <= 0) {
+                actionBtn = `<button class="btn btn-start" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="harvestPlot(${i})">🌾 Harvest</button>`;
+            } else if (!plot.watered) {
+                actionBtn = `<button class="btn btn-mine" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="waterPlot(${i})">💧 Water</button>`;
+            } else {
+                actionBtn = `<span style="font-size:10.5px; color:#66ff99;">✔ Watered</span>`;
+            }
+            html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:12px;">Plot ${i + 1}: ${statusHtml}</span>
+                ${actionBtn}
+            </div>`;
+        });
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([
+            { text: "🛍️ Seed Shop", class: "btn btn-farm", action: showSeedShopMenu },
+            { text: "⬅ Back to Farm", class: "btn btn-back", action: showFarmMenu }
+        ]);
+    }
+
+    function showPlantPicker(plotIndex) {
+        playBGM('farm');
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #053b16 0%, #021408 80%)", "#00ff66");
+        ensureFarmDefaults();
+        document.getElementById("console").innerHTML = `<h2 style="color:#00ff88; font-size:18px;">🌱 Choose a Seed</h2>`;
+        let buttons = Object.keys(CROP_CATALOG).map(key => {
+            let def = CROP_CATALOG[key];
+            let owned = game.farm.seeds[key] || 0;
+            return { text: `${def.emoji} ${def.name} (${owned} owned)`, class: owned > 0 ? "btn btn-start" : "btn btn-sys", action: () => plantSeed(plotIndex, key) };
+        });
+        buttons.push({ text: "🛍️ Buy Seeds Instead", class: "btn btn-farm", action: showSeedShopMenu });
+        buttons.push({ text: "⬅ Back", class: "btn btn-back", action: showCropPlotsMenu });
+        renderButtons(buttons);
+    }
+
+    function plantSeed(plotIndex, cropKey) {
+        ensureFarmDefaults();
+        if ((game.farm.seeds[cropKey] || 0) <= 0) { showPlantPicker(plotIndex); return; }
+        let plot = game.farm.plots[plotIndex];
+        if (!plot || plot.crop) { showCropPlotsMenu(); return; }
+        game.farm.seeds[cropKey]--;
+        plot.crop = cropKey;
+        plot.daysLeft = CROP_CATALOG[cropKey].growDays;
+        plot.watered = false;
+        saveGame(); updateUI();
+        showCropPlotsMenu();
+    }
+
+    function waterPlot(plotIndex) {
+        ensureFarmDefaults();
+        let plot = game.farm.plots[plotIndex];
+        if (!plot || !plot.crop) { showCropPlotsMenu(); return; }
+        plot.watered = true;
+        saveGame(); updateUI();
+        showCropPlotsMenu();
+    }
+
+    function harvestPlot(plotIndex) {
+        ensureFarmDefaults();
+        let plot = game.farm.plots[plotIndex];
+        if (!plot || !plot.crop || plot.daysLeft > 0) { showCropPlotsMenu(); return; }
+        let cropKey = plot.crop;
+        game.farm.harvested[cropKey] = (game.farm.harvested[cropKey] || 0) + 1;
+        plot.crop = null; plot.daysLeft = 0; plot.watered = false;
+        saveGame(); updateUI();
+        showCropPlotsMenu();
+    }
+
+    function showSeedShopMenu() {
+        playBGM('farm');
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #053b16 0%, #021408 80%)", "#00ff66");
+        document.getElementById("console").innerHTML = `<h2 style="color:#00ff88; font-size:18px;">🛍️ SEED SHOP</h2><p style="color:#ffd700; font-size:12px;">💰 Funds: $${Math.floor(game.funds)}</p>`;
+        let buttons = Object.keys(CROP_CATALOG).map(key => {
+            let def = CROP_CATALOG[key];
+            return { text: `${def.emoji} Buy ${def.name} Seed ($${def.seedCost})`, class: "btn btn-farm", action: () => buySeed(key) };
+        });
+        buttons.push({ text: "⬅ Back to Plots", class: "btn btn-back", action: showCropPlotsMenu });
+        renderButtons(buttons);
+    }
+
+    function buySeed(cropKey) {
+        ensureFarmDefaults();
+        let def = CROP_CATALOG[cropKey];
+        if (!def) return;
+        if (game.funds < def.seedCost) { log("❌ Not enough funds for that seed!", "color-red"); showSeedShopMenu(); return; }
+        game.funds -= def.seedCost;
+        game.farm.seeds[cropKey] = (game.farm.seeds[cropKey] || 0) + 1;
+        saveGame(); updateUI();
+        showSeedShopMenu();
+    }
+
+    function showCattlePenMenu() {
+        playBGM('farm');
+        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #053b16 0%, #021408 80%)", "#00ff66");
+        ensureFarmDefaults();
+        let html = `<h2 style="color:#00ff88; font-size:18px;">🐄 CATTLE PEN</h2><p style="color:#aaa; font-size:11.5px;">Feed your animals daily to collect produce overnight.</p><div style="width:100%;">`;
+        if (!game.farm.animals.length) {
+            html += `<p style="color:#888; font-size:12px;">No animals yet - buy some below!</p>`;
+        } else {
+            game.farm.animals.forEach((a) => {
+                let def = ANIMAL_CATALOG[a.type] || { name: a.type, emoji: '🐾' };
+                html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:12px;">${def.emoji} ${def.name} - ${a.fedToday ? '<span style="color:#66ff99;">✔ Fed</span>' : '<span style="color:#ff9933;">Hungry</span>'}</span>
+                    ${!a.fedToday ? `<button class="btn btn-mine" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="feedAnimal('${a.id}')">🍽️ Feed</button>` : ''}
+                </div>`;
+            });
+        }
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        let buttons = Object.keys(ANIMAL_CATALOG).map(key => {
+            let def = ANIMAL_CATALOG[key];
+            return { text: `${def.emoji} Buy ${def.name} ($${def.cost})`, class: "btn btn-farm", action: () => buyAnimal(key) };
+        });
+        if (game.farm.animals.some(a => !a.fedToday)) {
+            buttons.push({ text: "🍽️ Feed All", class: "btn btn-start", action: feedAllAnimals });
+        }
+        buttons.push({ text: "⬅ Back to Farm", class: "btn btn-back", action: showFarmMenu });
+        renderButtons(buttons);
+    }
+
+    function buyAnimal(type) {
+        ensureFarmDefaults();
+        let def = ANIMAL_CATALOG[type];
+        if (!def) return;
+        if (game.funds < def.cost) { log("❌ Not enough funds for that animal!", "color-red"); showCattlePenMenu(); return; }
+        game.funds -= def.cost;
+        game.farm.animals.push({ id: generateUid(), type, fedToday: false });
+        saveGame(); updateUI();
+        showCattlePenMenu();
+    }
+
+    function feedAnimal(uid) {
+        ensureFarmDefaults();
+        let a = game.farm.animals.find(an => an.id === uid);
+        if (!a) { showCattlePenMenu(); return; }
+        a.fedToday = true;
+        saveGame(); updateUI();
+        showCattlePenMenu();
+    }
+
+    function feedAllAnimals() {
+        ensureFarmDefaults();
+        game.farm.animals.forEach(a => { a.fedToday = true; });
+        saveGame(); updateUI();
+        showCattlePenMenu();
+    }
+
+    function showSellProduceMenu() {
+        playBGM('farm');
+        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #053b16 0%, #021408 80%)", "#00ff66");
+        ensureFarmDefaults();
+        let html = `<h2 style="color:#00ff88; font-size:18px;">💰 SELL PRODUCE</h2><div style="width:100%;">`;
+        let anySellable = false;
+        Object.keys(CROP_CATALOG).forEach(key => {
+            let def = CROP_CATALOG[key];
+            let owned = game.farm.harvested[key] || 0;
+            if (owned > 0) {
+                anySellable = true;
+                html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:12px;">${def.emoji} ${def.name} x${owned} ($${def.sellPrice} each)</span>
+                    <button class="btn btn-start" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="sellCrop('${key}')">💰 Sell All</button>
+                </div>`;
+            }
+        });
+        Object.keys(ANIMAL_CATALOG).forEach(key => {
+            let def = ANIMAL_CATALOG[key];
+            let owned = game.farm.animalProducts[def.product] || 0;
+            if (owned > 0) {
+                anySellable = true;
+                html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:12px;">${def.productEmoji} ${def.product} x${owned} ($${def.sellPrice} each)</span>
+                    <button class="btn btn-start" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="sellAnimalProduct('${def.product}', ${def.sellPrice})">💰 Sell All</button>
+                </div>`;
+            }
+        });
+        if (!anySellable) html += `<p style="color:#888; font-size:12px;">Nothing to sell yet - grow some crops or raise animals!</p>`;
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([{ text: "⬅ Back to Farm", class: "btn btn-back", action: showFarmMenu }]);
+    }
+
+    function sellCrop(cropKey) {
+        ensureFarmDefaults();
+        let def = CROP_CATALOG[cropKey];
+        let owned = game.farm.harvested[cropKey] || 0;
+        if (!def || owned <= 0) { showSellProduceMenu(); return; }
+        game.funds += owned * def.sellPrice;
+        game.farm.harvested[cropKey] = 0;
+        saveGame(); updateUI();
+        showSellProduceMenu();
+    }
+
+    function sellAnimalProduct(productName, price) {
+        ensureFarmDefaults();
+        let owned = game.farm.animalProducts[productName] || 0;
+        if (owned <= 0) { showSellProduceMenu(); return; }
+        game.funds += owned * price;
+        game.farm.animalProducts[productName] = 0;
+        saveGame(); updateUI();
+        showSellProduceMenu();
     }
 
     // --- STAFF ROSTER & INTERACTIONS ---
@@ -1849,7 +2189,7 @@
                 <div style="display:flex; align-items:center; gap:8px;">
                     <img src="${getCharacterPortrait(s.name)}" style="width:34px;height:34px;object-fit:contain;border-radius:6px;border:1px solid #a020f0;" onerror="applyTypeIconFallback(this, '${escAttr(s.name)}')"/>
                     <div style="font-size:12px;">
-                        <strong>${isChampion ? '👑 ' : ''}${s.name}${costumeDef ? ` ${costumeDef.emoji}` : ''}</strong><br>
+                        <strong>${isChampion ? '👑 ' : ''}${s.name}${s.shiny ? ' ✨' : ''}${costumeDef ? ` ${costumeDef.emoji}` : ''}</strong><br>
                         <span style="font-size:10.5px;color:#aaa;">Origin: ${s.origin || 'Unknown'} | Power: ${s.power || 0}${costumeDef ? ` | 🎭 ${costumeDef.name}` : ''}</span>
                     </div>
                 </div>
@@ -2152,6 +2492,10 @@
             { text: "💖 Valentine Portal", class: "btn btn-maid", action: () => triggerPortalTheme("valentinePortal", 'love') },
             { text: "☘️ Saint Paddy's Realm", class: "btn btn-mine", action: () => triggerPortalTheme("paddysPortal", 'saintPaddys') },
             { text: "☀️ Summer Beach Rift", class: "btn btn-cyber", action: () => triggerPortalTheme("summerPortal", 'summer') },
+            { text: "🥋 Anime Arena", class: "btn btn-combat", action: () => triggerPortalTheme("animeArena", 'battle') },
+            { text: "🦸 Superhero Multiverse", class: "btn btn-raid", action: () => triggerPortalTheme("superheroMultiverse", 'villain') },
+            { text: "🐉 Fantasy Quest", class: "btn btn-goth", action: () => triggerPortalTheme("fantasyQuest", 'rift') },
+            { text: "🎮 Game Legends", class: "btn btn-waffle", action: () => triggerPortalTheme("gameLegends", 'dlcHub') },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
@@ -2165,7 +2509,7 @@
         }
         let pool = PORTAL_CHAR_POOLS[poolKey] || PORTAL_CHAR_POOLS.standard;
         let chosen = pool[Math.floor(Math.random() * pool.length)];
-        activeEncounter = { name: chosen.name, origin: chosen.origin, power: 42, dexId: chosen.id, baseChance: 0.50 };
+        activeEncounter = { name: chosen.name, origin: chosen.origin, power: 42, dexId: chosen.id, baseChance: 0.50, isShiny: Math.random() < SHINY_CHANCE };
         renderEncounterScreen();
     }
 
@@ -2174,42 +2518,65 @@
     function spawnWildUniDexEncounter() {
         if (!REAL_CHARACTERS_DB || REAL_CHARACTERS_DB.length === 0) { showMainMenu(); return; }
         let chosen = REAL_CHARACTERS_DB[Math.floor(Math.random() * REAL_CHARACTERS_DB.length)];
-        activeEncounter = { name: chosen.name, origin: chosen.origin, power: 42, dexId: chosen.id, baseChance: 0.50 };
+        activeEncounter = { name: chosen.name, origin: chosen.origin, power: 42, dexId: chosen.id, baseChance: 0.50, isShiny: Math.random() < SHINY_CHANCE };
         renderEncounterScreen();
     }
 
     function renderEncounterScreen() {
         clearConsole("center", "radial-gradient(circle at 50% 50%, #4d004d 0%, #1a001a 80%)", "#ff00ff");
+        let ballTypes = getAvailableBallTypes();
+        let portraitHtml = characterPortrait(activeEncounter.name, 120);
         document.getElementById("console").innerHTML = `
             <div class="pokeball-container">
                 <div class="pokeball-sprite">
                     <div class="ball-top"></div><div class="ball-center-band"></div><div class="ball-center-btn"></div><div class="ball-bottom"></div>
                 </div>
             </div>
-            ${characterPortrait(activeEncounter.name, 120)}
+            ${activeEncounter.isShiny ? `<div class="shiny-frame">${portraitHtml}</div>` : portraitHtml}
             <h2 style="font-size:16px;">🌌 WILD ENCOUNTER!</h2>
+            ${activeEncounter.isShiny ? `<p style="color:#ffdd00; font-size:14px; text-shadow:0 0 8px #ffdd00; margin:2px 0;">✨ SHINY! ✨</p>` : ''}
             <p style="color:#00ffff; font-size:18px; margin:2px 0;"><strong>${activeEncounter.name}</strong></p>
             <p style="color:#ff00ff; font-size:12px; margin:2px 0;">Origin: ${activeEncounter.origin}</p>
-            <p id="capture-status" style="color:#ffff66; font-size:12px;">Ready to throw Poké Ball...</p>
+            ${!ballTypes.length ? `<p style="color:#ff6666; font-size:12px;">You're out of balls! Visit Don's General Store or Fr3xi0us's Black Market.</p>` : ''}
+            <p id="capture-status" style="color:#ffff66; font-size:12px;">${ballTypes.length ? 'Choose a ball to throw...' : ''}</p>
         `;
+        if (ballTypes.length) {
+            renderButtons(ballTypes.map(b => ({
+                text: `${BALL_EMOJI[b]} ${b} (${countOwnedBalls(b)})`, class: "btn btn-start", action: () => processPortalCatch(b)
+            })).concat([{ text: "🏃 Flee", class: "btn btn-back", action: showMainMenu }]));
+            return;
+        }
         renderButtons([
-            { text: "🔴 Throw Poké Ball", class: "btn btn-start", action: processPortalCatch },
             { text: "🏃 Flee", class: "btn btn-back", action: showMainMenu }
         ]);
     }
 
-    function processPortalCatch() {
+    function processPortalCatch(ballType) {
+        if (!ballType || countOwnedBalls(ballType) <= 0) { renderEncounterScreen(); return; }
+        consumeBall(ballType);
+        updateUI(); saveGame();
+
         renderButtons([]);
-        document.getElementById("capture-status").innerText = "The ball is shaking...";
+        const statusEl = document.getElementById("capture-status");
+        const ballEl = document.querySelector(".pokeball-sprite");
+        if (ballEl) ballEl.classList.add("capturing");
+        if (statusEl) statusEl.innerText = `The ball is shaking...`;
+
+        let bonus = BALL_CATCH_BONUS[ballType] || 0;
+        let isGuaranteed = ballType === "Master Ball";
+        let chance = isGuaranteed ? 1 : Math.min(0.95, (activeEncounter.baseChance || 0.5) + bonus);
+        let success = Math.random() < chance;
+
         setTimeout(() => {
-            const success = Math.random() < 0.65;
+            if (ballEl) ballEl.classList.remove("capturing");
+            let shinyTag = activeEncounter.isShiny ? " ✨SHINY✨" : "";
             if (success) {
-                addStaffMember({ name: activeEncounter.name, power: activeEncounter.power, origin: activeEncounter.origin, dexId: activeEncounter.dexId });
-                recordDex(activeEncounter.dexId, false);
+                addStaffMember({ name: activeEncounter.name, power: activeEncounter.power, origin: activeEncounter.origin, dexId: activeEncounter.dexId, shiny: activeEncounter.isShiny || false });
+                recordDex(activeEncounter.dexId, activeEncounter.isShiny || false);
                 saveGame(); updateUI();
-                document.getElementById("capture-status").innerHTML = `<strong style="color:#55ff99;">🎉 CAPTURED ${activeEncounter.name}!</strong>`;
+                if (statusEl) statusEl.innerHTML = `<strong style="color:#55ff99;">🎉 CAPTURED ${activeEncounter.name}${shinyTag}!</strong>`;
             } else {
-                document.getElementById("capture-status").innerHTML = `<strong style="color:#ff6666;">💥 Oh no! ${activeEncounter.name} broke free!</strong>`;
+                if (statusEl) statusEl.innerHTML = `<strong style="color:#ff6666;">💥 Oh no! ${activeEncounter.name}${shinyTag} broke free!</strong>`;
             }
             renderButtons([{ text: "✔ Return to HQ", class: "btn btn-start", action: showMainMenu }]);
         }, 2200);
@@ -2744,14 +3111,14 @@
     }
 
     // --- LIVE ONLINE PvP DUELS ---
-    // A real 1v1 champion duel against another connected trainer, using the server's
-    // authoritative battle state so both sides see identical HP and turn order.
+    // A full party-vs-party duel against another connected trainer, using the server's
+    // authoritative battle state so both sides see identical HP, active fighters, and
+    // turn order. Mirrors the PvE combat screen's party-strip + forced-swap-on-faint UX.
     function requestPvPDuel(targetId) {
         if (!socket) return;
         let partner = onlineRoomPlayers.find(p => p.id === targetId);
-        let champion = getChampion();
         pendingPvPTarget = { id: targetId, name: partner ? partner.name : "Trainer" };
-        socket.emit('requestPvP', { roomId: currentRoomId, targetId, challengerName: game.playerName, champion: champion.name });
+        socket.emit('requestPvP', { roomId: currentRoomId, targetId, challengerName: game.playerName, party: buildCombatParty() });
         playBGM('battle');
         clearConsole("center", "radial-gradient(circle at 50% 30%, #330011 0%, #08000a 85%)", "#ff0055");
         document.getElementById("console").innerHTML = `
@@ -2764,16 +3131,17 @@
     function showIncomingPvPChallenge() {
         if (!incomingPvPChallenge) { renderActiveLobbyView(); return; }
         let c = incomingPvPChallenge;
+        let theirParty = c.party || [];
+        let leadName = (theirParty[0] && theirParty[0].name) || "their champion";
         playBGM('battle');
         clearConsole("center", "radial-gradient(circle at 50% 30%, #330011 0%, #08000a 85%)", "#ff0055");
         document.getElementById("console").innerHTML = `
             <h2 style="color:#ff0055; font-size:16px;">⚔️ Duel Challenge!</h2>
-            <p style="color:#fff; font-size:12.5px;"><strong>${c.challengerName}</strong> wants to duel you! Their champion: <strong>${c.champion}</strong></p>
+            <p style="color:#fff; font-size:12.5px;"><strong>${c.challengerName}</strong> wants a full-party duel! Their lead: <strong>${leadName}</strong> (${theirParty.length} fighter${theirParty.length === 1 ? '' : 's'})</p>
         `;
         renderButtons([
             { text: "⚔️ Accept", class: "btn btn-combat", action: () => {
-                let champion = getChampion();
-                socket.emit('acceptPvP', { challengerId: c.challengerId, challengerName: c.challengerName, accepterName: game.playerName, champion: champion.name });
+                socket.emit('acceptPvP', { challengerId: c.challengerId, challengerName: c.challengerName, accepterName: game.playerName, party: buildCombatParty() });
                 incomingPvPChallenge = null;
             }},
             { text: "❌ Decline", class: "btn btn-back", action: () => {
@@ -2784,31 +3152,50 @@
         ]);
     }
 
+    // Mirrors the PvE combat screen's party-strip: green dot = active fighter,
+    // orange = alive and in reserve, dark red = fainted.
+    function pvpPartyStripHtml(party, activeIdx) {
+        return (party || []).map((p, i) => {
+            let faint = p.hp <= 0;
+            let isActive = i === activeIdx;
+            let color = faint ? '#552222' : (isActive ? '#00ff99' : '#ffaa00');
+            return `<span title="${p.name}: ${p.hp}/${p.maxHp} HP" style="display:inline-block; width:10px; height:10px; border-radius:50%; margin:0 2px; background:${color}; border:1px solid #000;"></span>`;
+        }).join('');
+    }
+
     function renderLivePvPScreen(logMessage) {
         let b = currentPvPBattle;
         if (!b) { renderActiveLobbyView(); return; }
+        let mine = b.myParty[b.myActiveIdx];
+        let opp = b.oppParty[b.oppActiveIdx];
+        if (!mine || !opp) { renderActiveLobbyView(); return; }
         clearConsole("center", "radial-gradient(circle at 50% 30%, #33000a 0%, #080002 85%)", "#ff0044");
         document.getElementById("console").innerHTML = `
             <h2 style="color: #ff0033; font-size:16px;">⚔️ DUEL vs ${b.oppName.toUpperCase()}</h2>
             <div style="display: flex; justify-content: space-around; width: 100%; margin: 8px 0;">
                 <div class="dex-card" style="text-align: center; width: 48%; display: block; border-color: #00ff66; padding:6px;">
-                    ${characterPortrait(b.championName, 75)}
-                    <strong style="color: #00ffff; font-size:12px;">${b.championName}</strong><br>
-                    ❤️ <span style="color:#33ff33; font-size:11px;">${b.myHp} / ${b.myMax}</span>
+                    ${characterPortrait(mine.name, 75)}
+                    <strong style="color: #00ffff; font-size:12px;">${mine.name}</strong><br>
+                    ❤️ <span style="color:#33ff33; font-size:11px;">${mine.hp} / ${mine.maxHp}</span>
+                    <div style="margin-top:4px;">${pvpPartyStripHtml(b.myParty, b.myActiveIdx)}</div>
                 </div>
                 <div class="dex-card" style="text-align: center; width: 48%; display: block; border-color: #ff0055; padding:6px;">
-                    ${characterPortrait(b.oppChampionName || b.oppName, 75)}
-                    <strong style="color: #ff0055; font-size:12px;">${b.oppName}</strong><br>
-                    ❤️ <span style="color:#ff3333; font-size:11px;">${b.oppHp} / ${b.oppMax}</span>
+                    ${characterPortrait(opp.name, 75)}
+                    <strong style="color: #ff0055; font-size:12px;">${opp.name}</strong><br>
+                    ❤️ <span style="color:#ff3333; font-size:11px;">${opp.hp} / ${opp.maxHp}</span>
+                    <div style="margin-top:4px;">${pvpPartyStripHtml(b.oppParty, b.oppActiveIdx)}</div>
                 </div>
             </div>
-            <p style="color: #ffff00; font-size: 12px; margin:2px 0;">${logMessage || (b.isMyTurn ? "Your move!" : `Waiting on ${b.oppName}...`)}</p>
+            <p style="color: #ffff00; font-size: 12px; margin:2px 0;">${logMessage || (b.needsMySwap ? "Your fighter fainted - send out your next one!" : (b.isMyTurn ? "Your move!" : `Waiting on ${b.oppName}...`))}</p>
         `;
-        if (b.isMyTurn) {
+        if (b.needsMySwap) {
+            renderButtons([{ text: "🔄 Choose Next Fighter", class: "btn btn-start", action: () => showPvPSwapPicker(true) }]);
+        } else if (b.isMyTurn) {
             renderButtons([
                 { text: "⚔️ Strike", class: "btn btn-combat", action: () => executePvPAction('strike') },
                 { text: "💥 Special", class: "btn btn-combat", action: () => executePvPAction('special') },
-                { text: "🛡️ Guard", class: "btn btn-mine", action: () => executePvPAction('guard') }
+                { text: "🛡️ Guard", class: "btn btn-mine", action: () => executePvPAction('guard') },
+                { text: "🔄 Swap Fighter", class: "btn btn-dex", action: () => showPvPSwapPicker(false) }
             ]);
         } else {
             renderButtons([]);
@@ -2817,10 +3204,43 @@
 
     function executePvPAction(actionType) {
         let b = currentPvPBattle;
-        if (!b || !b.isMyTurn || !socket) return;
+        if (!b || !b.isMyTurn || b.needsMySwap || !socket) return;
+        let fighter = b.myParty[b.myActiveIdx];
+        if (!fighter) return;
         b.isMyTurn = false;
-        socket.emit('executeLivePvPAction', { battleId: b.battleId, actionType, power: b.championPower, championName: b.championName });
+        socket.emit('executeLivePvPAction', { battleId: b.battleId, actionType, power: fighter.power, championName: fighter.name });
         renderLivePvPScreen(`You used ${actionType.toUpperCase()}! Waiting for the result...`);
+    }
+
+    // forced = true after your active fighter faints (must pick someone, no cancel);
+    // forced = false is a voluntary mid-duel swap, which still costs your turn.
+    function showPvPSwapPicker(forced) {
+        let b = currentPvPBattle;
+        if (!b) return;
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #33000a 0%, #080002 85%)", "#ff0044");
+        let html = `<h2 style="font-size:16px; color:#ff0055;">🔄 ${forced ? 'Choose Your Next Fighter' : 'Swap Active Fighter'}</h2><div style="width:100%; max-width:380px;">`;
+        b.myParty.forEach((p, i) => {
+            let faint = p.hp <= 0;
+            let isActive = i === b.myActiveIdx;
+            html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center; opacity:${faint ? 0.45 : 1};">
+                <span>${faint ? '💀' : '⚔️'} ${p.name} (${p.hp}/${p.maxHp} HP)${isActive && !forced ? ' <span style="color:#ffaa00;">(Active)</span>' : ''}</span>
+                ${(!faint && !isActive) ? `<button class="btn btn-mine" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="confirmPvPSwap(${i})">Send Out</button>` : ''}
+            </div>`;
+        });
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons(forced ? [] : [{ text: "⬅ Cancel", class: "btn btn-back", action: () => renderLivePvPScreen() }]);
+    }
+
+    function confirmPvPSwap(idx) {
+        let b = currentPvPBattle;
+        if (!b || !socket) return;
+        let fighter = b.myParty[idx];
+        if (!fighter || fighter.hp <= 0) return;
+        b.isMyTurn = false;
+        b.needsMySwap = false;
+        socket.emit('executeLivePvPAction', { battleId: b.battleId, actionType: 'swap', swapToIdx: idx, championName: fighter.name });
+        renderLivePvPScreen(`Sending out ${fighter.name}...`);
     }
 
     // --- LIVE CO-OP RAID BOSS ---
@@ -2973,7 +3393,7 @@
 
         // --- Live online PvP duels ---
         socket.on('pvpChallengeReceived', (data) => {
-            incomingPvPChallenge = { challengerId: data.challengerId, challengerName: data.challengerName, champion: data.champion };
+            incomingPvPChallenge = { challengerId: data.challengerId, challengerName: data.challengerName, party: data.party };
             showIncomingPvPChallenge();
         });
 
@@ -2987,7 +3407,6 @@
 
         socket.on('startLivePvP', (data) => {
             let mySide = socket.id === data.p1Id ? 1 : 2;
-            let champion = getChampion();
             let oppName = mySide === 1
                 ? (incomingPvPChallenge ? incomingPvPChallenge.challengerName : (pendingPvPTarget ? pendingPvPTarget.name : "Opponent"))
                 : (data.challengerName || (pendingPvPTarget ? pendingPvPTarget.name : "Opponent"));
@@ -2995,13 +3414,12 @@
                 battleId: data.battleId,
                 mySide: mySide,
                 oppName: oppName,
-                championName: champion.name,
-                championPower: champion.power || 35,
-                myHp: mySide === 1 ? data.p1Max : data.p2Max,
-                myMax: mySide === 1 ? data.p1Max : data.p2Max,
-                oppHp: mySide === 1 ? data.p2Max : data.p1Max,
-                oppMax: mySide === 1 ? data.p2Max : data.p1Max,
-                isMyTurn: data.turn ? (data.turn === socket.id) : (mySide === 1)
+                myParty: mySide === 1 ? data.p1Party : data.p2Party,
+                oppParty: mySide === 1 ? data.p2Party : data.p1Party,
+                myActiveIdx: mySide === 1 ? data.p1ActiveIdx : data.p2ActiveIdx,
+                oppActiveIdx: mySide === 1 ? data.p2ActiveIdx : data.p1ActiveIdx,
+                isMyTurn: data.turn === socket.id,
+                needsMySwap: false
             };
             pendingPvPTarget = null;
             incomingPvPChallenge = null;
@@ -3012,9 +3430,13 @@
         socket.on('pvpRoundUpdate', (data) => {
             let b = currentPvPBattle;
             if (!b || data.battleId !== b.battleId) return;
-            b.myHp = b.mySide === 1 ? data.p1Hp : data.p2Hp;
-            b.oppHp = b.mySide === 1 ? data.p2Hp : data.p1Hp;
-            b.isMyTurn = data.turn === socket.id;
+            b.myParty = b.mySide === 1 ? data.p1Party : data.p2Party;
+            b.oppParty = b.mySide === 1 ? data.p2Party : data.p1Party;
+            b.myActiveIdx = b.mySide === 1 ? data.p1ActiveIdx : data.p2ActiveIdx;
+            b.oppActiveIdx = b.mySide === 1 ? data.p2ActiveIdx : data.p1ActiveIdx;
+            let mySideKey = b.mySide === 1 ? 'p1' : 'p2';
+            b.needsMySwap = data.needsSwap === mySideKey;
+            b.isMyTurn = !data.needsSwap && data.turn === socket.id;
             renderLivePvPScreen(data.lastActionLog);
             if (data.isOver) {
                 let won = data.winnerId === socket.id;
@@ -3068,6 +3490,7 @@
             game.day++;
             let passive = (game.staff || []).length * 50;
             game.funds += passive;
+            tickFarmDay();
             saveGame(); showMainMenu();
         }, 3800);
     }
@@ -3097,9 +3520,11 @@
             <div style="width:100%;">
         `;
         slice.forEach(e => {
-            let caught = game.pokedex && game.pokedex[String(e.id)];
+            let dexEntry = game.pokedex && game.pokedex[String(e.id)];
+            let caught = !!dexEntry;
             let icon = caught ? `<img src="${getCharacterPortrait(e.name)}" style="width:26px;height:26px;object-fit:contain;border-radius:4px;border:1px solid #0ff;" onerror="applyTypeIconFallback(this, '${escAttr(e.name)}')"/>` : '⚪';
-            html += `<div class="dex-card" style="font-size:11.5px;">${icon} <span>#${e.id} - ${caught ? e.name : '????????'}</span>${caught ? POKEBALL_SVG : ''}</div>`;
+            let shinyTag = caught && dexEntry.shiny ? ' ✨' : '';
+            html += `<div class="dex-card" style="font-size:11.5px;">${icon} <span>#${e.id} - ${caught ? e.name : '????????'}${shinyTag}</span>${caught ? POKEBALL_SVG : ''}</div>`;
         });
         html += `</div>`;
         document.getElementById("console").innerHTML = html;

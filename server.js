@@ -15,8 +15,21 @@ const onlineUsers = new Map();
 const rooms = new Map();
 const globalChatHistory = [];
 const pvpBattles = new Map();
-const pendingPvpChallenges = new Map(); // key `${challengerId}_${targetId}` -> { challengerName, champion }
+const pendingPvpChallenges = new Map(); // key `${challengerId}_${targetId}` -> { challengerName, party }
 const globalMarketListings = [];
+
+// Sanitizes a client-submitted party payload for a live PvP duel: caps size at 6,
+// coerces hp/maxHp/power to sane numbers, and drops any member already at 0 HP so a
+// stale/fainted save state can't be used to sneak a free knockout into a fresh duel.
+function normalizePvpParty(rawParty) {
+    if (!Array.isArray(rawParty)) return [];
+    return rawParty.slice(0, 6).map(m => {
+        const maxHp = (typeof m.maxHp === 'number' && m.maxHp > 0) ? m.maxHp : 100;
+        const hp = (typeof m.hp === 'number' && m.hp >= 0) ? Math.min(m.hp, maxHp) : maxHp;
+        const power = (typeof m.power === 'number' && m.power > 0) ? m.power : 10;
+        return { uid: m.uid, name: m.name || "Fighter", power, hp, maxHp };
+    }).filter(m => m.hp > 0);
+}
 
 let raidBosses = {
     titan: { name: "Void Titan Chronos", hp: 5000, maxHp: 5000, level: 50, reward: 2500 },
@@ -138,9 +151,10 @@ io.on('connection', (socket) => {
 
     socket.on('registerTrainerPresence', (data) => {
         const existing = onlineUsers.get(socket.id);
+        const trainerName = data.playerName || "Trainer";
         onlineUsers.set(socket.id, {
             id: socket.id,
-            name: data.playerName || "Trainer",
+            name: trainerName,
             location: data.location || "Nexus HQ",
             funds: data.funds || 0,
             champion: data.champion || "Partner",
@@ -148,6 +162,13 @@ io.on('connection', (socket) => {
             saveSlot: data.saveSlot || null,
             connectedAt: existing ? existing.connectedAt : Date.now()
         });
+
+        // registerTrainerPresence fires on every save/UI update, but a "join" should only
+        // be announced once per connection - the first time we learn this socket's real name.
+        if (!socket.joinAnnounced) {
+            socket.joinAnnounced = true;
+            socket.broadcast.emit('playerJoinedServer', { name: trainerName });
+        }
         broadcastGlobalStats();
     });
 
@@ -303,9 +324,9 @@ io.on('connection', (socket) => {
         socket.to(targetId).emit('tradeOfferDeclined', { declinerName: declinerName || "The trainer" });
     });
 
-    socket.on('requestPvP', ({ roomId, targetId, challengerName, champion }) => {
-        pendingPvpChallenges.set(`${socket.id}_${targetId}`, { challengerName, champion });
-        socket.to(targetId).emit('pvpChallengeReceived', { challengerId: socket.id, challengerName, champion });
+    socket.on('requestPvP', ({ roomId, targetId, challengerName, party }) => {
+        pendingPvpChallenges.set(`${socket.id}_${targetId}`, { challengerName, party });
+        socket.to(targetId).emit('pvpChallengeReceived', { challengerId: socket.id, challengerName, party });
     });
 
     socket.on('declinePvP', ({ challengerId, declinerName }) => {
@@ -313,59 +334,114 @@ io.on('connection', (socket) => {
         socket.to(challengerId).emit('pvpChallengeDeclined', { declinerName: declinerName || "The trainer" });
     });
 
-    socket.on('acceptPvP', ({ challengerId, challengerName, accepterName, champion }) => {
+    socket.on('acceptPvP', ({ challengerId, challengerName, accepterName, party }) => {
         const battleId = `PVP_${challengerId}_${socket.id}_${Date.now()}`;
-        const p1Max = 120;
-        const p2Max = 120;
         const pending = pendingPvpChallenges.get(`${challengerId}_${socket.id}`);
         pendingPvpChallenges.delete(`${challengerId}_${socket.id}`);
+
+        const p1Party = normalizePvpParty((pending && pending.party) || []);
+        const p2Party = normalizePvpParty(party || []);
+        if (!p1Party.length || !p2Party.length) return; // malformed/empty party payload - bail safely
+
         pvpBattles.set(battleId, {
             p1Id: challengerId, p2Id: socket.id, turn: challengerId,
             p1Name: (pending && pending.challengerName) || challengerName || "Challenger", p2Name: accepterName,
-            p1Champion: (pending && pending.champion) || champion, p2Champion: champion,
-            p1Hp: p1Max, p2Hp: p2Max, p1Guard: false, p2Guard: false
+            p1Party, p2Party, p1ActiveIdx: 0, p2ActiveIdx: 0,
+            p1Guard: false, p2Guard: false, needsSwap: null
         });
 
-        const payload = { battleId, p1Id: challengerId, p2Id: socket.id, p1Max, p2Max, turn: challengerId, challengerName: (pending && pending.challengerName) || challengerName, accepterName };
+        const payload = {
+            battleId, p1Id: challengerId, p2Id: socket.id, turn: challengerId,
+            p1Party, p2Party, p1ActiveIdx: 0, p2ActiveIdx: 0,
+            challengerName: (pending && pending.challengerName) || challengerName, accepterName
+        };
         io.to(challengerId).emit('startLivePvP', payload);
         socket.emit('startLivePvP', payload);
         broadcastAdminStats();
     });
 
-    socket.on('executeLivePvPAction', ({ battleId, actionType, power, championName }) => {
+    socket.on('executeLivePvPAction', ({ battleId, actionType, power, championName, swapToIdx }) => {
         const b = pvpBattles.get(battleId);
         if (!b) return;
 
-        let isP1 = socket.id === b.p1Id;
-        let logMsg = "";
+        const isP1 = socket.id === b.p1Id;
+        const isP2 = socket.id === b.p2Id;
+        if (!isP1 && !isP2) return; // not a participant in this duel
 
-        if (actionType === "guard") {
-            if (isP1) b.p1Guard = true;
-            else b.p2Guard = true;
-            logMsg = `${championName} took a defensive GUARD stance!`;
-        } else {
-            let mult = actionType === "special" ? 1.8 : 1.0;
-            let rawDmg = Math.floor((power + Math.random() * 10) * mult);
-            if (isP1) {
-                if (b.p2Guard) { rawDmg = Math.floor(rawDmg * 0.5); b.p2Guard = false; }
-                b.p2Hp = Math.max(0, b.p2Hp - rawDmg);
-            } else {
-                if (b.p1Guard) { rawDmg = Math.floor(rawDmg * 0.5); b.p1Guard = false; }
-                b.p1Hp = Math.max(0, b.p1Hp - rawDmg);
-            }
-            logMsg = `${championName} executed ${actionType.toUpperCase()} for ${rawDmg} DMG!`;
+        // Turn/authority validation: normally only the player whose turn it is may act.
+        // While a side has a fainted active fighter (needsSwap set), ONLY that side may
+        // act, and ONLY via a swap - this closes off both "acting out of turn" and
+        // "attacking while your own fighter is down" exploits.
+        if (b.needsSwap) {
+            const mySide = isP1 ? 'p1' : 'p2';
+            if (mySide !== b.needsSwap || actionType !== 'swap') return;
+        } else if (socket.id !== b.turn) {
+            return;
         }
 
-        b.turn = isP1 ? b.p2Id : b.p1Id;
+        const myParty = isP1 ? b.p1Party : b.p2Party;
+        const oppParty = isP1 ? b.p2Party : b.p1Party;
+        const myActiveIdxKey = isP1 ? 'p1ActiveIdx' : 'p2ActiveIdx';
+        const oppActiveIdxKey = isP1 ? 'p2ActiveIdx' : 'p1ActiveIdx';
+        const myGuardKey = isP1 ? 'p1Guard' : 'p2Guard';
+        const oppGuardKey = isP1 ? 'p2Guard' : 'p1Guard';
+        const myName = isP1 ? b.p1Name : b.p2Name;
+
+        let logMsg = "";
+
+        if (actionType === "swap") {
+            const target = myParty[swapToIdx];
+            if (!target || target.hp <= 0) return; // can't swap into an empty/fainted slot
+            b[myActiveIdxKey] = swapToIdx;
+            logMsg = `${myName} sent out ${target.name}!`;
+            b.needsSwap = null;
+            b.turn = isP1 ? b.p2Id : b.p1Id; // swapping (forced or voluntary) passes the turn
+        } else if (actionType === "guard") {
+            b[myGuardKey] = true;
+            logMsg = `${championName || myName} took a defensive GUARD stance!`;
+            b.turn = isP1 ? b.p2Id : b.p1Id;
+        } else {
+            const attacker = myParty[b[myActiveIdxKey]];
+            const defender = oppParty[b[oppActiveIdxKey]];
+            if (!attacker || !defender) return;
+            const mult = actionType === "special" ? 1.8 : 1.0;
+            let rawDmg = Math.floor(((power || attacker.power || 10) + Math.random() * 10) * mult);
+            if (b[oppGuardKey]) { rawDmg = Math.floor(rawDmg * 0.5); b[oppGuardKey] = false; }
+            defender.hp = Math.max(0, defender.hp - rawDmg);
+            logMsg = `${attacker.name} executed ${actionType.toUpperCase()} for ${rawDmg} DMG on ${defender.name}!`;
+
+            if (defender.hp <= 0) {
+                logMsg += ` ${defender.name} fainted!`;
+                const oppAlive = oppParty.some(m => m.hp > 0);
+                if (!oppAlive) {
+                    const statePayload = {
+                        battleId, turn: null, p1Party: b.p1Party, p2Party: b.p2Party,
+                        p1ActiveIdx: b.p1ActiveIdx, p2ActiveIdx: b.p2ActiveIdx,
+                        lastActionLog: `${logMsg} ${isP1 ? b.p2Name : b.p1Name}'s whole party is down!`,
+                        isOver: true, winnerId: socket.id, needsSwap: null
+                    };
+                    io.to(b.p1Id).emit('pvpRoundUpdate', statePayload);
+                    io.to(b.p2Id).emit('pvpRoundUpdate', statePayload);
+                    pvpBattles.delete(battleId);
+                    broadcastAdminStats();
+                    return;
+                }
+                b.needsSwap = isP1 ? 'p2' : 'p1';
+            } else {
+                b.turn = isP1 ? b.p2Id : b.p1Id;
+            }
+        }
+
         const statePayload = {
-            battleId, turn: b.turn, p1Hp: b.p1Hp, p2Hp: b.p2Hp,
-            lastActionLog: logMsg, isOver: b.p1Hp <= 0 || b.p2Hp <= 0,
-            winnerId: b.p1Hp <= 0 ? b.p2Id : (b.p2Hp <= 0 ? b.p1Id : null)
+            battleId, turn: b.needsSwap ? null : b.turn,
+            p1Party: b.p1Party, p2Party: b.p2Party,
+            p1ActiveIdx: b.p1ActiveIdx, p2ActiveIdx: b.p2ActiveIdx,
+            lastActionLog: logMsg, isOver: false, winnerId: null,
+            needsSwap: b.needsSwap
         };
 
         io.to(b.p1Id).emit('pvpRoundUpdate', statePayload);
         io.to(b.p2Id).emit('pvpRoundUpdate', statePayload);
-        if (statePayload.isOver) { pvpBattles.delete(battleId); broadcastAdminStats(); }
     });
 
     socket.on('disconnect', () => {
@@ -380,9 +456,11 @@ io.on('connection', (socket) => {
             if (b.p1Id === socket.id || b.p2Id === socket.id) {
                 const survivorId = b.p1Id === socket.id ? b.p2Id : b.p1Id;
                 io.to(survivorId).emit('pvpRoundUpdate', {
-                    battleId, turn: survivorId, p1Hp: b.p1Hp, p2Hp: b.p2Hp,
+                    battleId, turn: null,
+                    p1Party: b.p1Party, p2Party: b.p2Party,
+                    p1ActiveIdx: b.p1ActiveIdx, p2ActiveIdx: b.p2ActiveIdx,
                     lastActionLog: "Your opponent disconnected - you win by default!",
-                    isOver: true, winnerId: survivorId
+                    isOver: true, winnerId: survivorId, needsSwap: null
                 });
                 pvpBattles.delete(battleId);
             }
