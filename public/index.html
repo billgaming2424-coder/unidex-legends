@@ -856,7 +856,7 @@
     function getAllDexEntries() {
         let poolEntries = [];
         Object.values(PORTAL_CHAR_POOLS).forEach(pool => {
-            pool.forEach(c => poolEntries.push({ id: c.id, name: c.name, origin: c.origin }));
+            pool.forEach(c => poolEntries.push({ id: c.id, name: c.name, origin: c.origin, type: c.type }));
         });
         let existingIds = new Set(REAL_CHARACTERS_DB.map(c => c.id));
         return REAL_CHARACTERS_DB.concat(poolEntries.filter(c => !existingIds.has(c.id)))
@@ -3544,7 +3544,10 @@
             let caught = !!dexEntry;
             let icon = caught ? `<img src="${getCharacterPortrait(e.name)}" style="width:26px;height:26px;object-fit:contain;border-radius:4px;border:1px solid #0ff;" onerror="applyTypeIconFallback(this, '${escAttr(e.name)}')"/>` : '⚪';
             let shinyTag = caught && dexEntry.shiny ? ' ✨' : '';
-            html += `<div class="dex-card" style="font-size:11.5px;">${icon} <span>#${e.id} - ${caught ? e.name : '????????'}${shinyTag}</span>${caught ? POKEBALL_SVG : ''}</div>`;
+            // Only caught entries are clickable - just like a real Pokedex, you can't pull
+            // up a profile page for something you've never actually recruited.
+            let clickAttr = caught ? ` onclick="showDexEntryDetail(${e.id}, ${page}, '${escAttr(searchQuery)}')" style="font-size:11.5px; cursor:pointer;"` : ` style="font-size:11.5px;"`;
+            html += `<div class="dex-card"${clickAttr}>${icon} <span>#${e.id} - ${caught ? e.name : '????????'}${shinyTag}</span>${caught ? POKEBALL_SVG : ''}</div>`;
         });
         html += `</div>`;
         document.getElementById("console").innerHTML = html;
@@ -3561,6 +3564,48 @@
                 if (e.key === "Enter") filterDexSearch();
             });
         }
+    }
+
+    // Formats a portal pool key like "maidCafe" into readable text like "Maid Cafe".
+    function formatPortalLabel(key) {
+        if (!key) return '';
+        return key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/^./, c => c.toUpperCase());
+    }
+
+    // A single Pokedex-style entry profile: big portrait, type badge, origin, and
+    // whatever flavor data this character has (persona, transcendent evolution, first
+    // portal) - only reachable for entries you've actually caught.
+    function showDexEntryDetail(id, returnPage = 1, returnQuery = "") {
+        let entry = getAllDexEntries().find(e => e.id === id);
+        let dexEntry = game.pokedex && game.pokedex[String(id)];
+        if (!entry || !dexEntry) { showDexMenu(returnPage, returnQuery); return; }
+
+        playBGM('dex');
+        clearConsole("center", "radial-gradient(circle at 50% 20%, #1a1500 0%, #080702 85%)", "#ffff00");
+
+        let type = resolveCharacterType(entry.name);
+        let theme = TYPE_ICON_THEME[type] || TYPE_ICON_THEME.Normal;
+        let portraitHtml = characterPortrait(entry.name, 150);
+
+        document.getElementById("console").innerHTML = `
+            <p style="color:#888; font-size:11px; margin:0 0 2px 0;">UNIDEX ENTRY #${entry.id}</p>
+            ${dexEntry.shiny ? `<div class="shiny-frame">${portraitHtml}</div>` : portraitHtml}
+            <h2 style="color:#ffff00; font-size:18px; margin:4px 0 0 0;">${entry.name}${dexEntry.shiny ? ' ✨' : ''}</h2>
+            <div style="display:inline-flex; align-items:center; gap:5px; background:${theme.bg2}; border:1px solid ${theme.bg}; border-radius:12px; padding:3px 10px; margin:6px 0;">
+                <span style="width:12px;height:12px;border-radius:50%;background:${theme.bg};display:inline-block;"></span>
+                <span style="color:#fff; font-size:11px; font-weight:bold;">${type} TYPE</span>
+            </div>
+            <div class="dex-card" style="display:block; text-align:left; font-size:12px; line-height:1.7; max-width:340px;">
+                <strong style="color:#00ffff;">Origin:</strong> ${entry.origin || 'Unknown'}<br>
+                ${entry.persona ? `<strong style="color:#00ffff;">Persona:</strong> ${entry.persona}<br>` : ''}
+                ${entry.evo ? `<strong style="color:#00ffff;">Evolves into:</strong> ${entry.evo}<br>` : ''}
+                ${entry.portal ? `<strong style="color:#00ffff;">First seen at:</strong> ${formatPortalLabel(entry.portal)}<br>` : ''}
+                <strong style="color:#00ffff;">Times caught:</strong> ${dexEntry.count || 1}
+            </div>
+        `;
+        renderButtons([
+            { text: "⬅ Back to UniDex", class: "btn btn-back", action: () => showDexMenu(returnPage, returnQuery) }
+        ]);
     }
 
     function filterDexSearch() {
