@@ -343,6 +343,12 @@
     const BALL_EMOJI = { "Pokéball": "🔴", "Great Ball": "🔵", "Ultra Ball": "🟠", "Master Ball": "🟣" };
     const BALL_ORDER = ["Pokéball", "Great Ball", "Ultra Ball", "Master Ball"];
 
+    // Every captured character used to start at a flat power of 42 - gives wild/portal
+    // encounters a bit of natural variance instead (same average, so this isn't a nerf).
+    function rollEncounterPower() {
+        return Math.floor(25 + Math.random() * 31); // 25-55
+    }
+
     function countOwnedBalls(ballType) {
         return game.inventory.filter(i => i === ballType).length;
     }
@@ -1690,7 +1696,7 @@
         let pool = getWheelCompanionPool();
         if (!pool.length) return "";
         let chosen = pool[Math.floor(Math.random() * pool.length)];
-        addStaffMember({ name: chosen.name, power: chosen.power || 42, origin: chosen.origin, dexId: chosen.id });
+        addStaffMember({ name: chosen.name, power: chosen.power || rollEncounterPower(), origin: chosen.origin, dexId: chosen.id });
         recordDex(chosen.id, false);
         return chosen.name;
     }
@@ -2350,26 +2356,38 @@
         showStaffMenu();
     }
 
+    // Gifting scales up per character: the Nth gift to a given member costs more than
+    // the last (100, 250, 550, 1000...), so a couple of cheap boosts stay easy but
+    // maxing one character out purely by spamming cash takes real grinding instead.
+    function giftCostFor(member) {
+        let n = member.giftsGiven || 0;
+        return 100 + 75 * n * (n + 1);
+    }
+
     function interactWithStaff(uid) {
         let member = game.staff.find(s => s.uid === uid);
         if (!member) return;
         playBGM('staff');
         clearConsole("center", "radial-gradient(circle at 50% 30%, #2b005c 0%, #0c001a 80%)", "#a020f0");
+        let cost = giftCostFor(member);
         document.getElementById("console").innerHTML = `
             ${characterPortrait(member.name, 160)}
             <h3 style="color:#ff66ff; font-size:16px;">💬 Chat with ${member.name}</h3>
             <p style="color:#ffff00; font-size:12.5px; max-width:380px; line-height:1.4;">
                 "Hey trainer ${game.playerName}! Thanks for having me along across timelines in Aetheria. Let's keep pushing our limits!"
             </p>
+            ${member.giftsGiven ? `<p style="color:#aa88ff; font-size:11px;">Gifted ${member.giftsGiven}x already - the next one costs more.</p>` : ''}
         `;
         renderButtons([
-            { text: "💖 Give Gift ($100)", class: "btn btn-start", action: () => {
-                if (game.funds >= 100) {
-                    game.funds -= 100;
+            { text: `💖 Give Gift ($${cost})`, class: "btn btn-start", action: () => {
+                let liveCost = giftCostFor(member);
+                if (game.funds >= liveCost) {
+                    game.funds -= liveCost;
                     member.power = (member.power || 20) + 5;
+                    member.giftsGiven = (member.giftsGiven || 0) + 1;
                     saveGame(); updateUI();
-                    alert(`${member.name} smiles warmly! Power increased by +5!`);
-                } else { alert("Not enough funds for a gift!"); }
+                    alert(`${member.name} smiles warmly! Power increased by +5! (Next gift: $${giftCostFor(member)})`);
+                } else { alert(`Not enough funds - this gift costs $${liveCost}!`); }
                 showStaffMenu();
             }},
             { text: "⬅ Back to Roster", class: "btn btn-back", action: showStaffMenu }
@@ -2509,7 +2527,7 @@
         }
         let pool = PORTAL_CHAR_POOLS[poolKey] || PORTAL_CHAR_POOLS.standard;
         let chosen = pool[Math.floor(Math.random() * pool.length)];
-        activeEncounter = { name: chosen.name, origin: chosen.origin, power: 42, dexId: chosen.id, baseChance: 0.50, isShiny: Math.random() < SHINY_CHANCE };
+        activeEncounter = { name: chosen.name, origin: chosen.origin, power: rollEncounterPower(), dexId: chosen.id, baseChance: 0.50, isShiny: Math.random() < SHINY_CHANCE };
         renderEncounterScreen();
     }
 
@@ -2518,7 +2536,7 @@
     function spawnWildUniDexEncounter() {
         if (!REAL_CHARACTERS_DB || REAL_CHARACTERS_DB.length === 0) { showMainMenu(); return; }
         let chosen = REAL_CHARACTERS_DB[Math.floor(Math.random() * REAL_CHARACTERS_DB.length)];
-        activeEncounter = { name: chosen.name, origin: chosen.origin, power: 42, dexId: chosen.id, baseChance: 0.50, isShiny: Math.random() < SHINY_CHANCE };
+        activeEncounter = { name: chosen.name, origin: chosen.origin, power: rollEncounterPower(), dexId: chosen.id, baseChance: 0.50, isShiny: Math.random() < SHINY_CHANCE };
         renderEncounterScreen();
     }
 
