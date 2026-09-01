@@ -160,6 +160,11 @@
         @keyframes saveToastFade { 0% { opacity: 0; transform: translateY(10px); } 20% { opacity: 1; transform: translateY(0); } 80% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-10px); } }
         #save-toast { position: fixed; bottom: 20px; right: 20px; background: #002211; border: 1px solid #00ff66; color: #00ff66; padding: 6px 12px; border-radius: 4px; font-size: 12px; z-index: 9999; display: none; box-shadow: 0 0 10px rgba(0,255,100,0.4); pointer-events: none; }
 
+        #join-toast-container { position: fixed; top: 16px; right: 16px; z-index: 9999; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; pointer-events: none; }
+        .join-toast-entry { background: #001a0d; border: 1px solid #00ff88; color: #00ff88; padding: 6px 12px; border-radius: 4px; font-size: 12px; box-shadow: 0 0 10px rgba(0,255,136,0.4); white-space: nowrap; animation: joinToastIn 0.25s ease-out; }
+        @keyframes joinToastIn { 0% { opacity: 0; transform: translateX(20px); } 100% { opacity: 1; transform: translateX(0); } }
+        @keyframes joinToastOut { 0% { opacity: 1; transform: translateX(0); } 100% { opacity: 0; transform: translateX(20px); } }
+
         /* --- Animated Title Screen --- */
         .title-stage { position: relative; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
         .title-particles { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
@@ -296,6 +301,7 @@
 </head>
 <body>
     <div id="save-toast">💾 Game Saved</div>
+    <div id="join-toast-container"></div>
     <div id="stats-bar">
         <div>🌍 <span id="loc-display">Nexus HQ</span> | Trainer: <span class="stat-highlight" id="player-name-display">Trainer</span></div>
         <div style="display: flex; align-items: center; gap: 6px;">
@@ -382,6 +388,23 @@
             if (countEl) countEl.innerText = data.totalOnline;
             globalActiveTrainers = data.activePlayers || [];
         });
+
+        socket.on('playerJoinedServer', (data) => {
+            showJoinToast(data.name || "A trainer");
+        });
+    }
+
+    function showJoinToast(name) {
+        const container = document.getElementById("join-toast-container");
+        if (!container) return;
+        let entry = document.createElement("div");
+        entry.className = "join-toast-entry";
+        entry.innerText = `🟢 ${name} joined the server`;
+        container.appendChild(entry);
+        setTimeout(() => {
+            entry.style.animation = "joinToastOut 0.35s ease-in forwards";
+            setTimeout(() => entry.remove(), 350);
+        }, 3500);
     }
 
     function showLivePlayersModal() {
@@ -745,7 +768,7 @@
             equippedGear: { weapon: "None", armor: "None", helmet: "None", accessory: "None" },
             inventory: ["Pokéball", "Pokéball", "Pokéball", "Copper Ore", "Diamond"],
             staff: [], partyUids: [], championUid: null, pokedex: {}, specialDex: {}, dlcUnlocked: false, redeemedCodes: [],
-            achievements: {},
+            achievements: {}, unlockedCostumes: [], freeSpins: 0,
             currentDailyEvent: { name: "Calm Multiverse", desc: "A peaceful day across timelines." },
             homeDecor: { tier: 1, name: "Standard Suite", items: [] },
             farm: {
@@ -943,6 +966,8 @@
         if (!game.equippedGear) game.equippedGear = { weapon: "None", armor: "None", helmet: "None", accessory: "None" };
         if (!game.achievements) game.achievements = {};
         if (!game.redeemedCodes) game.redeemedCodes = [];
+        if (!game.unlockedCostumes) game.unlockedCostumes = [];
+        if (typeof game.freeSpins !== 'number') game.freeSpins = 0;
         if (!game.currentDailyEvent) game.currentDailyEvent = { name: "Calm Multiverse", desc: "A peaceful day." };
 
         document.getElementById("funds-display").innerText = Math.floor(game.funds || 0);
@@ -1283,13 +1308,14 @@
             { text: "🗺️ World Map & Regions", class: "btn btn-map", action: showWorldMap },
             { text: "⛏️ Stardew Mines", class: "btn btn-mine", action: showMiningHub },
             { text: "🛍️ Market District", class: "btn btn-farm", action: showExploreMenu },
-            { text: "🎰 Lucky Wheel", class: "btn btn-spin", action: showLuckyWheelScreen },
+            { text: "🎰 Casino & Mini-Games", class: "btn btn-spin", action: showCasinoMenu },
             { text: "🎒 Inventory & Gear", class: "btn btn-gear", action: showInventoryMenu },
             { text: "🏠 Home & Decor", class: "btn btn-sys", action: showHomeDecorMenu },
             { text: "🌱 Greenhouse Farm", class: "btn btn-farm", action: showFarmMenu },
             { text: "⚔️ Staff Roster", class: "btn btn-maid", action: showStaffMenu },
             { text: "📖 UniDex (1-2000)", class: "btn btn-dex", action: () => showDexMenu(1) },
             { text: "🌌 Free Portals", class: "btn btn-sys", action: showFreePortalsMenu },
+            { text: "🎭 Costumes", class: "btn btn-maid", action: showCostumesMenu },
             { text: "🎁 Redeem Code", class: "btn btn-sys", action: () => showRedeemCodeMenu() },
             { text: "🔒 Premium DLC Portals", class: "btn btn-dlc", action: openDLCDispatch },
             { text: "🌐 Online Hub & Co-Op", class: "btn btn-sys", action: showOnlineLobbyGate },
@@ -1299,53 +1325,326 @@
         ]);
     }
 
-    // --- MULTIVERSE LUCKY WHEEL MECHANIC ---
-    function showLuckyWheelScreen() {
+    // --- CASINO & MINI-GAME DISTRICT ---
+    const CASINO_BET_TIERS = [50, 100, 250, 500];
+
+    function showCasinoMenu() {
         playBGM('shop');
-        clearConsole("center", "radial-gradient(circle at 50% 30%, #333300 0%, #080800 85%)", "#ffff00");
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #330022 0%, #0a000a 85%)", "#ff00aa");
         document.getElementById("console").innerHTML = `
-            <div id="wheel-icon" style="font-size: 50px; margin-bottom: 8px;">🎡</div>
-            <h2 style="color: #ffff00; font-size:18px;">🎰 MULTIVERSE LUCKY WHEEL</h2>
-            <p style="color: #aaa; font-size:12px; max-width: 360px;">Spin the wheel for a chance to win bonus cash, rare gems, stamina, or Pokéballs! (Cost: $100)</p>
-            <p id="wheel-result" style="color: #00ffff; font-size: 13px;"></p>
+            <div style="font-size:50px; margin-bottom:8px;">🎰</div>
+            <h2 style="color:#ff00aa; font-size:18px;">CASINO & MINI-GAME DISTRICT</h2>
+            <p style="color:#aaa; font-size:12px; max-width:360px;">Try your luck, trainer! Cash bet responsibly - the house doesn't lose forever.</p>
+            <p style="color:#ffd700; font-size:12px;">💰 Funds: $${Math.floor(game.funds)}</p>
         `;
         renderButtons([
-            { text: "🔄 Spin the Wheel ($100)", class: "btn btn-spin", action: triggerWheelSpin },
+            { text: "🪙 Multiverse Coin Flip", class: "btn btn-spin", action: () => showCoinFlipScreen() },
+            { text: "🃏 Aetheria Blackjack", class: "btn btn-spin", action: () => showBlackjackScreen() },
+            { text: "🎡 Lucky Wheel", class: "btn btn-spin", action: showLuckyWheelScreen },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
 
+    function casinoBetButtons(startFn) {
+        let buttons = CASINO_BET_TIERS.map(amt => ({
+            text: `Bet $${amt}`, class: "btn btn-combat", action: () => startFn(amt)
+        }));
+        buttons.push({ text: "🎲 All In", class: "btn btn-combat", action: () => startFn(Math.floor(game.funds)) });
+        return buttons;
+    }
+
+    // --- MULTIVERSE COIN FLIP (double-or-nothing) ---
+    let coinFlipState = null; // { pot: number }
+
+    function showCoinFlipScreen(message = "") {
+        playBGM('shop');
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #1a1a33 0%, #05050a 85%)", "#00ffff");
+        document.getElementById("console").innerHTML = `
+            <div style="font-size:50px; margin-bottom:8px;">🪙</div>
+            <h2 style="color:#00ffff; font-size:18px;">MULTIVERSE COIN FLIP</h2>
+            <p style="color:#aaa; font-size:12px; max-width:360px;">Call it in the air! Guess right and double your bet - keep going double-or-nothing, or cash out whenever you want.</p>
+            <p style="color:#ffd700; font-size:12px;">💰 Funds: $${Math.floor(game.funds)}</p>
+            ${message ? `<p style="font-size:12px; margin-top:6px;">${message}</p>` : ''}
+        `;
+        let buttons = casinoBetButtons(placeCoinFlipBet);
+        buttons.push({ text: "⬅ Back to Casino", class: "btn btn-back", action: showCasinoMenu });
+        renderButtons(buttons);
+    }
+
+    function placeCoinFlipBet(amount) {
+        if (amount <= 0 || game.funds < amount) {
+            showCoinFlipScreen(`<span style="color:#ff6666;">❌ Not enough funds for that bet!</span>`);
+            return;
+        }
+        game.funds -= amount;
+        coinFlipState = { pot: amount };
+        updateUI(); saveGame();
+        renderCoinFlipCallPrompt();
+    }
+
+    function renderCoinFlipCallPrompt() {
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #1a1a33 0%, #05050a 85%)", "#00ffff");
+        document.getElementById("console").innerHTML = `
+            <div style="font-size:50px; margin-bottom:8px;">🪙</div>
+            <h2 style="color:#00ffff; font-size:18px;">CALL IT!</h2>
+            <p style="color:#ffd700; font-size:13px;">Pot at stake: $${coinFlipState.pot}. Heads or Tails?</p>
+            <p id="coinflip-result" style="color:#00ffff; font-size:13px; margin-top:8px;"></p>
+        `;
+        renderButtons([
+            { text: "🌕 Heads", class: "btn btn-combat", action: () => resolveCoinFlip("heads") },
+            { text: "🌑 Tails", class: "btn btn-combat", action: () => resolveCoinFlip("tails") }
+        ]);
+    }
+
+    function resolveCoinFlip(call) {
+        if (!coinFlipState) { showCoinFlipScreen(); return; }
+        renderButtons([]);
+        const resultEl = document.getElementById("coinflip-result");
+        if (resultEl) resultEl.innerHTML = "Flipping...";
+
+        setTimeout(() => {
+            let result = Math.random() < 0.5 ? "heads" : "tails";
+            let won = call === result;
+            if (won) {
+                coinFlipState.pot *= 2;
+                if (resultEl) resultEl.innerHTML = `<strong style="color:#55ff99;">🎉 It landed on ${result.toUpperCase()}! Pot is now $${coinFlipState.pot}.</strong>`;
+                renderButtons([
+                    { text: `💰 Cash Out ($${coinFlipState.pot})`, class: "btn btn-start", action: cashOutCoinFlip },
+                    { text: "🔁 Double or Nothing", class: "btn btn-combat", action: renderCoinFlipCallPrompt }
+                ]);
+            } else {
+                if (resultEl) resultEl.innerHTML = `<strong style="color:#ff6666;">💥 It landed on ${result.toUpperCase()}! You lost the pot.</strong>`;
+                coinFlipState = null;
+                renderButtons([
+                    { text: "🔁 Bet Again", class: "btn btn-combat", action: () => showCoinFlipScreen() },
+                    { text: "⬅ Back to Casino", class: "btn btn-back", action: showCasinoMenu }
+                ]);
+            }
+        }, 1200);
+    }
+
+    function cashOutCoinFlip() {
+        if (!coinFlipState) { showCasinoMenu(); return; }
+        let won = coinFlipState.pot;
+        game.funds += won;
+        coinFlipState = null;
+        updateUI(); saveGame();
+        showCoinFlipScreen(`<span style="color:#55ff99;">✔ Cashed out $${won}!</span>`);
+    }
+
+    // --- AETHERIA BLACKJACK (21 vs the dealer) ---
+    const CARD_RANKS = [
+        { rank: 'A', value: 11 }, { rank: '2', value: 2 }, { rank: '3', value: 3 }, { rank: '4', value: 4 },
+        { rank: '5', value: 5 }, { rank: '6', value: 6 }, { rank: '7', value: 7 }, { rank: '8', value: 8 },
+        { rank: '9', value: 9 }, { rank: '10', value: 10 }, { rank: 'J', value: 10 }, { rank: 'Q', value: 10 }, { rank: 'K', value: 10 }
+    ];
+    const CARD_SUITS = ['♠️', '♥️', '♦️', '♣️'];
+
+    function drawCard() {
+        let r = CARD_RANKS[Math.floor(Math.random() * CARD_RANKS.length)];
+        let s = CARD_SUITS[Math.floor(Math.random() * CARD_SUITS.length)];
+        return { rank: r.rank, value: r.value, suit: s };
+    }
+
+    function handTotal(cards) {
+        let total = cards.reduce((sum, c) => sum + c.value, 0);
+        let aces = cards.filter(c => c.rank === 'A').length;
+        while (total > 21 && aces > 0) { total -= 10; aces--; }
+        return total;
+    }
+
+    function cardLabel(c) { return `${c.rank}${c.suit}`; }
+
+    let blackjackState = null; // { bet, playerCards, dealerCards }
+
+    function showBlackjackScreen(message = "") {
+        playBGM('shop');
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #002211 0%, #000805 85%)", "#00ff66");
+        document.getElementById("console").innerHTML = `
+            <div style="font-size:50px; margin-bottom:8px;">🃏</div>
+            <h2 style="color:#00ff66; font-size:18px;">AETHERIA BLACKJACK</h2>
+            <p style="color:#aaa; font-size:12px; max-width:360px;">Beat the dealer's hand without going over 21. A natural Blackjack pays 2.5x!</p>
+            <p style="color:#ffd700; font-size:12px;">💰 Funds: $${Math.floor(game.funds)}</p>
+            ${message ? `<p style="font-size:12px; margin-top:6px;">${message}</p>` : ''}
+        `;
+        let buttons = casinoBetButtons(startBlackjackHand);
+        buttons.push({ text: "⬅ Back to Casino", class: "btn btn-back", action: showCasinoMenu });
+        renderButtons(buttons);
+    }
+
+    function startBlackjackHand(amount) {
+        if (amount <= 0 || game.funds < amount) {
+            showBlackjackScreen(`<span style="color:#ff6666;">❌ Not enough funds for that bet!</span>`);
+            return;
+        }
+        game.funds -= amount;
+        blackjackState = { bet: amount, playerCards: [drawCard(), drawCard()], dealerCards: [drawCard(), drawCard()] };
+        updateUI(); saveGame();
+
+        if (handTotal(blackjackState.playerCards) === 21) {
+            standBlackjack(); // natural blackjack - auto-resolve against the dealer's hand
+        } else {
+            renderBlackjackTable();
+        }
+    }
+
+    function renderBlackjackTable(revealDealer = false, message = "") {
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #002211 0%, #000805 85%)", "#00ff66");
+        let b = blackjackState;
+        let playerTotal = handTotal(b.playerCards);
+        let dealerShown = revealDealer ? b.dealerCards : [b.dealerCards[0]];
+        let dealerTotal = revealDealer ? handTotal(b.dealerCards) : '?';
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#00ff66; font-size:18px;">🃏 BLACKJACK TABLE</h2>
+            <p style="color:#ff6666; font-size:13px;">Dealer: ${dealerShown.map(cardLabel).join(' ')}${revealDealer ? '' : ' 🂠'} (${dealerTotal})</p>
+            <p style="color:#00ffff; font-size:13px;">You: ${b.playerCards.map(cardLabel).join(' ')} (${playerTotal})</p>
+            <p style="color:#ffd700; font-size:12px;">💵 Bet: $${b.bet}</p>
+            ${message ? `<p style="font-size:12px; margin-top:6px;">${message}</p>` : ''}
+        `;
+        if (!revealDealer) {
+            renderButtons([
+                { text: "🃏 Hit", class: "btn btn-combat", action: hitBlackjack },
+                { text: "✋ Stand", class: "btn btn-start", action: standBlackjack }
+            ]);
+        } else {
+            renderButtons([
+                { text: "🔁 Play Again", class: "btn btn-combat", action: () => showBlackjackScreen() },
+                { text: "⬅ Back to Casino", class: "btn btn-back", action: showCasinoMenu }
+            ]);
+        }
+    }
+
+    function hitBlackjack() {
+        if (!blackjackState) { showBlackjackScreen(); return; }
+        blackjackState.playerCards.push(drawCard());
+        if (handTotal(blackjackState.playerCards) > 21) {
+            finishBlackjackHand(`<strong style="color:#ff6666;">💥 BUST! You went over 21 and lost $${blackjackState.bet}.</strong>`);
+        } else {
+            renderBlackjackTable(false);
+        }
+    }
+
+    function standBlackjack() {
+        if (!blackjackState) { showBlackjackScreen(); return; }
+        let b = blackjackState;
+        while (handTotal(b.dealerCards) < 17) {
+            b.dealerCards.push(drawCard());
+        }
+        let playerTotal = handTotal(b.playerCards);
+        let dealerTotal = handTotal(b.dealerCards);
+
+        if (playerTotal > 21) {
+            finishBlackjackHand(`<strong style="color:#ff6666;">💥 BUST! You lost $${b.bet}.</strong>`);
+        } else if (dealerTotal > 21 || playerTotal > dealerTotal) {
+            let isNaturalBlackjack = b.playerCards.length === 2 && playerTotal === 21;
+            let payout = isNaturalBlackjack ? Math.floor(b.bet * 2.5) : b.bet * 2;
+            game.funds += payout;
+            finishBlackjackHand(`<strong style="color:#55ff99;">🎉 ${isNaturalBlackjack ? 'BLACKJACK! ' : ''}You win $${payout}!</strong>`);
+        } else if (playerTotal === dealerTotal) {
+            game.funds += b.bet;
+            finishBlackjackHand(`<strong style="color:#ffd700;">🤝 Push! Your bet was returned.</strong>`);
+        } else {
+            finishBlackjackHand(`<strong style="color:#ff6666;">💥 Dealer wins. You lost $${b.bet}.</strong>`);
+        }
+    }
+
+    function finishBlackjackHand(message) {
+        updateUI(); saveGame();
+        renderBlackjackTable(true, message);
+        blackjackState = null;
+    }
+
+    // --- MULTIVERSE LUCKY WHEEL MECHANIC (weighted prize tiers) ---
+    const WHEEL_PRIZES = [
+        { weight: 18, text: "💰 Jackpot! Won $500!", action: () => { game.funds += 500; } },
+        { weight: 16, text: "⚡ Gained +50 Bonus Stamina!", action: () => { game.stamina += 50; } },
+        { weight: 16, text: "🔴 Won 2x Pokéballs!", action: () => { game.inventory.push("Pokéball", "Pokéball"); } },
+        { weight: 16, text: "🪙 Consolation prize: $50 back.", action: () => { game.funds += 50; } },
+        { weight: 12, text: "💎 Won a rare Diamond Gem!", action: () => { game.inventory.push("Diamond"); } },
+        { weight: 10, text: "🔷 Won a Prism Shard!", action: () => { game.inventory.push("Prism Shard"); } },
+        { weight: 6, text: "🎟️ Won a Free Spin token!", action: () => { game.freeSpins = (game.freeSpins || 0) + 1; } },
+        { weight: 4, text: "💵 Won a $1000 Bonus voucher!", action: () => { game.funds += 1000; } },
+        { weight: 2, text: "🌟 JACKPOT COMPANION! A new ally joined your roster!", action: () => grantRandomWheelCompanion() }
+    ];
+
+    function pickWeightedWheelPrize() {
+        let totalWeight = WHEEL_PRIZES.reduce((sum, p) => sum + p.weight, 0);
+        let roll = Math.random() * totalWeight;
+        for (const prize of WHEEL_PRIZES) {
+            if (roll < prize.weight) return prize;
+            roll -= prize.weight;
+        }
+        return WHEEL_PRIZES[0];
+    }
+
+    // Pool for wheel "companion" jackpot pulls - every portal pool except the Mystery-Gift-only legendary one.
+    function getWheelCompanionPool() {
+        let pool = [];
+        Object.keys(PORTAL_CHAR_POOLS).forEach(key => {
+            if (key === 'legendary') return;
+            pool = pool.concat(PORTAL_CHAR_POOLS[key]);
+        });
+        return pool;
+    }
+
+    function grantRandomWheelCompanion() {
+        let pool = getWheelCompanionPool();
+        if (!pool.length) return "";
+        let chosen = pool[Math.floor(Math.random() * pool.length)];
+        addStaffMember({ name: chosen.name, power: chosen.power || 42, origin: chosen.origin, dexId: chosen.id });
+        recordDex(chosen.id, false);
+        return chosen.name;
+    }
+
+    function showLuckyWheelScreen() {
+        playBGM('shop');
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #333300 0%, #080800 85%)", "#ffff00");
+        let freeSpins = game.freeSpins || 0;
+        document.getElementById("console").innerHTML = `
+            <div id="wheel-icon" style="font-size: 50px; margin-bottom: 8px;">🎡</div>
+            <h2 style="color: #ffff00; font-size:18px;">🎰 MULTIVERSE LUCKY WHEEL</h2>
+            <p style="color: #aaa; font-size:12px; max-width: 360px;">Spin the wheel for a chance at cash, gems, shards, bonuses, or even a brand new companion! (Cost: $100)</p>
+            ${freeSpins > 0 ? `<p style="color:#00ff99; font-size:12px;">🎟️ Free Spins available: ${freeSpins}</p>` : ''}
+            <p id="wheel-result" style="color: #00ffff; font-size: 13px;"></p>
+        `;
+        renderButtons([
+            { text: freeSpins > 0 ? "🔄 Spin the Wheel (Free Spin!)" : "🔄 Spin the Wheel ($100)", class: "btn btn-spin", action: triggerWheelSpin },
+            { text: "⬅ Back to Casino", class: "btn btn-back", action: showCasinoMenu }
+        ]);
+    }
+
     function triggerWheelSpin() {
-        if (game.funds < 100) {
+        let usingFreeSpin = (game.freeSpins || 0) > 0;
+        if (!usingFreeSpin && game.funds < 100) {
             log("❌ You need at least $100 to spin!", "color-red");
             return;
         }
-        game.funds -= 100;
+        if (usingFreeSpin) { game.freeSpins -= 1; } else { game.funds -= 100; }
         updateUI(); saveGame();
 
         renderButtons([]);
-        const icon = document.getElementById("wheel-icon");
-        const resText = document.getElementById("wheel-result");
-        if (icon) icon.className = "wheel-spinning";
-        if (resText) resText.innerHTML = "Spinning the multiversal wheel...";
+        const iconBefore = document.getElementById("wheel-icon");
+        const resTextBefore = document.getElementById("wheel-result");
+        if (iconBefore) iconBefore.className = "wheel-spinning";
+        if (resTextBefore) resTextBefore.innerHTML = usingFreeSpin ? "Spinning the multiversal wheel (Free Spin)..." : "Spinning the multiversal wheel...";
 
         setTimeout(() => {
-            if (icon) icon.className = "";
-            let prizes = [
-                { text: "💰 Jackpot! Won $500!", action: () => { game.funds += 500; } },
-                { text: "💎 Won a rare Diamond Gem!", action: () => { game.inventory.push("Diamond"); } },
-                { text: "⚡ Gained +50 Bonus Stamina!", action: () => { game.stamina += 50; } },
-                { text: "🔴 Won 2x Pokéballs!", action: () => { game.inventory.push("Pokéball", "Pokéball"); } },
-                { text: "🪙 Consolation prize: $50 back.", action: () => { game.funds += 50; } }
-            ];
-            let roll = prizes[Math.floor(Math.random() * prizes.length)];
-            roll.action();
+            let roll = pickWeightedWheelPrize();
+            let detail = roll.action();
+            let displayText = (typeof detail === 'string' && detail) ? `${roll.text} (${detail})` : roll.text;
             updateUI(); saveGame();
 
-            if (resText) resText.innerHTML = `<strong style="color: #00ff66;">🎉 ${roll.text}</strong>`;
+            // Re-query fresh rather than reuse the references captured before the timeout -
+            // roll.action() can unlock an achievement, whose log() does #console.innerHTML +=,
+            // which recreates the whole subtree and orphans any previously-grabbed node refs.
+            const iconNow = document.getElementById("wheel-icon");
+            if (iconNow) iconNow.className = "";
+            const resTextNow = document.getElementById("wheel-result");
+            if (resTextNow) resTextNow.innerHTML = `<strong style="color: #00ff66;">🎉 ${displayText}</strong>`;
+            let freeSpinsNow = game.freeSpins || 0;
             renderButtons([
-                { text: "🔄 Spin Again ($100)", class: "btn btn-spin", action: triggerWheelSpin },
-                { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
+                { text: freeSpinsNow > 0 ? "🔄 Spin Again (Free Spin!)" : "🔄 Spin Again ($100)", class: "btn btn-spin", action: triggerWheelSpin },
+                { text: "⬅ Back to Casino", class: "btn btn-back", action: showCasinoMenu }
             ]);
         }, 2200);
     }
@@ -1544,13 +1843,14 @@
     // --- STAFF ROSTER & INTERACTIONS ---
     function staffCardHtml(s, extraButtonsHtml) {
         let isChampion = game.championUid && s.uid === game.championUid;
+        let costumeDef = s.costume ? getCostumeDef(s.costume) : null;
         return `
             <div class="dex-card" style="display:flex; justify-content:space-between; align-items:center; ${isChampion ? 'border-color:#ffd700; box-shadow:0 0 8px rgba(255,215,0,0.35);' : ''}">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <img src="${getCharacterPortrait(s.name)}" style="width:34px;height:34px;object-fit:contain;border-radius:6px;border:1px solid #a020f0;" onerror="applyTypeIconFallback(this, '${escAttr(s.name)}')"/>
                     <div style="font-size:12px;">
-                        <strong>${isChampion ? '👑 ' : ''}${s.name}</strong><br>
-                        <span style="font-size:10.5px;color:#aaa;">Origin: ${s.origin || 'Unknown'} | Power: ${s.power || 0}</span>
+                        <strong>${isChampion ? '👑 ' : ''}${s.name}${costumeDef ? ` ${costumeDef.emoji}` : ''}</strong><br>
+                        <span style="font-size:10.5px;color:#aaa;">Origin: ${s.origin || 'Unknown'} | Power: ${s.power || 0}${costumeDef ? ` | 🎭 ${costumeDef.name}` : ''}</span>
                     </div>
                 </div>
                 <div style="display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end;">
@@ -1736,6 +2036,109 @@
         ]);
     }
 
+    // --- COSTUMES (cosmetic-only outfits, dropped by holiday portals) ---
+    const COSTUME_CATALOG = {
+        halloween: { id: 'costume_halloween_vampire', poolKey: 'halloween', name: 'Vampire Cape', emoji: '🧛' },
+        christmasPortal: { id: 'costume_christmas_santa', poolKey: 'christmasPortal', name: 'Santa Suit', emoji: '🎅' },
+        valentinePortal: { id: 'costume_valentine_cupid', poolKey: 'valentinePortal', name: 'Cupid Wings', emoji: '💘' },
+        paddysPortal: { id: 'costume_paddys_leprechaun', poolKey: 'paddysPortal', name: 'Leprechaun Suit', emoji: '☘️' },
+        summerPortal: { id: 'costume_summer_beachwear', poolKey: 'summerPortal', name: 'Beach Wear', emoji: '🏖️' }
+    };
+    const COSTUME_DROP_CHANCE = 0.3;
+
+    function getCostumeDef(id) {
+        return Object.values(COSTUME_CATALOG).find(c => c.id === id) || null;
+    }
+
+    function grantCostume(costumeDef) {
+        if (!game.unlockedCostumes) game.unlockedCostumes = [];
+        let alreadyOwned = game.unlockedCostumes.includes(costumeDef.id);
+        if (!alreadyOwned) game.unlockedCostumes.push(costumeDef.id);
+        updateUI(); saveGame();
+
+        clearConsole("center", "radial-gradient(circle at 50% 50%, #4d004d 0%, #1a001a 80%)", "#ff00ff");
+        document.getElementById("console").innerHTML = `
+            <div style="font-size:50px; margin-bottom:8px;">${costumeDef.emoji}</div>
+            <h2 style="color:#ff00ff; font-size:18px;">🎭 COSTUME FOUND!</h2>
+            <p style="color:#00ffff; font-size:14px; max-width:360px;">${alreadyOwned ? `You found another ${costumeDef.name}, but you already own one.` : `You unlocked the <strong>${costumeDef.name}</strong> costume!`}</p>
+            <p style="color:#aaa; font-size:11px;">Head to the 🎭 Costumes menu to equip it on any team member.</p>
+        `;
+        renderButtons([
+            { text: "🎭 Go to Costumes", class: "btn btn-maid", action: showCostumesMenu },
+            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
+        ]);
+    }
+
+    function showCostumesMenu() {
+        playBGM('staff');
+        clearConsole("flex-start", "radial-gradient(circle at 50% 25%, #4d004d 0%, #0c001a 80%)", "#ff66ff");
+        if (!game.unlockedCostumes) game.unlockedCostumes = [];
+        let html = `<h2 style="color:#ff66ff; font-size:18px;">🎭 COSTUME WARDROBE</h2>`;
+
+        if (!game.unlockedCostumes.length) {
+            html += `<p style="color:#aaa; font-size:12px; max-width:360px;">You haven't found any costumes yet! Holiday portals (🌌 Free Portals - Halloween, Christmas, Valentine's, Saint Paddy's, and Summer) all have a chance to drop one instead of a wild encounter.</p>`;
+            document.getElementById("console").innerHTML = html;
+            renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
+            return;
+        }
+
+        html += `<p style="color:#aaa; font-size:12px;">Pick a team member to change their costume (purely cosmetic - no stat changes):</p><div style="width:100%;">`;
+        if (!game.staff.length) {
+            html += `<p style="color:#aaa; font-size:12px;">No staff recruited yet.</p>`;
+        } else {
+            game.staff.forEach((s) => {
+                let equipped = s.costume ? getCostumeDef(s.costume) : null;
+                html += `
+                    <div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <img src="${getCharacterPortrait(s.name)}" style="width:34px;height:34px;object-fit:contain;border-radius:6px;border:1px solid #ff66ff;" onerror="applyTypeIconFallback(this, '${escAttr(s.name)}')"/>
+                            <div style="font-size:12px;">
+                                <strong>${s.name}</strong><br>
+                                <span style="font-size:10.5px;color:#aaa;">${equipped ? `${equipped.emoji} Wearing: ${equipped.name}` : 'No costume equipped'}</span>
+                            </div>
+                        </div>
+                        <button class="btn btn-maid" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="showCostumePickerForMember('${s.uid}')">🎭 Change</button>
+                    </div>
+                `;
+            });
+        }
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
+    }
+
+    function showCostumePickerForMember(uid) {
+        let member = game.staff.find(s => s.uid === uid);
+        if (!member) { showCostumesMenu(); return; }
+        playBGM('staff');
+        clearConsole("center", "radial-gradient(circle at 50% 25%, #4d004d 0%, #0c001a 80%)", "#ff66ff");
+        document.getElementById("console").innerHTML = `
+            ${characterPortrait(member.name, 140)}
+            <h2 style="color:#ff66ff; font-size:16px;">🎭 Costumes for ${member.name}</h2>
+            <p style="color:#aaa; font-size:11.5px;">Purely cosmetic - no stat changes.</p>
+        `;
+        let buttons = (game.unlockedCostumes || []).map(id => {
+            let def = getCostumeDef(id);
+            if (!def) return null;
+            let isEquipped = member.costume === id;
+            return { text: `${def.emoji} ${def.name}${isEquipped ? ' (Equipped)' : ''}`, class: isEquipped ? "btn btn-start" : "btn btn-maid", action: () => equipCostume(uid, id) };
+        }).filter(Boolean);
+
+        if (member.costume) {
+            buttons.push({ text: "❌ Remove Costume", class: "btn btn-back", action: () => equipCostume(uid, null) });
+        }
+        buttons.push({ text: "⬅ Back to Wardrobe", class: "btn btn-back", action: showCostumesMenu });
+        renderButtons(buttons);
+    }
+
+    function equipCostume(uid, costumeId) {
+        let member = game.staff.find(s => s.uid === uid);
+        if (!member) { showCostumesMenu(); return; }
+        member.costume = costumeId || null;
+        saveGame(); updateUI();
+        showCostumePickerForMember(uid);
+    }
+
     // --- PORTALS & EXCLUSIVE HOLIDAY THEMES ---
     function showFreePortalsMenu() {
         playBGM('dlcHub');
@@ -1755,6 +2158,11 @@
 
     function triggerPortalTheme(poolKey, musicKey) {
         playBGM(musicKey || 'rift');
+        let costumeDef = COSTUME_CATALOG[poolKey];
+        if (costumeDef && Math.random() < COSTUME_DROP_CHANCE) {
+            grantCostume(costumeDef);
+            return;
+        }
         let pool = PORTAL_CHAR_POOLS[poolKey] || PORTAL_CHAR_POOLS.standard;
         let chosen = pool[Math.floor(Math.random() * pool.length)];
         activeEncounter = { name: chosen.name, origin: chosen.origin, power: 42, dexId: chosen.id, baseChance: 0.50 };
