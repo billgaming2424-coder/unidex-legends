@@ -1409,6 +1409,8 @@
         updateUI();
         log(`--- NEXUS HQ (Aetheria Region - Slot ${currentSaveSlot}) | WELCOME, TRAINER ${game.playerName.toUpperCase()} ---`, "color-cyan");
         log(`📅 Daily Event: ${game.currentDailyEvent.name} - ${game.currentDailyEvent.desc}`, "color-yellow");
+        let dexCaughtCount = Object.keys(game.pokedex || {}).length;
+        let dexTotalCount = getAllDexEntries().length;
         renderButtons([
             { text: "🗺️ World Map & Regions", class: "btn btn-map", action: showWorldMap },
             { text: "⛏️ Stardew Mines", class: "btn btn-mine", action: showMiningHub },
@@ -1418,7 +1420,7 @@
             { text: "🏠 Home & Decor", class: "btn btn-sys", action: showHomeDecorMenu },
             { text: "🌱 Greenhouse Farm", class: "btn btn-farm", action: showFarmMenu },
             { text: "⚔️ Staff Roster", class: "btn btn-maid", action: showStaffMenu },
-            { text: "📖 UniDex (1-2000)", class: "btn btn-dex", action: () => showDexMenu(1) },
+            { text: `📖 UniDex (${dexCaughtCount}/${dexTotalCount})`, class: "btn btn-dex", action: () => showDexMenu(1) },
             { text: "🌌 Free Portals", class: "btn btn-sys", action: showFreePortalsMenu },
             { text: "🎭 Costumes", class: "btn btn-maid", action: showCostumesMenu },
             { text: "🎁 Redeem Code", class: "btn btn-sys", action: () => showRedeemCodeMenu() },
