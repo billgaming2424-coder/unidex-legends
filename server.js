@@ -251,6 +251,11 @@ io.on('connection', (socket) => {
 
     socket.on('attackRaidBoss', ({ damage, trainerName, championName }) => {
         const currentBoss = raidBosses[activeRaidKey];
+        // Once the boss is at 0 HP it's waiting on its 25s respawn timer - without this
+        // guard, every stray hit during that window re-broadcast isDefeated:true (with
+        // reward info) to whoever was attacking, letting a player leave and re-enter the
+        // raid screen to re-claim the kill reward repeatedly before it actually respawned.
+        if (currentBoss.hp <= 0) return;
         currentBoss.hp = Math.max(0, currentBoss.hp - damage);
         const logMsg = `💥 ${trainerName}'s ${championName} struck ${currentBoss.name} for ${damage} DMG!`;
 

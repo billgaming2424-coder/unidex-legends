@@ -561,15 +561,20 @@
             { name: "Totsuka Saika", origin: "My Teen Romantic Comedy", type: "Normal", id: 9505 },
             { name: "Ruka Urushibara", origin: "Steins;Gate", type: "Psychic", id: 9506 }
         ],
+        // NOTE: these used to be ids 1001-1008, which silently collided with the main
+        // 2000-character dex (REAL_CHARACTERS_DB also spans 1-2000) - every ID in this
+        // pool now lives in the 8500s, clear of every other portal's range, so catching
+        // one of these actually credits the right dex entry instead of some unrelated
+        // procedurally-generated character that happened to share the same number.
         'bikiniBottom': [
-            { name: "SpongeBob SquarePants", origin: "Bikini Bottom", type: "Water", id: 1001 },
-            { name: "Patrick Star", origin: "Bikini Bottom", type: "Water", id: 1002 },
-            { name: "Squidward Tentacles", origin: "Bikini Bottom", type: "Water", id: 1003 },
-            { name: "Sheldon J. Plankton", origin: "Chum Bucket", type: "Dark", id: 1004 },
-            { name: "Sandy Cheeks", origin: "Texas Dome", type: "Fighting", id: 1005 },
-            { name: "Eugene H. Krabs", origin: "Krusty Krab", type: "Normal", id: 1006 },
-            { name: "Mrs. Puff", origin: "Boating School", type: "Normal", id: 1007 },
-            { name: "Larry the Lobster", origin: "Goo Lagoon", type: "Fighting", id: 1008 }
+            { name: "SpongeBob SquarePants", origin: "Bikini Bottom", type: "Water", id: 8501 },
+            { name: "Patrick Star", origin: "Bikini Bottom", type: "Water", id: 8502 },
+            { name: "Squidward Tentacles", origin: "Bikini Bottom", type: "Water", id: 8503 },
+            { name: "Sheldon J. Plankton", origin: "Chum Bucket", type: "Dark", id: 8504 },
+            { name: "Sandy Cheeks", origin: "Texas Dome", type: "Fighting", id: 8505 },
+            { name: "Eugene H. Krabs", origin: "Krusty Krab", type: "Normal", id: 8506 },
+            { name: "Mrs. Puff", origin: "Boating School", type: "Normal", id: 8507 },
+            { name: "Larry the Lobster", origin: "Goo Lagoon", type: "Fighting", id: 8508 }
         ],
         'halloween': [
             { name: "Jack Skellington", origin: "Halloween Town", type: "Ghost", id: 2001 },
@@ -2250,10 +2255,13 @@
         let member = game.staff.find(s => s.uid === uid);
         if (!member) return;
         // Champion must be an active party member - promoting from reserve pulls them in
-        // first (swapping out the current champion if the party's already full).
+        // first (swapping out the CURRENT CHAMPION's own slot if the party's already
+        // full - previously this bumped whoever happened to sit in slot 0, which could
+        // silently bench an unrelated party member instead of the champion you're replacing).
         if (!game.partyUids.includes(uid)) {
             if (game.partyUids.length >= MAX_PARTY_SIZE) {
-                game.partyUids[0] = uid;
+                let champIdx = game.partyUids.indexOf(game.championUid);
+                game.partyUids[champIdx !== -1 ? champIdx : 0] = uid;
             } else {
                 game.partyUids.push(uid);
             }
