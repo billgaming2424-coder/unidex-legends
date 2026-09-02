@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>UniMon Legends</title>
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * { box-sizing: border-box; }
         html, body {
@@ -520,6 +521,360 @@
 
     let REAL_CHARACTERS_DB = [];
     let currentSaveSlot = 1;
+
+    // ==================================================================
+    // CLOUD ACCOUNT & CLOUD SAVE (Chase Studios / Supabase)
+    // Same project as the chase-studios-portal site, so one account works
+    // on both. Everything here degrades gracefully offline: if the CDN
+    // script fails to load or there's no network, the game plays exactly
+    // as it always has, purely on local saves.
+    // ==================================================================
+    const SUPABASE_URL = "https://rvetucuqburqnrgoatui.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ2ZXR1Y3VxYnVycW5yZ29hdHVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTMyOTcsImV4cCI6MjEwMzg2OTI5N30.Q3g0deWdLd8b0oczpDd1gwdRcTm2xJ_RBhjhtCgm19g";
+
+    let supabaseClient = null;
+    try {
+        if (window.supabase) supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    } catch (e) { supabaseClient = null; }
+
+    let cloudUser = null;
+    let cloudSaveMeta = { exists: false };
+    let cloudBusy = false;
+    let cloudEmailDraft = "";
+    let cloudMenuReturnTo = null;
+
+    // A one-time reward for linking an account, granted once per Chase Studios
+    // account (tracked server-side via profiles.welcome_bundle_claimed) - not
+    // per save slot, so a player can't farm it by linking multiple slots.
+    const CLOUD_WELCOME_BUNDLE = {
+        desc: "Welcome to the Chase Studios Network! Nova, the Cloudlink Sentinel joins your staff!",
+        apply: (g) => {
+            addStaffMember({ name: "Nova, the Cloudlink Sentinel", power: 85, origin: "Chase Studios Network", dexId: 9901, legendary: true });
+            recordDex(9901, false);
+        }
+    };
+
+    function validateCloudCredentials(email, password) {
+        if (!email || !password) return "Please enter both an email and password.";
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Please enter a valid email address.";
+        if (password.length < 6) return "Password must be at least 6 characters.";
+        return null;
+    }
+
+    // Supabase's own error.message is usually readable as-is, but a few common cases
+    // read better reworded, and some failure modes don't come back with a friendly
+    // message at all.
+    function friendlyCloudAuthError(error) {
+        if (!error) return "Something went wrong. Please try again.";
+        const msg = (error.message || "").toLowerCase();
+        if (error.status === 429 || msg.includes("rate limit")) return "Too many attempts - please wait a minute before trying again.";
+        if (msg.includes("already registered")) return "An account with that email already exists - try logging in instead.";
+        if (msg.includes("invalid login credentials")) return "Incorrect email or password.";
+        if (msg.includes("email not confirmed")) return "Please confirm your email first - check your inbox for the verification link.";
+        if (msg.includes("failed to fetch") || error.name === "TypeError") return "Couldn't reach the server - check your connection and try again.";
+        return error.message || "Something went wrong. Please try again.";
+    }
+
+    // Pulls down {exists, updatedAt, saveData, playerName, day, funds} for the
+    // signed-in account's single cloud save. Cached in cloudSaveMeta so screens
+    // can render synchronously between fetches.
+    async function fetchCloudSaveMeta() {
+        if (!supabaseClient || !cloudUser) { cloudSaveMeta = { exists: false }; return cloudSaveMeta; }
+        try {
+            const { data, error } = await supabaseClient
+                .from('player_saves')
+                .select('save_data, updated_at')
+                .eq('user_id', cloudUser.id)
+                .maybeSingle();
+            if (error || !data) { cloudSaveMeta = { exists: false }; return cloudSaveMeta; }
+            let sd = data.save_data || {};
+            cloudSaveMeta = {
+                exists: true,
+                updatedAt: new Date(data.updated_at).getTime(),
+                saveData: sd,
+                playerName: sd.playerName || "Trainer",
+                day: sd.day || 1,
+                funds: sd.funds || 0
+            };
+        } catch (e) {
+            cloudSaveMeta = { exists: false };
+        }
+        return cloudSaveMeta;
+    }
+
+    // Debounced so rapid successive saveGame() calls (common while playing)
+    // coalesce into one push instead of hammering the network.
+    let cloudPushTimer = null;
+    let cloudPushInFlight = false;
+    let cloudPushQueued = false;
+
+    function scheduleCloudPush() {
+        if (!supabaseClient || !cloudUser || !game.cloudLinked) return;
+        clearTimeout(cloudPushTimer);
+        cloudPushTimer = setTimeout(() => { performCloudPush(); }, 800);
+    }
+
+    async function performCloudPush() {
+        if (!supabaseClient || !cloudUser || !game.cloudLinked) return;
+        if (cloudPushInFlight) { cloudPushQueued = true; return; }
+        cloudPushInFlight = true;
+        try {
+            const { data, error } = await supabaseClient
+                .from('player_saves')
+                .upsert({ user_id: cloudUser.id, save_data: game }, { onConflict: 'user_id' })
+                .select('updated_at')
+                .single();
+            if (!error && data) {
+                game.cloudSyncedAt = new Date(data.updated_at).getTime();
+                cloudSaveMeta = { exists: true, updatedAt: game.cloudSyncedAt, saveData: game, playerName: game.playerName, day: game.day, funds: game.funds };
+            }
+        } catch (e) { /* best-effort - will retry on the next save */ }
+        cloudPushInFlight = false;
+        if (cloudPushQueued) { cloudPushQueued = false; performCloudPush(); }
+    }
+
+    async function submitCloudAuth(mode) {
+        let emailInput = document.getElementById("cloud-email-input");
+        let pwInput = document.getElementById("cloud-password-input");
+        let email = emailInput ? emailInput.value.trim() : "";
+        let password = pwInput ? pwInput.value.trim() : "";
+        cloudEmailDraft = email;
+
+        let validationError = validateCloudCredentials(email, password);
+        if (validationError) {
+            let statusEl = document.getElementById("cloud-status-msg");
+            if (statusEl) statusEl.textContent = validationError;
+            return;
+        }
+
+        cloudBusy = true;
+        showCloudAccountMenu();
+        try {
+            const fn = mode === 'signup' ? 'signUp' : 'signInWithPassword';
+            const { data, error } = await supabaseClient.auth[fn]({ email, password });
+            cloudBusy = false;
+            if (error) {
+                showCloudAccountMenu();
+                let el = document.getElementById("cloud-status-msg");
+                if (el) el.textContent = friendlyCloudAuthError(error);
+                return;
+            }
+            if (mode === 'signup' && !data.session) {
+                showCloudAccountMenu();
+                let el = document.getElementById("cloud-status-msg");
+                if (el) el.textContent = "Check your email to confirm your account, then log in.";
+                return;
+            }
+            cloudUser = (data.session ? data.session.user : data.user) || null;
+            if (cloudUser) await fetchCloudSaveMeta();
+            showCloudAccountMenu();
+        } catch (e) {
+            cloudBusy = false;
+            showCloudAccountMenu();
+            let el = document.getElementById("cloud-status-msg");
+            if (el) el.textContent = friendlyCloudAuthError(e);
+        }
+    }
+
+    async function cloudLogout() {
+        if (!supabaseClient) return;
+        cloudBusy = true;
+        showCloudAccountMenu();
+        try { await supabaseClient.auth.signOut(); } catch (e) {}
+        cloudUser = null;
+        cloudSaveMeta = { exists: false };
+        cloudBusy = false;
+        showCloudAccountMenu();
+    }
+
+    function unlinkCurrentSave() {
+        game.cloudLinked = false;
+        saveGame();
+        showCloudAccountMenu();
+    }
+
+    async function manualCloudSync() {
+        cloudBusy = true;
+        showCloudAccountMenu();
+        await performCloudPush();
+        cloudBusy = false;
+        showCloudAccountMenu();
+    }
+
+    // Grants the one-time welcome bundle (best-effort - linking still proceeds
+    // even if the bundle check itself fails) then links + uploads this save.
+    async function finalizeLinkAndUpload() {
+        try {
+            await supabaseClient.from('profiles').upsert({ id: cloudUser.id, email: cloudUser.email }, { onConflict: 'id', ignoreDuplicates: true });
+            const { data: profile } = await supabaseClient.from('profiles').select('welcome_bundle_claimed').eq('id', cloudUser.id).maybeSingle();
+            if (profile && !profile.welcome_bundle_claimed) {
+                CLOUD_WELCOME_BUNDLE.apply(game);
+                await supabaseClient.from('profiles').update({ welcome_bundle_claimed: true }).eq('id', cloudUser.id);
+                log(`🎁 ${CLOUD_WELCOME_BUNDLE.desc}`, "color-cyan");
+            }
+        } catch (e) { /* bundle grant is best-effort */ }
+
+        game.cloudLinked = true;
+        saveGame();
+        await performCloudPush();
+        cloudBusy = false;
+        updateUI();
+        showCloudAccountMenu();
+    }
+
+    function showLinkOverwriteConfirm(meta) {
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #001a2e 0%, #000814 85%)", "#22d3ee");
+        document.getElementById("console").innerHTML = `
+            <div style="font-size:44px;">⚠️</div>
+            <h2 style="color:#ffaa00;">EXISTING CLOUD SAVE FOUND</h2>
+            <p style="color:#9be; font-size:12px; max-width:340px;">This account already has a cloud save: <strong>${meta.playerName}</strong> (Day ${meta.day}) - last synced ${new Date(meta.updatedAt).toLocaleString()}.</p>
+            <p style="color:#ffaa00; font-size:12px; max-width:340px;">Linking THIS save (${game.playerName}, Day ${game.day}) will overwrite it.</p>
+        `;
+        renderButtons([
+            { text: "⚠️ Overwrite Cloud Save", class: "btn btn-villain", action: () => { cloudBusy = true; showCloudAccountMenu(); finalizeLinkAndUpload(); } },
+            { text: "⬅ Cancel", class: "btn btn-back", action: showCloudAccountMenu }
+        ]);
+    }
+
+    async function linkCurrentSaveToCloud() {
+        if (!supabaseClient || !cloudUser) return;
+        cloudBusy = true;
+        showCloudAccountMenu();
+        try {
+            const meta = await fetchCloudSaveMeta();
+            if (meta.exists) {
+                cloudBusy = false;
+                showLinkOverwriteConfirm(meta);
+                return;
+            }
+            await finalizeLinkAndUpload();
+        } catch (e) {
+            cloudBusy = false;
+            showCloudAccountMenu();
+            log("❌ Couldn't reach the cloud. Check your connection and try again.", "color-red");
+        }
+    }
+
+    // Entry point for the "☁️ Cloud Account" button: refreshes cloudSaveMeta first
+    // (if already signed in) so a returning player immediately sees whether a newer
+    // save exists elsewhere, instead of showing whatever was last cached.
+    async function openCloudAccountMenu() {
+        showCloudAccountMenu();
+        if (supabaseClient && cloudUser) {
+            await fetchCloudSaveMeta();
+            showCloudAccountMenu();
+        }
+    }
+
+    function showCloudAccountMenu() {
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #001a2e 0%, #000814 85%)", "#22d3ee");
+
+        if (!supabaseClient) {
+            document.getElementById("console").innerHTML = `
+                <div style="font-size:44px;">☁️</div>
+                <h2 style="color:#22d3ee;">CLOUD ACCOUNT</h2>
+                <p style="color:#ff6666; font-size:12px; max-width:340px;">Cloud features are temporarily unavailable - check your connection and refresh the page.</p>
+            `;
+            renderButtons([{ text: "⬅ Back", class: "btn btn-back", action: cloudMenuReturnTo || showMainMenu }]);
+            return;
+        }
+
+        if (cloudUser) {
+            let linked = !!game.cloudLinked;
+            let syncedLabel = game.cloudSyncedAt ? new Date(game.cloudSyncedAt).toLocaleString() : "never";
+            document.getElementById("console").innerHTML = `
+                <div style="font-size:44px;">☁️</div>
+                <h2 style="color:#22d3ee;">CLOUD ACCOUNT</h2>
+                <p style="color:#9be; font-size:12px;">Signed in as <strong>${cloudUser.email}</strong></p>
+                <p style="color:#9be; font-size:12px;">${linked ? `✅ This save is cloud-linked.<br>Last synced: ${syncedLabel}` : `⚪ This save is not cloud-linked yet.`}</p>
+                ${cloudBusy ? `<p style="color:#ffd700; font-size:12px;">⏳ Working...</p>` : ""}
+            `;
+            let btns = [];
+            if (!linked) {
+                btns.push({ text: "🔗 Link This Save to the Cloud", class: "btn btn-start", action: cloudBusy ? (() => {}) : linkCurrentSaveToCloud });
+            } else {
+                btns.push({ text: "🔄 Sync Now", class: "btn btn-start", action: cloudBusy ? (() => {}) : manualCloudSync });
+                btns.push({ text: "🔓 Unlink This Save", class: "btn btn-back", action: cloudBusy ? (() => {}) : unlinkCurrentSave });
+            }
+            btns.push({ text: "🚪 Log Out", class: "btn btn-villain", action: cloudBusy ? (() => {}) : cloudLogout });
+            btns.push({ text: "⬅ Back", class: "btn btn-back", action: cloudMenuReturnTo || showMainMenu });
+            renderButtons(btns);
+        } else {
+            document.getElementById("console").innerHTML = `
+                <div style="font-size:44px;">☁️</div>
+                <h2 style="color:#22d3ee;">CLOUD ACCOUNT</h2>
+                <p style="color:#9be; font-size:12px; max-width:340px;">Log in or create a Chase Studios account to sync your save across devices. Linking for the first time earns a welcome bundle!</p>
+                <div id="cloud-status-msg" style="color:#ff9966; font-size:12px; min-height:16px; margin:4px 0;"></div>
+                <input type="email" id="cloud-email-input" placeholder="Email" style="background:#111; color:#0ff; border:1px solid #0ff; padding:8px; font-family:'Courier New'; font-size:13px; border-radius:4px; width:80%; max-width:260px; text-align:center; margin-top:6px;" value="${escAttr(cloudEmailDraft)}" />
+                <input type="password" id="cloud-password-input" placeholder="Password (6+ characters)" style="background:#111; color:#0ff; border:1px solid #0ff; padding:8px; font-family:'Courier New'; font-size:13px; border-radius:4px; width:80%; max-width:260px; text-align:center; margin-top:6px;" />
+            `;
+            renderButtons([
+                { text: cloudBusy ? "..." : "🔑 Log In", class: "btn btn-start", action: cloudBusy ? (() => {}) : () => submitCloudAuth('login') },
+                { text: cloudBusy ? "..." : "✨ Sign Up", class: "btn btn-dlc", action: cloudBusy ? (() => {}) : () => submitCloudAuth('signup') },
+                { text: "⬅ Back", class: "btn btn-back", action: cloudMenuReturnTo || showMainMenu }
+            ]);
+            let emailInput = document.getElementById("cloud-email-input");
+            if (emailInput) {
+                emailInput.focus();
+                emailInput.addEventListener("input", () => { cloudEmailDraft = emailInput.value; });
+                emailInput.addEventListener("keydown", (e) => { if (e.key === "Enter") submitCloudAuth('login'); });
+            }
+            let pwInput = document.getElementById("cloud-password-input");
+            if (pwInput) pwInput.addEventListener("keydown", (e) => { if (e.key === "Enter") submitCloudAuth('login'); });
+        }
+    }
+
+    function showRestoreCloudSaveMenu() {
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #001a2e 0%, #000814 85%)", "#22d3ee");
+        document.getElementById("console").innerHTML = `
+            <div style="font-size:44px;">☁️</div>
+            <h2 style="color:#22d3ee;">RESTORE CLOUD SAVE</h2>
+            <p style="color:#9be; font-size:12px; max-width:340px;">${cloudSaveMeta.playerName} - Day ${cloudSaveMeta.day} - $${Math.floor(cloudSaveMeta.funds)}<br>Last synced: ${new Date(cloudSaveMeta.updatedAt).toLocaleString()}</p>
+            <p style="color:#ffaa00; font-size:11px; max-width:340px;">Choose a slot to restore into. Restoring will overwrite anything currently in that slot.</p>
+        `;
+        let btns = [];
+        for (let i = 1; i <= 3; i++) {
+            let rawData = localStorage.getItem(getSaveKey(i));
+            let label = rawData ? `Restore into Slot ${i} (overwrites existing save)` : `Restore into Slot ${i} (empty)`;
+            btns.push({ text: label, class: rawData ? "btn btn-villain" : "btn btn-start", action: () => restoreCloudSaveIntoSlot(i) });
+        }
+        btns.push({ text: "⬅ Cancel", class: "btn btn-back", action: showIntroScreen });
+        renderButtons(btns);
+    }
+
+    function restoreCloudSaveIntoSlot(slotNum) {
+        currentSaveSlot = slotNum;
+        game = Object.assign(defaultGameState(), cloudSaveMeta.saveData);
+        game.cloudLinked = true;
+        game.cloudSyncedAt = cloudSaveMeta.updatedAt;
+        localStorage.setItem(getSaveKey(slotNum), JSON.stringify(game));
+        showMainMenu();
+    }
+
+    function showCloudConflictPrompt(slotNum) {
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #001a2e 0%, #000814 85%)", "#22d3ee");
+        document.getElementById("console").innerHTML = `
+            <div style="font-size:44px;">☁️</div>
+            <h2 style="color:#22d3ee;">NEWER CLOUD SAVE FOUND</h2>
+            <p style="color:#9be; font-size:12px; max-width:340px;">This account's cloud save was updated more recently (last synced ${new Date(cloudSaveMeta.updatedAt).toLocaleString()}) - probably from another device.</p>
+            <p style="color:#ffaa00; font-size:11px; max-width:340px;">Load the cloud version instead of this device's copy?</p>
+        `;
+        renderButtons([
+            { text: "☁️ Load Cloud Version", class: "btn btn-start", action: () => restoreCloudSaveIntoSlot(slotNum) },
+            { text: "💾 Keep This Device's Save", class: "btn btn-back", action: showMainMenu }
+        ]);
+    }
+
+    if (supabaseClient) {
+        // Fires once immediately with whatever session is already persisted in
+        // localStorage (this is what makes a login survive a page refresh), and
+        // again on every later sign-in/out - including a login completing after
+        // an email-confirmation link.
+        supabaseClient.auth.onAuthStateChange((event, session) => {
+            cloudUser = session ? session.user : null;
+            if (cloudUser) fetchCloudSaveMeta().catch(() => {});
+        });
+    }
 
     // --- SHINY MECHANIC & BALL CATALOG ---
     const SHINY_CHANCE = 1 / 64;
@@ -1155,7 +1510,8 @@
                 animals: [],
                 animalProducts: { Egg: 0, Wool: 0, Milk: 0 }
             },
-            spouse: null
+            spouse: null,
+            cloudLinked: false, cloudSyncedAt: 0
         };
     }
 
@@ -1348,6 +1704,8 @@
         if (!game.unlockedCostumes) game.unlockedCostumes = [];
         if (typeof game.freeSpins !== 'number') game.freeSpins = 0;
         if (!game.currentDailyEvent) game.currentDailyEvent = { name: "Calm Multiverse", desc: "A peaceful day." };
+        if (typeof game.cloudLinked !== 'boolean') game.cloudLinked = false;
+        if (typeof game.cloudSyncedAt !== 'number') game.cloudSyncedAt = 0;
 
         document.getElementById("funds-display").innerText = Math.floor(game.funds || 0);
         document.getElementById("stamina-display").innerText = game.stamina || 0;
@@ -1368,6 +1726,7 @@
         localStorage.setItem(getSaveKey(currentSaveSlot), JSON.stringify(game));
         syncTrainerPresence();
         showSaveToast();
+        scheduleCloudPush();
     }
 
     function renderButtons(buttons) {
@@ -1407,6 +1766,10 @@
             slotButtons.push({ text: label, class: (hasData ? "btn btn-dlc" : "btn btn-sys") + " title-menu-btn", action: () => selectSaveSlot(i, hasData) });
         }
         slotButtons.push({ text: "🗑️ Delete Save Slot", class: "btn btn-back title-menu-btn", action: showDeleteSaveSlotsScreen });
+        slotButtons.push({ text: cloudUser ? "☁️ Cloud Account (Signed In)" : "☁️ Cloud Account", class: "btn btn-sys title-menu-btn", action: () => { cloudMenuReturnTo = showIntroScreen; openCloudAccountMenu(); } });
+        if (cloudUser && cloudSaveMeta.exists) {
+            slotButtons.push({ text: `☁️ Restore Cloud Save (${cloudSaveMeta.playerName}, Day ${cloudSaveMeta.day})`, class: "btn btn-dlc title-menu-btn", action: showRestoreCloudSaveMenu });
+        }
 
         document.getElementById("console").innerHTML = `
             <div class="title-stage">
@@ -1463,6 +1826,14 @@
                 game = Object.assign(defaultGameState(), JSON.parse(localStorage.getItem(getSaveKey(slotNum))));
                 if (game.staff.length === 0) { finalizeStarter(9001, 20); return; }
             } catch (err) { game = defaultGameState(); }
+
+            // If this slot is cloud-linked and the account's cloud save was updated
+            // more recently than we last synced (played on another device), offer
+            // to load that instead of silently overwriting it on the next save.
+            if (game.cloudLinked && cloudUser && cloudSaveMeta.exists && cloudSaveMeta.updatedAt > (game.cloudSyncedAt || 0) + 2000) {
+                showCloudConflictPrompt(slotNum);
+                return;
+            }
             showMainMenu();
         } else {
             game = defaultGameState();
@@ -1700,6 +2071,7 @@
             { text: "🎁 Redeem Code", class: "btn btn-sys", action: () => showRedeemCodeMenu() },
             { text: "🔒 Premium DLC Portals", class: "btn btn-dlc", action: openDLCDispatch },
             { text: "🌐 Online Hub & Co-Op", class: "btn btn-sys", action: showOnlineLobbyGate },
+            { text: cloudUser ? "☁️ Cloud Account (Signed In)" : "☁️ Cloud Account", class: "btn btn-sys", action: () => { cloudMenuReturnTo = showMainMenu; openCloudAccountMenu(); } },
             { text: "📜 Credits", class: "btn btn-sys", action: showCreditsMenu },
             { text: "💤 Sleep (Next Day)", action: triggerRestCycleAnimation },
             { text: "📁 Switch Slot", class: "btn btn-back", action: showIntroScreen }
