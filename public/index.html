@@ -667,6 +667,7 @@
             color: "#ffaa00",
             animClass: "desert-scene",
             icon: "🏜️",
+            music: "desert",
             monsters: [
                 { name: "Sand Scuttler", hp: 100, dmg: 15, reward: 600 },
                 { name: "Dune Bandit", hp: 130, dmg: 20, reward: 950 },
@@ -679,6 +680,7 @@
             color: "#ff3300",
             animClass: "volcano-scene",
             icon: "🌋",
+            music: "volcano",
             monsters: [
                 { name: "Magma Elemental", hp: 150, dmg: 24, reward: 1300 },
                 { name: "Ash Drake", hp: 200, dmg: 30, reward: 1800 }
@@ -863,7 +865,19 @@
         halloween: new Audio('/music/halloween.mp3'),
         summer: new Audio('/music/summer.mp3'),
         love: new Audio('/music/love.mp3'),
-        saintPaddys: new Audio(encodeURI('/music/saint paddys .mp3'))
+        saintPaddys: new Audio(encodeURI('/music/saint paddys .mp3')),
+        standard: new Audio('/music/standard portal.mp3'),
+        femboyHooters: new Audio('/music/femboy hooters portal.mp3'),
+        bikiniBottom: new Audio('/music/bikini bottom.mp3'),
+        animeArena: new Audio('/music/anime.mp3'),
+        superheroMultiverse: new Audio('/music/superhero.mp3'),
+        fantasyQuest: new Audio('/music/fantasy.mp3'),
+        gameLegends: new Audio('/music/game legends.mp3'),
+        maidCafe: new Audio('/music/anime maid cafe.mp3'),
+        casino: new Audio('/music/casino.mp3'),
+        mining: new Audio('/music/mining.mp3'),
+        desert: new Audio('/music/desert.mp3'),
+        volcano: new Audio('/music/volcano.mp3')
     };
 
     let currentTrackName = null;
@@ -1589,7 +1603,7 @@
     const CASINO_BET_TIERS = [50, 100, 250, 500];
 
     function showCasinoMenu() {
-        playBGM('shop');
+        playBGM('casino');
         clearConsole("center", "radial-gradient(circle at 50% 30%, #330022 0%, #0a000a 85%)", "#ff00aa");
         document.getElementById("console").innerHTML = `
             <div style="font-size:50px; margin-bottom:8px;">🎰</div>
@@ -2660,18 +2674,18 @@
         playBGM('dlcHub');
         clearConsole("center", "radial-gradient(circle at 50% 50%, #4d004d 0%, #1a001a 80%)", "#ff00ff");
         renderButtons([
-            { text: "🌌 Standard Multiverse", class: "btn btn-sys", action: () => triggerPortalTheme("standard", 'hq') },
-            { text: "🦉 Femboy Hooters", class: "btn btn-hooters", action: () => triggerPortalTheme("femboyHooters", 'staff') },
-            { text: "🍍 Bikini Bottom", class: "btn btn-bikini", action: () => triggerPortalTheme("bikiniBottom", 'shop') },
+            { text: "🌌 Standard Multiverse", class: "btn btn-sys", action: () => triggerPortalTheme("standard", 'standard') },
+            { text: "🦉 Femboy Hooters", class: "btn btn-hooters", action: () => triggerPortalTheme("femboyHooters", 'femboyHooters') },
+            { text: "🍍 Bikini Bottom", class: "btn btn-bikini", action: () => triggerPortalTheme("bikiniBottom", 'bikiniBottom') },
             { text: "🎃 Halloween Portal", class: "btn btn-halloween", action: () => triggerPortalTheme("halloween", 'halloween') },
             { text: "🎄 Christmas Realm", class: "btn btn-farm", action: () => triggerPortalTheme("christmasPortal", 'christmas') },
             { text: "💖 Valentine Portal", class: "btn btn-maid", action: () => triggerPortalTheme("valentinePortal", 'love') },
             { text: "☘️ Saint Paddy's Realm", class: "btn btn-mine", action: () => triggerPortalTheme("paddysPortal", 'saintPaddys') },
             { text: "☀️ Summer Beach Rift", class: "btn btn-cyber", action: () => triggerPortalTheme("summerPortal", 'summer') },
-            { text: "🥋 Anime Arena", class: "btn btn-combat", action: () => triggerPortalTheme("animeArena", 'battle') },
-            { text: "🦸 Superhero Multiverse", class: "btn btn-raid", action: () => triggerPortalTheme("superheroMultiverse", 'villain') },
-            { text: "🐉 Fantasy Quest", class: "btn btn-goth", action: () => triggerPortalTheme("fantasyQuest", 'rift') },
-            { text: "🎮 Game Legends", class: "btn btn-waffle", action: () => triggerPortalTheme("gameLegends", 'dlcHub') },
+            { text: "🥋 Anime Arena", class: "btn btn-combat", action: () => triggerPortalTheme("animeArena", 'animeArena') },
+            { text: "🦸 Superhero Multiverse", class: "btn btn-raid", action: () => triggerPortalTheme("superheroMultiverse", 'superheroMultiverse') },
+            { text: "🐉 Fantasy Quest", class: "btn btn-goth", action: () => triggerPortalTheme("fantasyQuest", 'fantasyQuest') },
+            { text: "🎮 Game Legends", class: "btn btn-waffle", action: () => triggerPortalTheme("gameLegends", 'gameLegends') },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
@@ -2838,7 +2852,7 @@
         `;
         renderButtons([
             { text: "🥞 Goth IHOP", class: "btn btn-goth", action: () => triggerPortalTheme("gothIhop", 'shop') },
-            { text: "🏰 Anime Maid Café", class: "btn btn-maid", action: () => triggerPortalTheme("maidCafe", 'staff') },
+            { text: "🏰 Anime Maid Café", class: "btn btn-maid", action: () => triggerPortalTheme("maidCafe", 'maidCafe') },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
@@ -3792,6 +3806,7 @@
         let reg = REGIONS_DATA[regionKey];
         game.location = reg.name;
         updateUI(); saveGame();
+        if (reg.music) playBGM(reg.music);
 
         clearConsole("center", reg.bg, reg.color);
         let animDivClass = reg.animClass ? reg.animClass : '';
@@ -3843,7 +3858,7 @@
     }
 
     function showMiningHub() {
-        playBGM('horror');
+        playBGM('mining');
         clearConsole("flex-start", "radial-gradient(circle at 50% 35%, #1a0f00 0%, #050200 85%)", "#ff8800");
         
         let inventoryHTML = `<div style="width:98%; max-width:380px; background:#0b0800; border:1px dashed #ffaa0088; border-radius:6px; padding:6px; margin:6px 0; text-align:left;">
