@@ -84,7 +84,30 @@ function broadcastGlobalStats() {
 //   (Windows)  set ADMIN_PASSWORD=your-real-password && node server.js
 //   (Mac/Linux) ADMIN_PASSWORD=your-real-password node server.js
 // The fallback below is only for local testing - change it before going live.
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "unidex-admin-2026";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "raven";
+
+// ---- Registered accounts (Supabase, service-role) ----
+// The client only ever uses the public anon key (see public/index.html), which is
+// locked down by row-level security to "each account can see its own row". Listing
+// EVERY registered account for the admin panel needs the service_role key instead,
+// which bypasses RLS entirely - so it must never be shipped to the browser. Set it
+// server-side only:
+//   (Windows)  set SUPABASE_SERVICE_ROLE_KEY=your-service-role-key && node server.js
+//   (Mac/Linux) SUPABASE_SERVICE_ROLE_KEY=your-service-role-key node server.js
+// (Find it in the Supabase dashboard: Project Settings -> API -> service_role secret.)
+// Without it, the "Registered Accounts" panel just shows a setup hint instead of data -
+// nothing else breaks.
+const SUPABASE_URL = "https://rvetucuqburqnrgoatui.supabase.co";
+let supabaseAdmin = null;
+if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+        const { createClient } = require('@supabase/supabase-js');
+        supabaseAdmin = createClient(SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    } catch (e) {
+        console.warn("SUPABASE_SERVICE_ROLE_KEY is set but @supabase/supabase-js isn't installed - run `npm install` to enable the Registered Accounts admin panel.");
+        supabaseAdmin = null;
+    }
+}
 
 const serverStartTime = Date.now();
 let peakOnline = 0;
@@ -121,14 +144,53 @@ function broadcastAdminStats() {
     });
 }
 
+// Pulls every registered account (profiles) and left-joins each one's cloud save
+// summary, using the service-role client so RLS doesn't limit it to one row.
+async function fetchRegisteredPlayers() {
+    if (!supabaseAdmin) return { available: false };
+    try {
+        const { data: profiles, error: profileErr } = await supabaseAdmin
+            .from('profiles')
+            .select('id, email, welcome_bundle_claimed, created_at')
+            .order('created_at', { ascending: false });
+        if (profileErr) throw profileErr;
+
+        const { data: saves, error: saveErr } = await supabaseAdmin
+            .from('player_saves')
+            .select('user_id, updated_at, save_data');
+        if (saveErr) throw saveErr;
+
+        const saveByUser = new Map((saves || []).map(s => [s.user_id, s]));
+        const players = (profiles || []).map(p => {
+            const save = saveByUser.get(p.id);
+            const sd = save ? (save.save_data || {}) : null;
+            return {
+                id: p.id,
+                email: p.email,
+                createdAt: p.created_at,
+                welcomeBundleClaimed: !!p.welcome_bundle_claimed,
+                hasCloudSave: !!save,
+                lastSynced: save ? save.updated_at : null,
+                playerName: sd ? sd.playerName : null,
+                day: sd ? sd.day : null,
+                funds: sd ? sd.funds : null
+            };
+        });
+        return { available: true, players, total: players.length };
+    } catch (e) {
+        return { available: false, error: "Query failed - double-check SUPABASE_SERVICE_ROLE_KEY and that the profiles/player_saves tables exist." };
+    }
+}
+
 adminIo.on('connection', (socket) => {
     socket.emit('needAuth');
 
-    socket.on('authenticate', (password) => {
+    socket.on('authenticate', async (password) => {
         if (typeof password === 'string' && password === ADMIN_PASSWORD) {
             authenticatedAdminIds.add(socket.id);
             socket.emit('authResult', { success: true });
             socket.emit('statsUpdate', buildAdminStats());
+            socket.emit('registeredPlayersResult', await fetchRegisteredPlayers());
         } else {
             socket.emit('authResult', { success: false });
         }
@@ -138,6 +200,50 @@ adminIo.on('connection', (socket) => {
         if (authenticatedAdminIds.has(socket.id)) {
             socket.emit('statsUpdate', buildAdminStats());
         }
+    });
+
+    socket.on('requestRegisteredPlayers', async () => {
+        if (!authenticatedAdminIds.has(socket.id)) return;
+        socket.emit('registeredPlayersResult', await fetchRegisteredPlayers());
+    });
+
+    // Switches the live raid boss and gives it a full-HP reset. Reuses the same guard
+    // players get (selectRaidTier) isn't applied here on purpose - an admin should be
+    // able to force a swap even mid-fight if something's stuck.
+    socket.on('adminSetRaidTier', (tierKey) => {
+        if (!authenticatedAdminIds.has(socket.id) || !raidBosses[tierKey]) return;
+        activeRaidKey = tierKey;
+        raidBosses[activeRaidKey].hp = raidBosses[activeRaidKey].maxHp;
+        io.emit('raidBossUpdate', raidBosses[activeRaidKey]);
+        broadcastAdminStats();
+    });
+
+    socket.on('adminHealRaidBoss', () => {
+        if (!authenticatedAdminIds.has(socket.id)) return;
+        const boss = raidBosses[activeRaidKey];
+        boss.hp = boss.maxHp;
+        io.emit('raidBossUpdate', boss);
+        broadcastAdminStats();
+    });
+
+    // Drops a message into the same global chat feed every player already has open,
+    // tagged so it reads as an official notice rather than another trainer talking.
+    socket.on('adminBroadcast', (text) => {
+        if (!authenticatedAdminIds.has(socket.id)) return;
+        let msg = typeof text === 'string' ? text.trim().slice(0, 300) : '';
+        if (!msg) return;
+        const entry = { name: "📢 ADMIN", text: msg, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+        globalChatHistory.push(entry);
+        if (globalChatHistory.length > 50) globalChatHistory.shift();
+        io.emit('receiveGlobalMessage', entry);
+    });
+
+    socket.on('adminKickPlayer', (targetSocketId) => {
+        if (!authenticatedAdminIds.has(socket.id) || typeof targetSocketId !== 'string') return;
+        const target = io.sockets.sockets.get(targetSocketId);
+        if (!target) return;
+        target.emit('kickedByAdmin', { reason: "Disconnected by an administrator." });
+        setTimeout(() => target.disconnect(true), 250);
     });
 
     socket.on('disconnect', () => {

@@ -96,6 +96,23 @@
             <div id="raid-name" style="color:#ff8888; font-size:13px;">—</div>
             <div class="raid-bar-bg"><div class="raid-bar-fill" id="raid-bar" style="width:0%;"></div></div>
             <div id="raid-hp-text" style="color:#aaa; font-size:11px; margin-top:4px;">—</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+                <select id="raid-tier-select" style="background:#111; color:#ff8888; border:1px solid #ff3333; padding:6px 8px; font-family:'Courier New'; font-size:11px; border-radius:4px;">
+                    <option value="titan">Void Titan Chronos (Lv. 50)</option>
+                    <option value="dragon">Shadow Dragon Netherfang (Lv. 90)</option>
+                </select>
+                <button class="refresh-btn" id="raid-switch-btn">🔁 Switch &amp; Reset Boss</button>
+                <button class="refresh-btn" id="raid-heal-btn">🩹 Full Heal Current Boss</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>📢 Broadcast to All Players</h2>
+            <p style="color:#888; font-size:11px; margin:0 0 8px 0;">Posts into every connected player's global chat feed, tagged as an official notice.</p>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <input type="text" id="broadcast-input" placeholder="Message to send to all connected players..." maxlength="300" style="flex:1; min-width:220px; background:#111; color:#0f0; border:1px solid #00ffff; padding:8px; font-family:'Courier New'; font-size:12px; border-radius:6px;" />
+                <button id="broadcast-btn" class="refresh-btn">📢 Send</button>
+            </div>
         </div>
 
         <div class="panel">
@@ -103,10 +120,39 @@
             <div style="overflow-x:auto;">
             <table>
                 <thead>
-                    <tr><th>Trainer</th><th>Save Slot</th><th>Location</th><th>Champion</th><th>Power</th><th>Funds</th><th>Connected</th></tr>
+                    <tr><th>Trainer</th><th>Save Slot</th><th>Location</th><th>Champion</th><th>Power</th><th>Funds</th><th>Connected</th><th></th></tr>
                 </thead>
                 <tbody id="players-body">
-                    <tr class="empty-row"><td colspan="7">No players connected.</td></tr>
+                    <tr class="empty-row"><td colspan="8">No players connected.</td></tr>
+                </tbody>
+            </table>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>👤 Registered Accounts</h2>
+            <div id="registered-players-note" style="color:#888; font-size:11px; margin-bottom:8px;">Loading...</div>
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>Email</th><th>Trainer</th><th>Signed Up</th><th>Welcome Bundle</th><th>Cloud Save</th><th>Day</th><th>Funds</th><th>Last Synced</th></tr>
+                </thead>
+                <tbody id="registered-players-body">
+                    <tr class="empty-row"><td colspan="8">Loading...</td></tr>
+                </tbody>
+            </table>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>🛍️ Global Market Listings</h2>
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>Item</th><th>Price</th><th>Seller</th></tr>
+                </thead>
+                <tbody id="market-body">
+                    <tr class="empty-row"><td colspan="3">No active listings.</td></tr>
                 </tbody>
             </table>
             </div>
@@ -170,6 +216,7 @@
         });
 
         socket.on('statsUpdate', renderStats);
+        socket.on('registeredPlayersResult', renderRegisteredPlayers);
     }
 
     function setConnStatus(isOnline) {
@@ -193,10 +240,12 @@
         let pct = boss.maxHp > 0 ? Math.max(0, Math.min(100, (boss.hp / boss.maxHp) * 100)) : 0;
         document.getElementById('raid-bar').style.width = pct + '%';
         document.getElementById('raid-hp-text').innerText = `${boss.hp} / ${boss.maxHp} HP — Reward: $${boss.reward}`;
+        let raidSelect = document.getElementById('raid-tier-select');
+        if (raidSelect && boss.key && document.activeElement !== raidSelect) raidSelect.value = boss.key;
 
         let pBody = document.getElementById('players-body');
         if (!stats.players.length) {
-            pBody.innerHTML = '<tr class="empty-row"><td colspan="7">No players connected.</td></tr>';
+            pBody.innerHTML = '<tr class="empty-row"><td colspan="8">No players connected.</td></tr>';
         } else {
             pBody.innerHTML = stats.players.map(p => {
                 let connSec = Math.floor((Date.now() - (p.connectedAt || Date.now())) / 1000);
@@ -208,8 +257,20 @@
                     <td>${p.power}</td>
                     <td>$${p.funds}</td>
                     <td>${fmtDuration(connSec)}</td>
+                    <td><button class="logout-btn" style="padding:4px 8px; font-size:10.5px; border-color:#ff3333; color:#ff6666;" onclick="kickPlayer('${p.id}', '${escapeHtml(p.name).replace(/'/g, "\\'")}')">⛔ Kick</button></td>
                 </tr>`;
             }).join('');
+        }
+
+        let mBody = document.getElementById('market-body');
+        if (!stats.marketListings.length) {
+            mBody.innerHTML = '<tr class="empty-row"><td colspan="3">No active listings.</td></tr>';
+        } else {
+            mBody.innerHTML = stats.marketListings.map(l => `<tr>
+                <td>${escapeHtml(l.item)}</td>
+                <td>$${l.price}</td>
+                <td>${escapeHtml(l.sellerName)}</td>
+            </tr>`).join('');
         }
 
         let rBody = document.getElementById('rooms-body');
@@ -222,6 +283,39 @@
                 <td>${r.players.map(p => escapeHtml(p.name || p.playerName || 'Trainer')).join(', ') || '—'}</td>
             </tr>`).join('');
         }
+    }
+
+    function renderRegisteredPlayers(result) {
+        let note = document.getElementById('registered-players-note');
+        let body = document.getElementById('registered-players-body');
+        if (!result || !result.available) {
+            note.innerHTML = (result && result.error)
+                ? `⚠️ ${escapeHtml(result.error)}`
+                : `⚠️ Not configured yet. Set <code>SUPABASE_SERVICE_ROLE_KEY</code> in the server's environment (Supabase dashboard → Project Settings → API → service_role secret), run <code>npm install</code>, and restart the server to see every registered account here.`;
+            body.innerHTML = '<tr class="empty-row"><td colspan="8">Unavailable.</td></tr>';
+            return;
+        }
+        note.innerText = `${result.total} registered account${result.total === 1 ? '' : 's'}.`;
+        if (!result.players.length) {
+            body.innerHTML = '<tr class="empty-row"><td colspan="8">No registered accounts yet.</td></tr>';
+            return;
+        }
+        body.innerHTML = result.players.map(p => `<tr>
+            <td>${escapeHtml(p.email || '—')}</td>
+            <td>${escapeHtml(p.playerName || '—')}</td>
+            <td>${p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '—'}</td>
+            <td>${p.welcomeBundleClaimed ? '✅' : '—'}</td>
+            <td>${p.hasCloudSave ? '☁️ Linked' : '—'}</td>
+            <td>${p.day != null ? p.day : '—'}</td>
+            <td>${p.funds != null ? '$' + p.funds : '—'}</td>
+            <td>${p.lastSynced ? new Date(p.lastSynced).toLocaleString() : '—'}</td>
+        </tr>`).join('');
+    }
+
+    function kickPlayer(socketId, name) {
+        if (!socket || !socket.connected || !authenticated) return;
+        if (!confirm(`Disconnect ${name} from the server?`)) return;
+        socket.emit('adminKickPlayer', socketId);
     }
 
     function escapeHtml(str) {
@@ -242,7 +336,29 @@
         if (e.key === 'Enter') document.getElementById('login-btn').click();
     });
     document.getElementById('refresh-btn').addEventListener('click', () => {
-        if (socket && socket.connected && authenticated) socket.emit('requestStats');
+        if (socket && socket.connected && authenticated) {
+            socket.emit('requestStats');
+            socket.emit('requestRegisteredPlayers');
+        }
+    });
+    document.getElementById('raid-switch-btn').addEventListener('click', () => {
+        if (!socket || !socket.connected || !authenticated) return;
+        let tier = document.getElementById('raid-tier-select').value;
+        socket.emit('adminSetRaidTier', tier);
+    });
+    document.getElementById('raid-heal-btn').addEventListener('click', () => {
+        if (socket && socket.connected && authenticated) socket.emit('adminHealRaidBoss');
+    });
+    document.getElementById('broadcast-btn').addEventListener('click', () => {
+        if (!socket || !socket.connected || !authenticated) return;
+        let input = document.getElementById('broadcast-input');
+        let text = input.value.trim();
+        if (!text) return;
+        socket.emit('adminBroadcast', text);
+        input.value = '';
+    });
+    document.getElementById('broadcast-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('broadcast-btn').click();
     });
     document.getElementById('logout-btn').addEventListener('click', () => {
         if (socket) socket.disconnect();

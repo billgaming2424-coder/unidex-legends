@@ -1118,6 +1118,10 @@
         socket.on('playerJoinedServer', (data) => {
             showJoinToast(data.name || "A trainer");
         });
+
+        socket.on('kickedByAdmin', (data) => {
+            showGameAlert(`🛡️ ${data && data.reason ? data.reason : "You were disconnected by an administrator."}`);
+        });
     }
 
     function showJoinToast(name) {
