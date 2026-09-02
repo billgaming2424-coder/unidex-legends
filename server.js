@@ -31,11 +31,38 @@ function normalizePvpParty(rawParty) {
     }).filter(m => m.hp > 0);
 }
 
+// HP boosted ~1.4x (same ENEMY_HP_MULTIPLIER used client-side for regular enemies).
+// baseAtk/armorPen are new - the raid boss never retaliated against players at all
+// before this pass, so there was no prior ATK value to scale up from.
 let raidBosses = {
-    titan: { name: "Void Titan Chronos", hp: 5000, maxHp: 5000, level: 50, reward: 2500 },
-    dragon: { name: "Shadow Dragon Netherfang", hp: 12000, maxHp: 12000, level: 90, reward: 8000 }
+    titan: { name: "Void Titan Chronos", hp: 7000, maxHp: 7000, level: 50, reward: 2500, baseAtk: 45, armorPen: 0.2 },
+    dragon: { name: "Shadow Dragon Netherfang", hp: 17000, maxHp: 17000, level: 90, reward: 8000, baseAtk: 90, armorPen: 0.3 }
 };
 let activeRaidKey = "titan";
+
+// ---- Combat balance (raid boss retaliation) ----
+// Mirrors the client-side constants/formula in public/index.html
+// (DEFENSE_MITIGATION_K / MIN_TRUE_DAMAGE_FLOOR / computeMitigatedDamage) - keep
+// both copies in sync if these get retuned, since there's no shared module between
+// the browser and this server.
+const RAID_ENRAGE_HP_PCT = 0.30;      // boss enrages once at or below this % of max HP
+const RAID_ENRAGE_ATK_MULT = 1.5;
+const RAID_BOSS_CRIT_CHANCE = 0.12;
+const RAID_BOSS_CRIT_MULTIPLIER = 1.5;
+const DEFENSE_MITIGATION_K = 50;
+const MIN_TRUE_DAMAGE_FLOOR = 3;
+
+// Asymptotic mitigation (defense / (defense + K)) can approach but never reach 100%
+// reduction, and armorPenPct further shrinks the defense the formula sees. The
+// MIN_TRUE_DAMAGE_FLOOR is a second, independent backstop on top of that - together
+// these are what make a 0-damage hit impossible (this was the reported bug: with no
+// formula like this in place at all, the boss simply never dealt any damage).
+function computeMitigatedDamage(rawDamage, defense, armorPenPct) {
+    const effectiveDefense = Math.max(0, (defense || 0) * (1 - (armorPenPct || 0)));
+    const mitigation = effectiveDefense / (effectiveDefense + DEFENSE_MITIGATION_K);
+    const mitigated = rawDamage * (1 - mitigation);
+    return Math.max(MIN_TRUE_DAMAGE_FLOOR, Math.round(mitigated));
+}
 
 function broadcastGlobalStats() {
     const userList = Array.from(onlineUsers.values());
@@ -249,7 +276,7 @@ io.on('connection', (socket) => {
         broadcastAdminStats();
     });
 
-    socket.on('attackRaidBoss', ({ damage, trainerName, championName }) => {
+    socket.on('attackRaidBoss', ({ damage, trainerName, championName, defense }) => {
         const currentBoss = raidBosses[activeRaidKey];
         // Once the boss is at 0 HP it's waiting on its 25s respawn timer - without this
         // guard, every stray hit during that window re-broadcast isDefeated:true (with
@@ -274,6 +301,16 @@ io.on('connection', (socket) => {
                 io.emit('raidBossUpdate', currentBoss);
                 broadcastAdminStats();
             }, 25000);
+        } else {
+            // The boss strikes back at whoever just landed a hit (not a kill - no point
+            // retaliating from beyond the grave). Enrage phase kicks in under 30% HP.
+            const enraged = currentBoss.hp <= currentBoss.maxHp * RAID_ENRAGE_HP_PCT;
+            const baseAtk = currentBoss.baseAtk || 40;
+            const atk = enraged ? Math.round(baseAtk * RAID_ENRAGE_ATK_MULT) : baseAtk;
+            const isCrit = Math.random() < RAID_BOSS_CRIT_CHANCE;
+            const rawRetaliation = atk * (isCrit ? RAID_BOSS_CRIT_MULTIPLIER : 1);
+            const retaliation = computeMitigatedDamage(rawRetaliation, defense, currentBoss.armorPen || 0.15);
+            socket.emit('raidBossRetaliate', { damage: retaliation, isCrit, enraged, bossName: currentBoss.name });
         }
         broadcastAdminStats();
     });

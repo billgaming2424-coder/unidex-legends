@@ -882,6 +882,43 @@
     const BALL_EMOJI = { "Pokéball": "🔴", "Great Ball": "🔵", "Ultra Ball": "🟠", "Master Ball": "🟣" };
     const BALL_ORDER = ["Pokéball", "Great Ball", "Ultra Ball", "Master Ball"];
 
+    // ==================================================================
+    // COMBAT BALANCE (client side - Cave Monster / Regional Monster fights
+    // and the co-op raid boss). Mirrored server-side in server.js for the
+    // raid boss's retaliation damage - keep DEFENSE_MITIGATION_K and
+    // MIN_TRUE_DAMAGE_FLOOR in sync between the two if you retune them.
+    // ==================================================================
+    const ENEMY_HP_MULTIPLIER = 1.4;   // across-the-board enemy HP boost
+    const ENEMY_ATK_MULTIPLIER = 1.5;  // across-the-board enemy ATK boost
+    const ENEMY_CRIT_CHANCE = 0.12;
+    const ENEMY_CRIT_MULTIPLIER = 1.5;
+    const DEFENSE_MITIGATION_K = 50;   // higher K = defense matters less per point
+    const MIN_TRUE_DAMAGE_FLOOR = 3;   // every landed hit deals at least this much, no matter how tanky the target is
+
+    // Defense scales off a fighter's own power stat - there's no separate gear
+    // stat system yet (equippedGear is currently cosmetic), so this is the one
+    // knob that currently feeds mitigation. Bump the 0.25 multiplier (or wire
+    // in real gear bonuses here later) to make defense matter more.
+    function getFighterDefense(fighter) {
+        return Math.round(((fighter && fighter.power) || 30) * 0.25);
+    }
+
+    // Asymptotic mitigation curve (defense / (defense + K)) can approach but
+    // can never reach 100% reduction no matter how high defense climbs, and
+    // armorPenPct (0-1) further shrinks the defense the formula sees. The
+    // MIN_TRUE_DAMAGE_FLOOR is a second, independent backstop on top of that -
+    // together these are what make a 0-damage hit impossible.
+    function computeMitigatedDamage(rawDamage, defense, armorPenPct) {
+        let effectiveDefense = Math.max(0, (defense || 0) * (1 - (armorPenPct || 0)));
+        let mitigation = effectiveDefense / (effectiveDefense + DEFENSE_MITIGATION_K);
+        let mitigated = rawDamage * (1 - mitigation);
+        return Math.max(MIN_TRUE_DAMAGE_FLOOR, Math.round(mitigated));
+    }
+
+    function rollEnemyCrit() {
+        return Math.random() < ENEMY_CRIT_CHANCE;
+    }
+
     // Every captured character used to start at a flat power of 42 - gives wild/portal
     // encounters a bit of natural variance instead (same average, so this isn't a nerf).
     function rollEncounterPower() {
@@ -3937,14 +3974,28 @@
         startCoopRaidSession();
     }
 
+    // The raid boss previously never damaged players at all - striking it only ever
+    // reduced its shared HP pool server-side. raidPlayerFighter is a lightweight local
+    // combatant (not the persistent roster entry) that takes the boss's retaliation hits.
+    let raidPlayerFighter = null;
+
     function startCoopRaidSession() {
         raidScreenActive = true;
+        let champ = getChampion();
+        raidPlayerFighter = {
+            name: champ.name,
+            power: champ.power || 30,
+            maxHp: 100,
+            hp: 100,
+            defense: getFighterDefense(champ)
+        };
         renderRaidBossScreen();
     }
 
     function renderRaidBossScreen() {
         playBGM('villain');
         let boss = currentRaidBossState || { name: "Contacting raid server...", hp: 0, maxHp: 1, level: 1, reward: 0 };
+        let pf = raidPlayerFighter || { name: "Fighter", hp: 100, maxHp: 100 };
         clearConsole("center", "radial-gradient(circle at 50% 30%, #3a0000 0%, #0a0002 85%)", "#ff0055");
         document.getElementById("console").innerHTML = `
             <h2 style="color:#ff0055; text-shadow: 0 0 10px #ff0055; font-size:18px;">🐲 CO-OP RAID BOSS</h2>
@@ -3952,19 +4003,24 @@
                 <strong style="color:#ff3333; font-size:16px;">${boss.name}</strong> (Lv. ${boss.level})<br>
                 ❤️ Raid HP: <span style="color:#ff3333;" id="raid-boss-hp">${boss.hp} / ${boss.maxHp}</span>
             </div>
-            <p id="raid-combat-log" style="color:#ffff00; font-size:12px;">Every trainer online can strike this SAME boss right now - your hits (and theirs) land live!</p>
+            <div class="dex-card" style="display:block; text-align:center; font-size:12px; margin-top:6px;">
+                <strong style="color:#00ffff;">${pf.name}</strong><br>
+                ❤️ Your HP: <span style="color:#33ff33;" id="raid-player-hp">${pf.hp} / ${pf.maxHp}</span>
+            </div>
+            <p id="raid-combat-log" style="color:#ffff00; font-size:12px;">Every trainer online can strike this SAME boss right now - your hits (and theirs) land live! It strikes back, and enrages under 30% HP.</p>
         `;
         renderButtons([
-            { text: "💥 Strike the Boss!", class: "btn btn-raid", action: executeRaidStrike },
+            { text: pf.hp > 0 ? "💥 Strike the Boss!" : "💤 Fighter Down - Leave to Heal", class: "btn btn-raid", action: executeRaidStrike },
             { text: "🏃 Leave Raid", class: "btn btn-back", action: () => { raidScreenActive = false; renderActiveLobbyView(); } }
         ]);
     }
 
     function executeRaidStrike() {
         if (!socket || !socket.connected) { showGameAlert("Not connected to the server - can't reach the raid boss right now."); return; }
+        if (!raidPlayerFighter || raidPlayerFighter.hp <= 0) { showGameAlert("Your fighter is down! Retreat and heal before striking again."); return; }
         let lead = getChampion();
         let dmg = (lead.power || 35) + Math.floor(Math.random() * 20);
-        socket.emit('attackRaidBoss', { damage: dmg, trainerName: game.playerName, championName: lead.name });
+        socket.emit('attackRaidBoss', { damage: dmg, trainerName: game.playerName, championName: lead.name, defense: raidPlayerFighter.defense });
     }
 
     if (socket) {
@@ -4012,6 +4068,24 @@
                     `;
                     renderButtons([{ text: "✔ Return to Lobby", class: "btn btn-start", action: renderActiveLobbyView }]);
                 }, 900);
+            }
+        });
+
+        // The boss strikes back at whoever just hit it - sent only to that one socket,
+        // never broadcast, since it's retaliation against a single striker's fighter.
+        socket.on('raidBossRetaliate', ({ damage, isCrit, enraged, bossName }) => {
+            if (!raidPlayerFighter) return;
+            raidPlayerFighter.hp = Math.max(0, raidPlayerFighter.hp - (damage || 0));
+            if (!raidScreenActive) return;
+            let critTag = isCrit ? " 💢 CRITICAL HIT!" : "";
+            let enrageTag = enraged ? " 🔥 ENRAGED!" : "";
+            let logEl = document.getElementById("raid-combat-log");
+            if (logEl) logEl.innerHTML = `<span style="color:#ff6666;">${bossName} strikes back for ${damage}!${critTag}${enrageTag}</span>`;
+            let hpEl = document.getElementById("raid-player-hp");
+            if (hpEl) hpEl.innerText = `${raidPlayerFighter.hp} / ${raidPlayerFighter.maxHp}`;
+            if (raidPlayerFighter.hp <= 0) {
+                renderRaidBossScreen();
+                showGameAlert(`${raidPlayerFighter.name} was knocked out by ${bossName}! Leave the raid to send them back in at full HP.`);
             }
         });
 
@@ -4324,12 +4398,16 @@
         playBGM('battle');
         let reg = REGIONS_DATA[regionKey];
         let randomMob = reg.monsters[Math.floor(Math.random() * reg.monsters.length)];
+        // Scaled at the point of encounter rather than in REGIONS_DATA itself, so the
+        // HP/ATK boost applies uniformly to every regional monster with one change.
+        let scaledHP = Math.round(randomMob.hp * ENEMY_HP_MULTIPLIER);
 
         activeCombatSession = {
             enemyName: randomMob.name,
-            enemyHP: randomMob.hp,
-            enemyMaxHP: randomMob.hp,
-            enemyDmg: randomMob.dmg,
+            enemyHP: scaledHP,
+            enemyMaxHP: scaledHP,
+            enemyDmg: Math.round(randomMob.dmg * ENEMY_ATK_MULTIPLIER),
+            enemyArmorPen: randomMob.armorPen || 0.1,
             rewardCash: randomMob.reward,
             regionKey: regionKey,
             party: buildCombatParty(),
@@ -4387,11 +4465,13 @@
 
     function startCombatEncounter(enemyName) {
         playBGM('battle');
+        let scaledHP = Math.round(100 * ENEMY_HP_MULTIPLIER);
         activeCombatSession = {
             enemyName: enemyName,
-            enemyHP: 100,
-            enemyMaxHP: 100,
-            enemyDmg: 12,
+            enemyHP: scaledHP,
+            enemyMaxHP: scaledHP,
+            enemyDmg: Math.round(12 * ENEMY_ATK_MULTIPLIER),
+            enemyArmorPen: 0.15,
             rewardCash: 1000,
             regionKey: null,
             party: buildCombatParty(),
@@ -4482,19 +4562,23 @@
         let s = activeCombatSession;
         setTimeout(() => {
             let fighter = s.party[s.activeIdx];
-            let incoming = s.enemyDmg;
-            if (s.playerGuarding) incoming = Math.floor(incoming * 0.5);
+            let isCrit = rollEnemyCrit();
+            let rawDamage = s.enemyDmg * (isCrit ? ENEMY_CRIT_MULTIPLIER : 1);
+            let defense = getFighterDefense(fighter);
+            let incoming = computeMitigatedDamage(rawDamage, defense, s.enemyArmorPen || 0);
+            if (s.playerGuarding) incoming = Math.max(MIN_TRUE_DAMAGE_FLOOR, Math.floor(incoming * 0.5));
             s.playerGuarding = false;
             fighter.hp = Math.max(0, fighter.hp - incoming);
+            let critTag = isCrit ? " 💢 CRITICAL HIT!" : "";
 
             if (fighter.hp <= 0) {
                 let alive = s.party.filter(p => p.hp > 0);
                 if (!alive.length) { loseCombat(); return; }
                 clearConsole("center", "radial-gradient(circle at 50% 30%, #33000a 0%, #080002 85%)", "#ff0044");
-                document.getElementById("console").innerHTML = `<h2 style="font-size:16px;">💥 ${fighter.name} fainted!</h2><p style="font-size:12px;">${s.enemyName} hit for ${incoming}! Send out your next fighter.</p>`;
+                document.getElementById("console").innerHTML = `<h2 style="font-size:16px;">💥 ${fighter.name} fainted!</h2><p style="font-size:12px;">${s.enemyName} hit for ${incoming}${critTag}! Send out your next fighter.</p>`;
                 renderButtons([{ text: "🔄 Choose Next Fighter", class: "btn btn-start", action: () => showCombatSwapPicker(true) }]);
             } else {
-                s.lastLog = `<span style="color:#ff8888;">${s.enemyName} hit ${fighter.name} for ${incoming} damage!</span>`;
+                s.lastLog = `<span style="color:#ff8888;">${s.enemyName} hit ${fighter.name} for ${incoming} damage!${critTag}</span>`;
                 renderPokemonCombatScreen();
             }
         }, 900);
