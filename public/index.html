@@ -1257,6 +1257,7 @@
             color: "#00ff88",
             animClass: "",
             icon: "🌲",
+            settlementKey: 'oakhaven',
             monsters: [
                 { name: "Wild Forest Goblin", hp: 90, dmg: 10, reward: 500 },
                 { name: "Treant Guardian", hp: 140, dmg: 18, reward: 900 },
@@ -1270,6 +1271,7 @@
             animClass: "desert-scene",
             icon: "🏜️",
             music: "desert",
+            settlementKey: 'duneSpire',
             monsters: [
                 { name: "Sand Scuttler", hp: 100, dmg: 15, reward: 600 },
                 { name: "Dune Bandit", hp: 130, dmg: 20, reward: 950 },
@@ -1283,9 +1285,36 @@
             animClass: "volcano-scene",
             icon: "🌋",
             music: "volcano",
+            settlementKey: 'forgePeak',
             monsters: [
                 { name: "Magma Elemental", hp: 150, dmg: 24, reward: 1300 },
                 { name: "Ash Drake", hp: 200, dmg: 30, reward: 1800 }
+            ]
+        },
+        'fjord': {
+            name: "Nordic Fjord",
+            bg: "radial-gradient(circle at 50% 30%, #0a1a2a 0%, #020608 85%)",
+            color: "#8fd3ff",
+            animClass: "",
+            icon: "🪓",
+            settlementKey: 'viking',
+            monsters: [
+                { name: "Frost-Touched Wolf", hp: 95, dmg: 12, reward: 550 },
+                { name: "Fjord Raider", hp: 120, dmg: 17, reward: 850 },
+                { name: "Ice Wraith", hp: 100, dmg: 16, reward: 700 }
+            ]
+        },
+        'bog': {
+            name: "Mist-Veil Hollow",
+            bg: "radial-gradient(circle at 50% 30%, #1a1a2a 0%, #050508 85%)",
+            color: "#c9a8ff",
+            animClass: "",
+            icon: "👻",
+            settlementKey: 'mistVeil',
+            monsters: [
+                { name: "Bog Wretch", hp: 105, dmg: 16, reward: 650 },
+                { name: "Mire Stalker", hp: 135, dmg: 21, reward: 1000 },
+                { name: "Will-o'-Wisp", hp: 90, dmg: 19, reward: 800 }
             ]
         }
     };
@@ -2123,63 +2152,7 @@
         activeDialogueNpc = null;
     }
 
-    // --- THE 5 REGIONAL SETTLEMENTS ---
-    const SETTLEMENTS_DATA = {
-        viking: { name: "Nordic Fjord (Viking Settlement)", leaderKey: 'viking', bg: "radial-gradient(circle at 50% 30%, #0a1a2a 0%, #020608 85%)", color: "#8fd3ff", icon: "🪓" },
-        oakhaven: { name: "Oakhaven Enclave", leaderKey: 'oakhaven', bg: "radial-gradient(circle at 50% 30%, #0a2210 0%, #020803 85%)", color: "#8fff8f", icon: "🌿" },
-        duneSpire: { name: "Dune-Spire Bazaar", leaderKey: 'duneSpire', bg: "radial-gradient(circle at 50% 30%, #3d2600 0%, #140c00 85%)", color: "#ffcc44", icon: "🏺" },
-        forgePeak: { name: "Forge-Peak Citadel", leaderKey: 'forgePeak', bg: "radial-gradient(circle at 50% 30%, #3d0000 0%, #140000 85%)", color: "#ff8844", icon: "🔨" },
-        mistVeil: { name: "Mist-Veil Hollow", leaderKey: 'mistVeil', bg: "radial-gradient(circle at 50% 30%, #1a1a2a 0%, #050508 85%)", color: "#c9a8ff", icon: "👻" }
-    };
-
-    function showSettlementsMap() {
-        playBGM('hq');
-        clearConsole("center", "radial-gradient(circle at 50% 40%, #1a1608 0%, #05040a 85%)", "#ffcc66");
-        document.getElementById("console").innerHTML = `
-            <h2 style="color:#ffcc66; font-size:18px;">🏘️ REGIONAL SETTLEMENTS</h2>
-            <p style="color:#aaa; font-size:12px;">Five settlements, five leaders. Earn their trust, and their lands may open to you.</p>
-        `;
-        let btns = Object.keys(SETTLEMENTS_DATA).map(key => {
-            let s = SETTLEMENTS_DATA[key];
-            return { text: `${s.icon} ${s.name}`, class: "btn btn-sys", action: () => selectSettlement(key) };
-        });
-        btns.push({ text: "⬅ Back to World Map", class: "btn btn-back", action: showWorldMap });
-        renderButtons(btns);
-    }
-
-    function selectSettlement(key) {
-        let s = SETTLEMENTS_DATA[key];
-        if (!s) { showSettlementsMap(); return; }
-        game.location = s.name;
-        updateUI(); saveGame();
-        playBGM('hq');
-        clearConsole("center", s.bg, s.color);
-        document.getElementById("console").innerHTML = `
-            <div style="font-size:40px; margin-bottom:8px;">${s.icon}</div>
-            <h2 style="color:${s.color}; font-size:18px;">ARRIVED AT ${s.name.toUpperCase()}</h2>
-        `;
-        renderButtons([]);
-        setTimeout(() => showSettlementHub(key), 1100);
-    }
-
-    function showSettlementHub(key) {
-        let s = SETTLEMENTS_DATA[key];
-        if (!s) { showSettlementsMap(); return; }
-        let npc = NPC_LEADERS[s.leaderKey];
-        clearConsole("flex-start", s.bg, s.color);
-        let rep = (game.reputation && game.reputation[s.leaderKey]) || 0;
-        document.getElementById("console").innerHTML = `
-            <h2 style="color:${s.color}; font-size:18px;">${s.icon} ${s.name.toUpperCase()}</h2>
-            <p style="color:#aaa; font-size:12px;">Leader: <strong style="color:${s.color};">${npc.name}</strong>, ${npc.title}</p>
-            <p style="color:#ffd700; font-size:11.5px;">⭐ Reputation: ${rep}</p>
-        `;
-        let btns = [{ text: `💬 Talk to ${npc.name.split(' ').slice(-1)[0]}`, class: "btn btn-maid", action: () => openDialogue(s.leaderKey) }];
-        btns = btns.concat(getSettlementActionButtons(key));
-        btns.push({ text: "🏘️ Switch Settlement", class: "btn btn-map", action: showSettlementsMap });
-        btns.push({ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu });
-        renderButtons(btns);
-    }
-
+    // --- THE 5 REGIONAL SETTLEMENTS (now embedded in their matching REGIONS_DATA hub) ---
     function getSettlementActionButtons(key) {
         if (key === 'viking') {
             let btns = [{ text: "🌲 Deep Forest", class: "btn btn-mine", action: showDeepForestMenu }];
@@ -2203,7 +2176,7 @@
         bumpReputation('oakhaven', 2);
         saveGame(); updateUI();
         log(`🌿 You forage beneath the canopy and find: ${found}!`, "color-cyan");
-        showSettlementHub('oakhaven');
+        showRegionHub('forest');
     }
 
     function haggleBazaar() {
@@ -2214,7 +2187,7 @@
         bumpReputation('duneSpire', 2);
         saveGame(); updateUI();
         log(`🏺 You strike a shrewd bargain in the Bazaar and pocket $${gained}.`, "color-cyan");
-        showSettlementHub('duneSpire');
+        showRegionHub('desert');
     }
 
     function commissionRune() {
@@ -2229,7 +2202,7 @@
         bumpReputation('forgePeak', 2);
         saveGame(); updateUI();
         log(`🔨 High Smith Varek forges a rune into ${champion.name}'s gear! Power +${gain}.`, "color-cyan");
-        showSettlementHub('forgePeak');
+        showRegionHub('volcano');
     }
 
     function consultSpirits() {
@@ -2240,14 +2213,14 @@
         bumpReputation('mistVeil', 2);
         saveGame(); updateUI();
         log(`👻 Lady Vespera's spirit wisps swirl around you, and your strength is restored. (+40 Stamina)`, "color-cyan");
-        showSettlementHub('mistVeil');
+        showRegionHub('bog');
     }
 
     // --- VIKING HOMESTEAD: Deep Forest woodcutting, construction, guards, raids ---
     function showDeepForestMenu() {
         if (!game.homestead.unlocked) {
             showGameAlert("The Deep Forest belongs to no one yet. Earn Bjargaöldum's trust and claim your land deed first.");
-            showSettlementHub('viking');
+            showRegionHub('fjord');
             return;
         }
         playBGM('hq');
@@ -2260,7 +2233,7 @@
         renderButtons([
             { text: "🪓 Chop Wood (⚡8)", class: "btn btn-farm", action: chopWood },
             { text: "🏡 Go to Homestead", class: "btn btn-farm", action: showHomesteadMenu },
-            { text: "⬅ Back to Fjord", class: "btn btn-back", action: () => showSettlementHub('viking') }
+            { text: "⬅ Back to Fjord", class: "btn btn-back", action: () => showRegionHub('fjord') }
         ]);
     }
 
@@ -2292,7 +2265,7 @@
     }
 
     function showHomesteadMenu() {
-        if (!game.homestead.unlocked) { showGameAlert("You haven't been granted a land deed yet."); showSettlementHub('viking'); return; }
+        if (!game.homestead.unlocked) { showGameAlert("You haven't been granted a land deed yet."); showRegionHub('fjord'); return; }
         playBGM('hq');
         clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #0a1a2a 0%, #020608 85%)", "#8fd3ff");
         let html = `
@@ -2317,7 +2290,7 @@
             { text: "🛡️ Guard Roster", class: "btn btn-maid", action: showGuardRosterMenu },
             { text: "🔔 Scout for Raiders", class: "btn btn-combat", action: triggerBanditRaid },
             { text: "🌲 Deep Forest", class: "btn btn-mine", action: showDeepForestMenu },
-            { text: "⬅ Back to Fjord", class: "btn btn-back", action: () => showSettlementHub('viking') }
+            { text: "⬅ Back to Fjord", class: "btn btn-back", action: () => showRegionHub('fjord') }
         ]);
     }
 
@@ -2396,7 +2369,7 @@
     // boss retaliation uses (computeMitigatedDamage) - assigned guards' total power is
     // the settlement's offense, palisades level is its defense.
     function triggerBanditRaid() {
-        if (!game.homestead.unlocked) { showSettlementHub('viking'); return; }
+        if (!game.homestead.unlocked) { showRegionHub('fjord'); return; }
         let guards = (game.homestead.guards || [])
             .map(g => Object.assign({}, g, { member: game.staff.find(s => s.uid === g.uid) }))
             .filter(g => g.member && !g.member.fatigued);
@@ -5501,7 +5474,8 @@
             { text: "🌲 Whispering Forest", class: "btn btn-farm", action: () => selectRegion('forest') },
             { text: "🏜️ Sunscorched Desert", class: "btn btn-mine", action: () => selectRegion('desert') },
             { text: "🌋 Obsidian Volcano", class: "btn btn-combat", action: () => selectRegion('volcano') },
-            { text: "🏘️ Regional Settlements", class: "btn btn-dlc", action: showSettlementsMap },
+            { text: "🪓 Nordic Fjord", class: "btn btn-sys", action: () => selectRegion('fjord') },
+            { text: "👻 Mist-Veil Hollow", class: "btn btn-goth", action: () => selectRegion('bog') },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
@@ -5534,15 +5508,29 @@
     function showRegionHub(regionKey) {
         let reg = REGIONS_DATA[regionKey];
         clearConsole("flex-start", reg.bg, reg.color);
+        let npc = reg.settlementKey ? NPC_LEADERS[reg.settlementKey] : null;
+        let leaderHtml = "";
+        if (npc) {
+            let rep = (game.reputation && game.reputation[reg.settlementKey]) || 0;
+            leaderHtml = `
+                <p style="color:#aaa; font-size:12px;">Leader: <strong style="color:${reg.color};">${npc.name}</strong>, ${npc.title}</p>
+                <p style="color:#ffd700; font-size:11.5px;">⭐ Reputation: ${rep}</p>
+            `;
+        }
         document.getElementById("console").innerHTML = `
-            <h2 style="color: ${reg.color}; font-size:18px;">${reg.name.toUpperCase()}</h2>
+            <h2 style="color: ${reg.color}; font-size:18px;">${reg.icon || ''} ${reg.name.toUpperCase()}</h2>
             <p style="color: #aaa; font-size:12px;">Hunt regional monsters or gather rare materials.</p>
+            ${leaderHtml}
         `;
-        renderButtons([
-            { text: "⚔️ Hunt Regional Monster", class: "btn btn-combat", action: () => startRegionalMonsterEncounter(regionKey) },
-            { text: "🗺️ Switch Region", class: "btn btn-map", action: showWorldMap },
-            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
-        ]);
+        let btns = [];
+        if (npc) {
+            btns.push({ text: `💬 Talk to ${npc.name.split(' ').slice(-1)[0]}`, class: "btn btn-maid", action: () => openDialogue(reg.settlementKey) });
+            btns = btns.concat(getSettlementActionButtons(reg.settlementKey));
+        }
+        btns.push({ text: "⚔️ Hunt Regional Monster", class: "btn btn-combat", action: () => startRegionalMonsterEncounter(regionKey) });
+        btns.push({ text: "🗺️ Switch Region", class: "btn btn-map", action: showWorldMap });
+        btns.push({ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu });
+        renderButtons(btns);
     }
 
     function startRegionalMonsterEncounter(regionKey) {
