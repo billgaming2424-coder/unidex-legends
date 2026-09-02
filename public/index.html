@@ -1631,7 +1631,10 @@
                 animalProducts: { Egg: 0, Wool: 0, Milk: 0 }
             },
             spouse: null,
-            cloudLinked: false, cloudSyncedAt: 0
+            cloudLinked: false, cloudSyncedAt: 0,
+            stats: { totalRerolls: 0, totalEvolutions: 0, totalShinyCatches: 0, totalRaidKills: 0, totalMarketListings: 0, totalHarvests: 0, totalTrainingSessions: 0 },
+            dailyProgress: { catches: 0, rerolls: 0, raidKills: 0, trains: 0, harvests: 0, marketListings: 0, evolutions: 0 },
+            dailyQuests: [], loginStreak: 1, lastLoginDateStr: ''
         };
     }
 
@@ -1650,20 +1653,114 @@
         setTimeout(() => { toast.style.display = "none"; }, 2000);
     }
 
+    // --- PROGRESSION: lifetime stats, daily quests/streak, achievements ---
+    // Single shared definition list so the HQ achievements screen and the unlock
+    // check below can never drift out of sync with each other.
+    const ACHIEVEMENT_DEFS = [
+        { id: 'first_catch', name: 'First Recruit!', desc: 'Catch your first multiversal character.', reward: 100, check: (g, s) => Object.keys(g.pokedex || {}).length >= 1 },
+        { id: 'dex_10', name: 'Dimension Collector', desc: 'Discover 10 unique recruits in the UniDex.', reward: 300, check: (g, s) => Object.keys(g.pokedex || {}).length >= 10 },
+        { id: 'dex_50', name: 'Multiverse Cartographer', desc: 'Discover 50 unique recruits in the UniDex.', reward: 1000, check: (g, s) => Object.keys(g.pokedex || {}).length >= 50 },
+        { id: 'dex_100', name: 'Dex Completionist', desc: 'Discover 100 unique recruits in the UniDex.', reward: 2500, check: (g, s) => Object.keys(g.pokedex || {}).length >= 100 },
+        { id: 'wealthy', name: 'Tycoon Manager', desc: 'Accumulate over $10,000 in funds.', reward: 500, check: (g, s) => g.funds >= 10000 },
+        { id: 'megawealthy', name: 'Multiverse Mogul', desc: 'Accumulate over $100,000 in funds.', reward: 2000, check: (g, s) => g.funds >= 100000 },
+        { id: 'staff_squad', name: 'Elite Squad', desc: 'Recruit 5 or more staff members.', reward: 300, check: (g, s) => (g.staff || []).length >= 5 },
+        { id: 'full_roster', name: 'Full House', desc: 'Recruit 15 or more staff members.', reward: 800, check: (g, s) => (g.staff || []).length >= 15 },
+        { id: 'first_evolution', name: 'Ascension', desc: "Evolve a character into its unique form for the first time.", reward: 400, check: (g, s) => (s.totalEvolutions || 0) >= 1 },
+        { id: 'evolution_master', name: 'Evolution Master', desc: 'Evolve 5 different characters.', reward: 1500, check: (g, s) => (s.totalEvolutions || 0) >= 5 },
+        { id: 'first_reroll', name: 'Second Chances', desc: 'Use the portal reroll for the first time.', reward: 100, check: (g, s) => (s.totalRerolls || 0) >= 1 },
+        { id: 'reroll_addict', name: 'Reroll Addict', desc: 'Reroll a portal encounter 20 times.', reward: 800, check: (g, s) => (s.totalRerolls || 0) >= 20 },
+        { id: 'shiny_hunter', name: 'Shiny Hunter', desc: 'Catch your first shiny character.', reward: 600, check: (g, s) => (s.totalShinyCatches || 0) >= 1 },
+        { id: 'shiny_collector', name: 'Shiny Collector', desc: 'Catch 5 shiny characters.', reward: 2000, check: (g, s) => (s.totalShinyCatches || 0) >= 5 },
+        { id: 'raid_slayer', name: 'Raid Slayer', desc: 'Help defeat a raid boss.', reward: 400, check: (g, s) => (s.totalRaidKills || 0) >= 1 },
+        { id: 'raid_veteran', name: 'Raid Veteran', desc: 'Help defeat 10 raid bosses.', reward: 1500, check: (g, s) => (s.totalRaidKills || 0) >= 10 },
+        { id: 'market_trader', name: 'Market Trader', desc: 'List an item on the Global Market.', reward: 150, check: (g, s) => (s.totalMarketListings || 0) >= 1 },
+        { id: 'green_thumb', name: 'Green Thumb', desc: 'Harvest 10 crops.', reward: 400, check: (g, s) => (s.totalHarvests || 0) >= 10 },
+        { id: 'dedicated_trainer', name: 'Dedicated Trainer', desc: 'Complete 10 training sessions.', reward: 500, check: (g, s) => (s.totalTrainingSessions || 0) >= 10 },
+        { id: 'week_streak', name: 'Weekly Regular', desc: 'Log in 7 days in a row.', reward: 1000, check: (g, s) => (g.loginStreak || 0) >= 7 },
+        { id: 'cloud_linked', name: 'Cloud Native', desc: 'Link your save to a cloud account.', reward: 200, check: (g, s) => !!g.cloudLinked }
+    ];
+
+    const DAILY_QUEST_POOL = [
+        { key: 'catches', desc: 'Catch 3 characters from any portal', target: 3, reward: 200 },
+        { key: 'rerolls', desc: 'Use the portal reroll 2 times', target: 2, reward: 150 },
+        { key: 'raidKills', desc: 'Help defeat 1 raid boss', target: 1, reward: 300 },
+        { key: 'trains', desc: 'Train a roster member 2 times', target: 2, reward: 200 },
+        { key: 'harvests', desc: 'Harvest 3 crops on the farm', target: 3, reward: 150 },
+        { key: 'marketListings', desc: 'List 1 item on the Global Market', target: 1, reward: 150 },
+        { key: 'evolutions', desc: 'Evolve a character', target: 1, reward: 400 }
+    ];
+
+    // Backfills every progression field this batch adds so older saves (and saves
+    // loaded before this code ran once) never hit an undefined lookup.
+    function ensureProgressionDefaults() {
+        if (!game.stats) game.stats = {};
+        if (!game.dailyProgress) game.dailyProgress = { catches: 0, rerolls: 0, raidKills: 0, trains: 0, harvests: 0, marketListings: 0, evolutions: 0 };
+        if (!Array.isArray(game.dailyQuests)) game.dailyQuests = [];
+        if (typeof game.loginStreak !== 'number') game.loginStreak = 1;
+        if (typeof game.lastLoginDateStr !== 'string') game.lastLoginDateStr = '';
+    }
+
+    function bumpLifetimeStat(key, amount = 1) {
+        ensureProgressionDefaults();
+        game.stats[key] = (game.stats[key] || 0) + amount;
+    }
+
+    // Advances daily-quest progress and auto-claims the reward the moment a quest's
+    // target is hit (no separate "claim" step - momentum matters more than busywork).
+    function bumpDailyProgress(key, amount = 1) {
+        ensureProgressionDefaults();
+        game.dailyProgress[key] = (game.dailyProgress[key] || 0) + amount;
+        game.dailyQuests.forEach(q => {
+            if (!q.claimed && q.key === key && (game.dailyProgress[q.key] || 0) >= q.target) {
+                q.claimed = true;
+                game.funds += q.reward;
+                showGameAlert(`✅ Daily Quest Complete: ${q.desc}! +$${q.reward}`);
+            }
+        });
+    }
+
+    function generateDailyQuests() {
+        let pool = DAILY_QUEST_POOL.slice();
+        let picks = [];
+        for (let i = 0; i < 3 && pool.length; i++) {
+            let idx = Math.floor(Math.random() * pool.length);
+            let t = pool.splice(idx, 1)[0];
+            picks.push({ key: t.key, desc: t.desc, target: t.target, reward: t.reward, claimed: false });
+        }
+        return picks;
+    }
+
+    // Runs once per real-world calendar day (cheap to call every time HQ loads - it
+    // no-ops unless the date string has actually changed): rolls fresh daily quests,
+    // resets today's progress counters, and advances (or resets) the login streak.
+    function checkDailyReset() {
+        ensureProgressionDefaults();
+        let todayStr = new Date().toISOString().slice(0, 10);
+        if (game.lastLoginDateStr === todayStr) return;
+        let prevDateStr = game.lastLoginDateStr;
+        if (prevDateStr) {
+            let diffDays = Math.round((new Date(todayStr + 'T00:00:00Z') - new Date(prevDateStr + 'T00:00:00Z')) / 86400000);
+            game.loginStreak = diffDays === 1 ? (game.loginStreak || 0) + 1 : 1;
+        } else {
+            game.loginStreak = 1;
+        }
+        game.lastLoginDateStr = todayStr;
+        game.dailyProgress = { catches: 0, rerolls: 0, raidKills: 0, trains: 0, harvests: 0, marketListings: 0, evolutions: 0 };
+        game.dailyQuests = generateDailyQuests();
+        let streakBonus = Math.min(500, 50 * game.loginStreak);
+        game.funds += streakBonus;
+        saveGame();
+        showGameAlert(`📅 Day streak: ${game.loginStreak}! New daily quests are up. +$${streakBonus} login bonus!`);
+    }
+
     function checkAchievements() {
         if (!game.achievements) game.achievements = {};
-        let unlockedCount = Object.keys(game.pokedex || {}).length;
-        let triggers = [
-            { id: 'first_catch', name: 'First Recruit!', desc: 'Catch your first multiversal character.', check: unlockedCount >= 1 },
-            { id: 'dex_10', name: 'Dimension Collector', desc: 'Discover 10 unique recruits in the UniDex.', check: unlockedCount >= 10 },
-            { id: 'wealthy', name: 'Tycoon Manager', desc: 'Accumulate over $10,000 in funds.', check: game.funds >= 10000 },
-            { id: 'staff_squad', name: 'Elite Squad', desc: 'Recruit 5 or more staff members.', check: (game.staff || []).length >= 5 }
-        ];
-
-        triggers.forEach(t => {
-            if (t.check && !game.achievements[t.id]) {
+        ensureProgressionDefaults();
+        ACHIEVEMENT_DEFS.forEach(t => {
+            if (!game.achievements[t.id] && t.check(game, game.stats)) {
                 game.achievements[t.id] = true;
-                log(`🏆 ACHIEVEMENT UNLOCKED: ${t.name} - ${t.desc}`, "color-cyan");
+                game.funds += t.reward;
+                log(`🏆 ACHIEVEMENT UNLOCKED: ${t.name} - ${t.desc} (+$${t.reward})`, "color-cyan");
             }
         });
     }
@@ -1827,6 +1924,7 @@
         if (!game.currentDailyEvent) game.currentDailyEvent = { name: "Calm Multiverse", desc: "A peaceful day." };
         if (typeof game.cloudLinked !== 'boolean') game.cloudLinked = false;
         if (typeof game.cloudSyncedAt !== 'number') game.cloudSyncedAt = 0;
+        ensureProgressionDefaults();
 
         document.getElementById("funds-display").innerText = Math.floor(game.funds || 0);
         document.getElementById("stamina-display").innerText = game.stamina || 0;
@@ -2101,6 +2199,8 @@
         let key = String(id);
         if (!game.pokedex[key]) game.pokedex[key] = { discovered: true, shiny: isShiny, count: 1 };
         else { game.pokedex[key].count++; if (isShiny) game.pokedex[key].shiny = true; }
+        bumpDailyProgress('catches');
+        if (isShiny) bumpLifetimeStat('totalShinyCatches');
         checkAchievements();
     }
 
@@ -2138,6 +2238,8 @@
         candidate.isEvolved = true;
         dexEntry.evolved = true;
         dexEntry.evolvedName = newName;
+        bumpLifetimeStat('totalEvolutions');
+        bumpDailyProgress('evolutions');
         saveGame(); updateUI();
         showEvolutionAnimation(oldName, newName, () => showDexEntryDetail(dexId, returnPage, returnQuery, returnPortal));
     }
@@ -2230,10 +2332,13 @@
         clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #1a1500 0%, #080702 85%)", "#ffaa00");
         document.getElementById("stats-bar").style.display = "flex";
         updateUI();
+        checkDailyReset();
         log(`--- NEXUS HQ (Aetheria Region - Slot ${currentSaveSlot}) | WELCOME, TRAINER ${game.playerName.toUpperCase()} ---`, "color-cyan");
         log(`📅 Daily Event: ${game.currentDailyEvent.name} - ${game.currentDailyEvent.desc}`, "color-yellow");
         let dexCaughtCount = Object.keys(game.pokedex || {}).length;
         let dexTotalCount = getAllDexEntries().length;
+        let questsDone = (game.dailyQuests || []).filter(q => q.claimed).length;
+        let questsTotal = (game.dailyQuests || []).length;
         renderButtons([
             { text: "🗺️ World Map & Regions", class: "btn btn-map", action: showWorldMap },
             { text: "⛏️ Stardew Mines", class: "btn btn-mine", action: showMiningHub },
@@ -2242,10 +2347,13 @@
             { text: "🎒 Inventory & Gear", class: "btn btn-gear", action: showInventoryMenu },
             { text: "🏠 Home & Decor", class: "btn btn-sys", action: showHomeDecorMenu },
             { text: "🌱 Greenhouse Farm", class: "btn btn-farm", action: showFarmMenu },
+            { text: "💪 Training Grounds", class: "btn btn-combat", action: showTrainingGroundsMenu },
             { text: "⚔️ Staff Roster", class: "btn btn-maid", action: showStaffMenu },
             { text: `📖 UniDex (${dexCaughtCount}/${dexTotalCount})`, class: "btn btn-dex", action: () => showDexMenu(1) },
             { text: "🌌 Free Portals", class: "btn btn-sys", action: showFreePortalsMenu },
             { text: "🎭 Costumes", class: "btn btn-maid", action: showCostumesMenu },
+            { text: `📋 Daily Quests (${questsDone}/${questsTotal})`, class: "btn btn-sys", action: showDailyQuestsMenu },
+            { text: "🏆 Achievements", class: "btn btn-sys", action: showAchievementsMenu },
             { text: "🎁 Redeem Code", class: "btn btn-sys", action: () => showRedeemCodeMenu() },
             { text: "🔒 Premium DLC Portals", class: "btn btn-dlc", action: openDLCDispatch },
             { text: "🌐 Online Hub & Co-Op", class: "btn btn-sys", action: showOnlineLobbyGate },
@@ -2254,6 +2362,94 @@
             { text: "💤 Sleep (Next Day)", action: triggerRestCycleAnimation },
             { text: "📁 Switch Slot", class: "btn btn-back", action: showIntroScreen }
         ]);
+    }
+
+    // --- TRAINING GROUNDS: power progression outside of catching/evolving ---
+    function showTrainingGroundsMenu() {
+        playBGM('staff');
+        clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #1a0800 0%, #080300 85%)", "#ff8800");
+        let html = `
+            <h2 style="color:#ff8800; font-size:18px;">💪 TRAINING GROUNDS</h2>
+            <p style="color:#aaa; font-size:12px; max-width:340px;">Spend stamina and cash to push a roster member's power higher. The cost climbs the stronger they already are.</p>
+            <p style="color:#ffd700; font-size:12px;">⚡ Stamina: ${game.stamina || 0} | 💰 Funds: $${Math.floor(game.funds)}</p>
+            <div style="width:100%;">
+        `;
+        if (!game.staff.length) {
+            html += `<p style="color:#666; font-size:12px;">You have no roster members to train yet.</p>`;
+        } else {
+            game.staff.forEach(s => {
+                let cost = Math.round(50 + (s.power || 30) * 2);
+                html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:12px;">${s.name}${s.isEvolved ? ' 🌟' : ''} (Pwr ${s.power || 0})</span>
+                    <button class="btn btn-farm" style="padding:4px 8px; font-size:11px; min-height:28px;" onclick="trainStaffMember('${s.uid}')">💪 Train (⚡10, $${cost})</button>
+                </div>`;
+            });
+        }
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
+    }
+
+    function trainStaffMember(uid) {
+        let member = game.staff.find(s => s.uid === uid);
+        if (!member) { showTrainingGroundsMenu(); return; }
+        let staminaCost = 10;
+        let cashCost = Math.round(50 + (member.power || 30) * 2);
+        if ((game.stamina || 0) < staminaCost) { log("❌ Not enough stamina to train!", "color-red"); showTrainingGroundsMenu(); return; }
+        if (game.funds < cashCost) { log("❌ Not enough funds to train!", "color-red"); showTrainingGroundsMenu(); return; }
+        game.stamina -= staminaCost;
+        game.funds -= cashCost;
+        let gain = Math.floor(3 + Math.random() * 6); // +3 to +8
+        member.power = (member.power || 30) + gain;
+        bumpLifetimeStat('totalTrainingSessions');
+        bumpDailyProgress('trains');
+        saveGame(); updateUI();
+        log(`💪 ${member.name} trained hard! Power +${gain} (now ${member.power}).`, "color-cyan");
+        showTrainingGroundsMenu();
+    }
+
+    // --- DAILY QUESTS & ACHIEVEMENTS SCREENS ---
+    function showDailyQuestsMenu() {
+        playBGM('hq');
+        clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #001a1a 0%, #000808 85%)", "#00ffcc");
+        ensureProgressionDefaults();
+        let html = `
+            <h2 style="color:#00ffcc; font-size:18px;">📋 DAILY QUESTS</h2>
+            <p style="color:#ffd700; font-size:12px;">🔥 Login Streak: ${game.loginStreak || 1} day${(game.loginStreak || 1) === 1 ? '' : 's'}</p>
+            <div style="width:100%;">
+        `;
+        if (!game.dailyQuests.length) {
+            html += `<p style="color:#666; font-size:12px;">No quests today - check back tomorrow.</p>`;
+        } else {
+            game.dailyQuests.forEach(q => {
+                let progress = Math.min(q.target, game.dailyProgress ? (game.dailyProgress[q.key] || 0) : 0);
+                let done = progress >= q.target;
+                html += `<div class="dex-card" style="display:block; text-align:left; ${q.claimed ? 'opacity:0.55;' : ''}">
+                    <strong style="color:${q.claimed ? '#55ff99' : '#00ffcc'};">${q.claimed ? '✅' : (done ? '⏳' : '🔲')} ${q.desc}</strong><br>
+                    <span style="font-size:11px; color:#aaa;">Progress: ${progress}/${q.target} | Reward: $${q.reward}${q.claimed ? ' (claimed)' : ''}</span>
+                </div>`;
+            });
+        }
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
+    }
+
+    function showAchievementsMenu() {
+        playBGM('dex');
+        clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #1a1500 0%, #080702 85%)", "#ffd700");
+        let unlockedCount = Object.keys(game.achievements || {}).length;
+        let html = `<h2 style="color:#ffd700; font-size:18px;">🏆 ACHIEVEMENTS (${unlockedCount}/${ACHIEVEMENT_DEFS.length})</h2><div style="width:100%;">`;
+        ACHIEVEMENT_DEFS.forEach(a => {
+            let unlocked = !!(game.achievements && game.achievements[a.id]);
+            html += `<div class="dex-card" style="display:block; text-align:left; ${unlocked ? '' : 'opacity:0.5;'}">
+                <strong style="color:${unlocked ? '#ffd700' : '#888'};">${unlocked ? '🏆' : '🔒'} ${a.name}</strong> <span style="color:#00ff88; font-size:10.5px;">+$${a.reward}</span><br>
+                <span style="font-size:11px; color:#aaa;">${a.desc}</span>
+            </div>`;
+        });
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
     }
 
     // --- CASINO & MINI-GAME DISTRICT ---
@@ -2913,6 +3109,8 @@
         let cropKey = plot.crop;
         game.farm.harvested[cropKey] = (game.farm.harvested[cropKey] || 0) + 1;
         plot.crop = null; plot.daysLeft = 0; plot.watered = false;
+        bumpLifetimeStat('totalHarvests');
+        bumpDailyProgress('harvests');
         saveGame(); updateUI();
         showCropPlotsMenu();
     }
@@ -3440,6 +3638,8 @@
         }
         game.funds -= cost;
         encounterRerollCount++;
+        bumpLifetimeStat('totalRerolls');
+        bumpDailyProgress('rerolls');
         updateUI(); saveGame();
 
         renderButtons([]);
@@ -3777,6 +3977,8 @@
                 let idx = game.inventory.indexOf(item);
                 if (idx === -1) { showGlobalMarketScreen(); return; }
                 game.inventory.splice(idx, 1);
+                bumpLifetimeStat('totalMarketListings');
+                bumpDailyProgress('marketListings');
                 saveGame(); updateUI();
                 socket.emit('createMarketListing', { item, price, sellerName: game.playerName });
                 showGlobalMarketScreen(`<span style="color:#55ff99;">✔ Listed ${item} for $${price}!</span>`);
@@ -4285,6 +4487,8 @@
                 raidScreenActive = false;
                 setTimeout(() => {
                     game.funds += (data.reward || 0);
+                    bumpLifetimeStat('totalRaidKills');
+                    bumpDailyProgress('raidKills');
                     updateUI(); saveGame();
                     clearConsole("center", "radial-gradient(circle, #003300, #000)", "#00ff88");
                     document.getElementById("console").innerHTML = `
