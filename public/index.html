@@ -1929,6 +1929,35 @@
             onComplete: null,
             reward: { funds: 300, reputation: { mistVeil: 10 } },
             completeText: "\"There. The spark I felt. The Hollow's spirits will remember your name.\" The wisps circle you once, and settle."
+        },
+
+        // --- MAIN STORY: "The Hollow King", Act I ---
+        hk_vespera_warning: {
+            id: 'hk_vespera_warning', giver: 'mistVeil', name: "What the Hollow Remembers",
+            requiresFlag: 'act0_omen_seen',
+            desc: "Lady Vespera felt the same flicker you did - and she says it isn't the first. Help her perform a stabilizing rite before whatever's stirring gets bolder: consult the spirits with her 3 times.",
+            checkComplete: (g) => (g.stats.totalSpiritConsultations || 0) >= 3,
+            onComplete: () => { setStoryFlag('act1_complete'); },
+            reward: { funds: 400, reputation: { mistVeil: 15 } },
+            completeText: "The wisps around Vespera's staff pull taut, hold, then settle. \"There. Steadier, for now.\" She lowers her staff, and for once her voice carries something like relief. \"What you felt was no accident, outlander. Long ago, five wardens sealed something that should never wake - the Hollow King. My order has watched his prison since before this Hollow had a name, and I can feel the seal thinning - not just here, but everywhere it was ever set. You should hear this from Bjargaöldum too. His people were sworn to the same old promise, whether he still says the words or not. Go to the Fjord. Tell him what you told me.\""
+        },
+
+        // --- MAIN STORY: "The Hollow King", Act II ---
+        hk_fjord_incursion: {
+            id: 'hk_fjord_incursion', giver: 'viking', name: "The Shieldwall's Oath",
+            requiresFlag: 'act1_complete',
+            desc: "The Ashbound have found the Fjord's ward. Bjargaöldum needs you to stand with the Shieldwall and drive off their war-leader before the ward gives. Face the Ashbound War-Leader at the Fjord.",
+            checkComplete: (g) => hasStoryFlag('act2_ashbound_defeated'),
+            onComplete: () => { setStoryFlag('act2_complete'); },
+            reward: { funds: 600, reputation: { viking: 20 } },
+            completeText: () => {
+                let text = "Bjargaöldum plants his axe in the frost-hard ground, breathing hard, ash-grey blood cooling on the blade. \"I have fought raiders, beasts, and men who called themselves gods. I have never fought anything that smoked like a dying ember and still swung a blade with a man's cunning.\" He looks at you - really looks, the way he hasn't since you first proved your steel. \"The old stories, then. They were not stories. The Shieldwall stands - all of it, now, not just my hall.";
+                if (game.homestead && game.homestead.unlocked) {
+                    text += " That land I granted you is part of what we're defending too, whether you'd thought of it that way or not.";
+                }
+                text += " Whatever comes for the Fjord's ward comes through us first. Vespera was right to send you. Go carefully, outlander - if they found us, they will find the others.\"";
+                return text;
+            }
         }
     };
 
@@ -1937,8 +1966,11 @@
 
     // Returns this leader's next not-yet-completed quest (whether it's already
     // active or not) so the dialogue engine always knows what to offer/track.
+    // A quest with a `requiresFlag` (main-story quests use this) stays hidden
+    // from the offer list entirely until that story flag has been set.
     function getNextQuestForLeader(leaderKey) {
         let defs = Object.keys(QUEST_DEFS).map(id => QUEST_DEFS[id]).filter(q => q.giver === leaderKey);
+        defs = defs.filter(q => !q.requiresFlag || hasStoryFlag(q.requiresFlag));
         return defs.find(q => !isQuestCompleted(q.id)) || null;
     }
 
@@ -1970,8 +2002,12 @@
         }
         checkAchievements();
         saveGame(); updateUI();
-        showGameAlert(`✅ Quest Complete: ${q.name}\n\n${q.completeText || ''}`);
+        // completeText may be a function (some main-story quests vary the flavor text based
+        // on other game state, e.g. whether the Homestead's been unlocked yet).
+        let completeText = (typeof q.completeText === 'function') ? q.completeText() : (q.completeText || '');
+        showGameAlert(`✅ Quest Complete: ${q.name}\n\n${completeText}`);
         checkVikingHomesteadUnlock();
+        checkMainStoryUnlock();
     }
 
     function setStoryFlag(flag, value = true) { ensureWorldExpansionDefaults(); game.quests.flags[flag] = value; }
@@ -1988,6 +2024,44 @@
         }
     }
 
+    // --- MAIN STORY: "The Hollow King" ---
+    // Act 0's omen fires once every one of the five leaders' starter quests is
+    // done - the multiverse has already introduced itself to the player five
+    // times over by then, so the sixth "introduction" can afford to be wrong.
+    function checkMainStoryUnlock() {
+        ensureWorldExpansionDefaults();
+        if (hasStoryFlag('act0_omen_seen')) return;
+        const starterQuestIds = ['vk_tribute', 'vk_trial', 'ok_gather', 'ds_trade', 'fp_forge', 'mv_relic'];
+        if (starterQuestIds.every(id => isQuestCompleted(id))) {
+            setStoryFlag('act0_omen_seen');
+            saveGame(); updateUI();
+            showGameAlert("⚠️ SOMETHING FLICKERS...\n\nMid-catch, one of your roster stutters - its outline glitching like a bad signal, its cry catching for half a second on a voice that isn't its own. The air around it tastes faintly of static and old smoke.\n\nThen it's gone. Everything reads normal. Your roster is fine, your save is fine, nothing logs an error.\n\nBut you saw it. And you can't shake the feeling that somewhere, something noticed you noticing.");
+        }
+    }
+
+    // Act II: a one-time named boss fight rather than a repeatable regional monster -
+    // reuses the same activeCombatSession/renderPokemonCombatScreen pipeline as every
+    // other fight in the game, just tagged with storyFlagOnWin so winCombat() knows to
+    // set the story flag hk_fjord_incursion's checkComplete is waiting on, instead of
+    // routing back to HQ like a normal battle.
+    function startAshboundEncounter() {
+        playBGM('battle');
+        let scaledHP = Math.round(260 * ENEMY_HP_MULTIPLIER);
+        activeCombatSession = {
+            enemyName: "Ashbound War-Leader",
+            enemyHP: scaledHP,
+            enemyMaxHP: scaledHP,
+            enemyDmg: Math.round(28 * ENEMY_ATK_MULTIPLIER),
+            enemyArmorPen: 0.18,
+            rewardCash: 1200,
+            regionKey: 'fjord',
+            storyFlagOnWin: 'act2_ashbound_defeated',
+            party: buildCombatParty(),
+            activeIdx: 0
+        };
+        renderPokemonCombatScreen();
+    }
+
     // --- DIALOGUE ENGINE ---
     const NPC_LEADERS = {
         viking: {
@@ -1995,14 +2069,29 @@
             portrait: "/pictures/Bjargaoldum.png", fallbackEmoji: "🪓",
             dialogue: {
                 start: {
-                    text: "Jarl Bjargaöldum straightens from his war-table, one hand resting on the haft of a bearded axe. \"An outlander in my hall. Speak your business - I've little patience for those who waste my time.\"",
-                    options: [
-                        { label: "Tell me about your people.", next: 'lore' },
-                        { label: "Farewell.", action: 'close' }
-                    ]
+                    text: () => {
+                        if (hasStoryFlag('act2_complete')) {
+                            return "Jarl Bjargaöldum straightens as you enter, one hand still resting near his axe out of old habit. \"Outlander. The ward holds quiet today - thanks to you. Speak your business, though I've a feeling you're not here to idle.\"";
+                        }
+                        if (hasStoryFlag('act1_complete')) {
+                            return "Jarl Bjargaöldum's jaw tightens the moment you speak. \"Vespera sent a raven ahead of you. Sealstones. The Hollow King. Words out of a bedtime story, and yet -\" He glances toward the sea, uneasy in a way you've never seen from him. \"Say what she told you to say. Then we'll see if the old oaths still mean anything.\"";
+                        }
+                        return "Jarl Bjargaöldum straightens from his war-table, one hand resting on the haft of a bearded axe. \"An outlander in my hall. Speak your business - I've little patience for those who waste my time.\"";
+                    },
+                    options: () => {
+                        let opts = [];
+                        if (hasStoryFlag('act1_complete')) opts.push({ label: "Why did you really test my steel?", next: 'shieldwall_truth' });
+                        opts.push({ label: "Tell me about your people.", next: 'lore' });
+                        opts.push({ label: "Farewell.", action: 'close' });
+                        return opts;
+                    }
                 },
                 lore: {
                     text: "\"My people have carved a life from stone and salt-spray for a hundred generations. We fish the fjord, raise our own longhouse timbers, and when raiders test our shores, they learn why. Loyalty is earned in blood and honest work - remember that.\"",
+                    options: [{ label: "Back", next: 'start' }]
+                },
+                shieldwall_truth: {
+                    text: "Bjargaöldum is quiet for a long moment before he answers. \"My line has stood watch over a fragment of an old binding since before we had a written word for 'promise.' We test outsiders in blood because the Shieldwall cannot afford weakness - not pride, not tradition. A ward. Your trial in the multiverse was no hazing, outlander. It was me deciding whether you were strong enough to stand a line I hoped you'd never have to. I hoped wrong.\"",
                     options: [{ label: "Back", next: 'start' }]
                 }
             }
@@ -2063,14 +2152,29 @@
             portrait: "/pictures/Lady_Vespera.png", fallbackEmoji: "👻",
             dialogue: {
                 start: {
-                    text: "Lady Vespera turns toward you though her eyes are wrapped in cloth, spirit wisps drifting lazily around her lantern staff. \"I felt you crossing the bog before you arrived, little spark. The Hollow doesn't often welcome the living so warmly.\"",
-                    options: [
-                        { label: "Tell me about the Hollow.", next: 'lore' },
-                        { label: "Farewell.", action: 'close' }
-                    ]
+                    text: () => {
+                        if (hasStoryFlag('act1_complete')) {
+                            return "Lady Vespera turns toward you as you enter, spirit wisps curling in greeting. \"Back again, little spark. The Hollow rests easier since we spoke - though I still feel eyes elsewhere in the world, watching, waiting for another seal to falter. Bjargaöldum should know what we know.\"";
+                        }
+                        if (hasStoryFlag('act0_omen_seen')) {
+                            return "Lady Vespera's blindfolded gaze fixes on you before you've said a word. \"You've felt it too, haven't you? That flicker in the weave, like something exhaled where nothing should be breathing. Come closer, outlander. It's past time I told you what the Hollow truly guards.\"";
+                        }
+                        return "Lady Vespera turns toward you though her eyes are wrapped in cloth, spirit wisps drifting lazily around her lantern staff. \"I felt you crossing the bog before you arrived, little spark. The Hollow doesn't often welcome the living so warmly.\"";
+                    },
+                    options: () => {
+                        let opts = [];
+                        if (hasStoryFlag('act0_omen_seen')) opts.push({ label: "What's happening to the multiverse?", next: 'hollow_king' });
+                        opts.push({ label: "Tell me about the Hollow.", next: 'lore' });
+                        opts.push({ label: "Farewell.", action: 'close' });
+                        return opts;
+                    }
                 },
                 lore: {
                     text: "\"Mist-Veil Hollow keeps what the world above forgets - relics, regrets, and the restless dead. I purify what curses I can, and I listen to what the spirits still have to say. Some things deserve a second chance at rest.\"",
+                    options: [{ label: "Back", next: 'start' }]
+                },
+                hollow_king: {
+                    text: "Lady Vespera's staff dims, and when she speaks again her usual playfulness is gone. \"Long before Mist-Veil Hollow had a name, five wardens bound a being the old records only call the Hollow King - something that tried to collapse every world in the multiverse into one, with itself the only thing left standing in it. It could not be destroyed. Only sealed. Five fragments of that seal - Sealstones, the old tongue calls them - were entrusted to five bloodlines, and over centuries those bloodlines became the settlements you already know. My order became the Hollow-Watch, because someone has always had to listen for it stirring. I have listened my whole life and heard nothing - until now. The seal is thinning, outlander. Not randomly. Something is testing it, region by region, looking for the weakest point. I don't yet know who, or what, or why now. But I know it isn't finished.\"",
                     options: [{ label: "Back", next: 'start' }]
                 }
             }
@@ -2104,7 +2208,9 @@
 
         document.getElementById('dialogue-name').innerText = npc.name;
         document.getElementById('dialogue-title').innerText = npc.title;
-        document.getElementById('dialogue-text').innerText = node.text;
+        // Story-flag-aware nodes (e.g. a leader's greeting changing after a main-story
+        // beat) can supply `text`/`options` as a function instead of a plain value.
+        document.getElementById('dialogue-text').innerText = (typeof node.text === 'function') ? node.text() : node.text;
 
         let portraitWrap = document.getElementById('dialogue-portrait-wrap');
         portraitWrap.innerHTML = '';
@@ -2114,7 +2220,8 @@
         img.onerror = () => { portraitWrap.innerHTML = `<span class="dialogue-portrait-fallback">${npc.fallbackEmoji}</span>`; };
         portraitWrap.appendChild(img);
 
-        let options = node.options.slice();
+        let rawOptions = (typeof node.options === 'function') ? node.options() : node.options;
+        let options = rawOptions.slice();
         if (activeDialogueNode === 'start') {
             let dyn = getDynamicQuestOption(npc.key);
             if (dyn) options = [dyn].concat(options);
@@ -2157,6 +2264,9 @@
         if (key === 'viking') {
             let btns = [{ text: "🌲 Deep Forest", class: "btn btn-mine", action: showDeepForestMenu }];
             if (game.homestead.unlocked) btns.push({ text: "🏡 Homestead", class: "btn btn-farm", action: showHomesteadMenu });
+            if (isQuestActive('hk_fjord_incursion') && !hasStoryFlag('act2_ashbound_defeated')) {
+                btns.push({ text: "⚔️ Face the Ashbound War-Leader", class: "btn btn-combat", action: startAshboundEncounter });
+            }
             return btns;
         }
         if (key === 'oakhaven') return [{ text: "🌿 Forage Herbs (⚡10)", class: "btn btn-farm", action: forageHerbs }];
@@ -2211,8 +2321,12 @@
         game.funds -= cost;
         game.stamina = Math.min(100, (game.stamina || 0) + 40);
         bumpReputation('mistVeil', 2);
+        game.stats.totalSpiritConsultations = (game.stats.totalSpiritConsultations || 0) + 1;
         saveGame(); updateUI();
         log(`👻 Lady Vespera's spirit wisps swirl around you, and your strength is restored. (+40 Stamina)`, "color-cyan");
+        if (isQuestActive('hk_vespera_warning') && QUEST_DEFS.hk_vespera_warning.checkComplete(game)) {
+            showGameAlert("📜 The rite is ready. Return to Lady Vespera and turn in \"What the Hollow Remembers.\"");
+        }
         showRegionHub('bog');
     }
 
@@ -5726,8 +5840,18 @@
     function winCombat() {
         let s = activeCombatSession;
         game.funds += (s.rewardCash || 1000);
+        // Story boss fights (tagged with storyFlagOnWin) set their flag here and route
+        // back to the leader who sent you instead of HQ/a wild encounter - everything
+        // else about a normal fight's win screen is untouched.
+        if (s.storyFlagOnWin) setStoryFlag(s.storyFlagOnWin);
         updateUI(); saveGame();
         clearConsole("center", "radial-gradient(circle,#003300,#000)", "#00ff88");
+        if (s.storyFlagOnWin) {
+            document.getElementById("console").innerHTML = `<h2 style="font-size:18px;">🎉 BATTLE WON!</h2><p style="font-size:12px;">Earned $${s.rewardCash || 1000}! ${s.enemyName} crumbles to ash and drifting cinders.</p>`;
+            let returnLabel = "⬅ Return to " + (REGIONS_DATA[s.regionKey] ? REGIONS_DATA[s.regionKey].name : "the Region");
+            renderButtons([{ text: returnLabel, class: "btn btn-back", action: () => showRegionHub(s.regionKey) }]);
+            return;
+        }
         document.getElementById("console").innerHTML = `<h2 style="font-size:18px;">🎉 BATTLE WON!</h2><p style="font-size:12px;">Earned $${s.rewardCash || 1000}!</p>`;
         if (REAL_CHARACTERS_DB.length > 0 && Math.random() < 0.5) {
             renderButtons([{ text: "👀 Something's rustling nearby...", class: "btn btn-start", action: spawnWildUniDexEncounter }]);
