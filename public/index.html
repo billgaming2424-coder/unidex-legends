@@ -302,6 +302,43 @@
         .sync-status-syncing { display: inline-block; animation: cloudSyncSpin 1s linear infinite; }
         .sync-status-error { color: #ff6666; }
 
+        /* --- STORY & WORLD EXPANSION: dialogue engine modal --- */
+        #dialogue-overlay {
+            position: fixed; inset: 0; z-index: 21000;
+            background: rgba(0,0,0,0.75);
+            display: flex; align-items: flex-end; justify-content: center;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        #dialogue-overlay.active { opacity: 1; pointer-events: auto; }
+        #dialogue-box {
+            background: linear-gradient(180deg, #0b0b16 0%, #060609 100%);
+            border: 1px solid #ffcc6688; border-radius: 10px 10px 0 0;
+            padding: 16px 18px 18px 18px; width: 100%; max-width: 480px;
+            margin-bottom: 0; box-shadow: 0 -6px 28px rgba(255,204,102,0.18);
+            transform: translateY(24px); transition: transform 0.25s ease;
+        }
+        #dialogue-overlay.active #dialogue-box { transform: translateY(0); }
+        .dialogue-header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+        .dialogue-portrait-wrap {
+            width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+            border: 2px solid #ffcc66; box-shadow: 0 0 12px rgba(255,204,102,0.5);
+            background: #1a1508; display: flex; align-items: center; justify-content: center;
+        }
+        .dialogue-portrait-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .dialogue-portrait-fallback { font-size: 30px; }
+        .dialogue-name { color: #ffcc66; font-size: 15px; font-weight: bold; margin: 0; }
+        .dialogue-title { color: #999; font-size: 10.5px; margin: 1px 0 0 0; }
+        #dialogue-text { color: #eee; font-size: 12.5px; line-height: 1.6; margin: 0 0 12px 0; white-space: pre-line; min-height: 34px; }
+        #dialogue-options { display: flex; flex-direction: column; gap: 6px; }
+        .dialogue-option-btn {
+            background: #14140a; color: #ffcc66; border: 1px solid #ffcc6666; border-radius: 5px;
+            padding: 8px 10px; font-family: 'Courier New', Courier, monospace; font-size: 12px;
+            text-align: left; cursor: pointer; transition: all 0.15s ease;
+        }
+        .dialogue-option-btn:hover { background: #241d0a; border-color: #ffcc66; }
+        .dialogue-option-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
         /* Responsive Action Button Grid */
         #controls {
             display: grid;
@@ -511,6 +548,19 @@
         <div id="game-alert-box">
             <div id="game-alert-message"></div>
             <button id="game-alert-ok-btn" onclick="dismissGameAlert()">OK</button>
+        </div>
+    </div>
+    <div id="dialogue-overlay">
+        <div id="dialogue-box">
+            <div class="dialogue-header">
+                <div class="dialogue-portrait-wrap" id="dialogue-portrait-wrap"></div>
+                <div>
+                    <p class="dialogue-name" id="dialogue-name">—</p>
+                    <p class="dialogue-title" id="dialogue-title">—</p>
+                </div>
+            </div>
+            <div id="dialogue-text"></div>
+            <div id="dialogue-options"></div>
         </div>
     </div>
     <div id="stats-bar">
@@ -1634,7 +1684,16 @@
             cloudLinked: false, cloudSyncedAt: 0,
             stats: { totalRerolls: 0, totalEvolutions: 0, totalShinyCatches: 0, totalRaidKills: 0, totalMarketListings: 0, totalHarvests: 0, totalTrainingSessions: 0 },
             dailyProgress: { catches: 0, rerolls: 0, raidKills: 0, trains: 0, harvests: 0, marketListings: 0, evolutions: 0 },
-            dailyQuests: [], loginStreak: 1, lastLoginDateStr: ''
+            dailyQuests: [], loginStreak: 1, lastLoginDateStr: '',
+            // --- Story & World Expansion ---
+            quests: { active: [], completed: [], flags: {} },
+            reputation: { viking: 0, oakhaven: 0, duneSpire: 0, forgePeak: 0, mistVeil: 0 },
+            resources: { wood: 0 },
+            homestead: {
+                unlocked: false,
+                structures: { longhouse: 0, watchtower: 0, palisades: 0, barracks: 0 },
+                guards: []
+            }
         };
     }
 
@@ -1677,7 +1736,8 @@
         { id: 'green_thumb', name: 'Green Thumb', desc: 'Harvest 10 crops.', reward: 400, check: (g, s) => (s.totalHarvests || 0) >= 10 },
         { id: 'dedicated_trainer', name: 'Dedicated Trainer', desc: 'Complete 10 training sessions.', reward: 500, check: (g, s) => (s.totalTrainingSessions || 0) >= 10 },
         { id: 'week_streak', name: 'Weekly Regular', desc: 'Log in 7 days in a row.', reward: 1000, check: (g, s) => (g.loginStreak || 0) >= 7 },
-        { id: 'cloud_linked', name: 'Cloud Native', desc: 'Link your save to a cloud account.', reward: 200, check: (g, s) => !!g.cloudLinked }
+        { id: 'cloud_linked', name: 'Cloud Native', desc: 'Link your save to a cloud account.', reward: 200, check: (g, s) => !!g.cloudLinked },
+        { id: 'homesteader', name: 'Homesteader', desc: "Earn your coastal Homestead from Jarl Bjargaöldum.", reward: 500, check: (g, s) => !!(g.homestead && g.homestead.unlocked) }
     ];
 
     const DAILY_QUEST_POOL = [
@@ -1763,6 +1823,624 @@
                 log(`🏆 ACHIEVEMENT UNLOCKED: ${t.name} - ${t.desc} (+$${t.reward})`, "color-cyan");
             }
         });
+    }
+
+    // ==================================================================
+    // STORY & WORLD EXPANSION: quests, dialogue engine, 5 settlements,
+    // and the Viking Homestead system.
+    // ==================================================================
+
+    // Backfills every field this expansion adds so saves from before this code
+    // existed never hit an undefined lookup (same pattern as ensureFarmDefaults /
+    // ensureProgressionDefaults elsewhere in this file).
+    function ensureWorldExpansionDefaults() {
+        if (!game.quests) game.quests = { active: [], completed: [], flags: {} };
+        if (!Array.isArray(game.quests.active)) game.quests.active = [];
+        if (!Array.isArray(game.quests.completed)) game.quests.completed = [];
+        if (!game.quests.flags) game.quests.flags = {};
+        if (!game.reputation) game.reputation = { viking: 0, oakhaven: 0, duneSpire: 0, forgePeak: 0, mistVeil: 0 };
+        if (!game.resources) game.resources = { wood: 0 };
+        if (typeof game.resources.wood !== 'number') game.resources.wood = 0;
+        if (!game.homestead) game.homestead = { unlocked: false, structures: { longhouse: 0, watchtower: 0, palisades: 0, barracks: 0 }, guards: [] };
+        if (!game.homestead.structures) game.homestead.structures = { longhouse: 0, watchtower: 0, palisades: 0, barracks: 0 };
+        if (!Array.isArray(game.homestead.guards)) game.homestead.guards = [];
+    }
+
+    function bumpReputation(key, amount) {
+        ensureWorldExpansionDefaults();
+        game.reputation[key] = (game.reputation[key] || 0) + amount;
+    }
+
+    // --- QUEST FRAMEWORK ---
+    const QUEST_DEFS = {
+        vk_tribute: {
+            id: 'vk_tribute', giver: 'viking', name: 'Tribute for the Jarl',
+            desc: "Bjargaöldum will not welcome a stranger to his table empty-handed. Bring $1,000 in tribute to prove you're worth his time.",
+            checkComplete: (g) => g.funds >= 1000,
+            onComplete: (g) => { g.funds -= 1000; },
+            reward: { reputation: { viking: 10 } },
+            completeText: "The Jarl weighs the coin in his palm and grunts approval. \"Coin buys a seat. It does not buy respect. That, you will earn.\""
+        },
+        vk_trial: {
+            id: 'vk_trial', giver: 'viking', name: "Bjargaöldum's Trial",
+            desc: "Prove your steel is worth trusting - help defeat a raid boss out in the multiverse.",
+            checkComplete: (g) => (g.stats.totalRaidKills || 0) >= 1,
+            onComplete: null,
+            reward: { funds: 500, reputation: { viking: 15 } },
+            completeText: "\"Blood spilled in a fair fight. Now THAT I respect.\" Bjargaöldum claps a heavy hand on your shoulder."
+        },
+        ok_gather: {
+            id: 'ok_gather', giver: 'oakhaven', name: "A Gesture of Goodwill",
+            desc: "Elder Maeve asks for proof you respect the land - harvest 5 crops from your own farm.",
+            checkComplete: (g) => (g.stats.totalHarvests || 0) >= 5,
+            onComplete: null,
+            reward: { funds: 300, reputation: { oakhaven: 10 } },
+            completeText: "\"Good hands and good patience. The canopy remembers kindness.\" Elder Maeve smiles warmly."
+        },
+        ds_trade: {
+            id: 'ds_trade', giver: 'duneSpire', name: "A Trader's Word",
+            desc: "Sultan Tariq wants proof you understand commerce - list 2 items on the Global Market.",
+            checkComplete: (g) => (g.stats.totalMarketListings || 0) >= 2,
+            onComplete: null,
+            reward: { funds: 300, reputation: { duneSpire: 10 } },
+            completeText: "\"Hah! A trader's instinct after all. Perhaps you're worth my caravans' protection, outlander.\""
+        },
+        fp_forge: {
+            id: 'fp_forge', giver: 'forgePeak', name: "Tempered Discipline",
+            desc: "High Smith Varek wants to see discipline, not luck - train a roster member 3 times.",
+            checkComplete: (g) => (g.stats.totalTrainingSessions || 0) >= 3,
+            onComplete: null,
+            reward: { funds: 300, reputation: { forgePeak: 10 } },
+            completeText: "\"Discipline. That's how steel is made - and how trainers are, too.\" Varek's hammer doesn't pause once."
+        },
+        mv_relic: {
+            id: 'mv_relic', giver: 'mistVeil', name: "A Kindred Spark",
+            desc: "Lady Vespera senses something rare in your future - catch a shiny character.",
+            checkComplete: (g) => (g.stats.totalShinyCatches || 0) >= 1,
+            onComplete: null,
+            reward: { funds: 300, reputation: { mistVeil: 10 } },
+            completeText: "\"There. The spark I felt. The Hollow's spirits will remember your name.\" The wisps circle you once, and settle."
+        }
+    };
+
+    function isQuestActive(questId) { ensureWorldExpansionDefaults(); return game.quests.active.includes(questId); }
+    function isQuestCompleted(questId) { ensureWorldExpansionDefaults(); return game.quests.completed.includes(questId); }
+
+    // Returns this leader's next not-yet-completed quest (whether it's already
+    // active or not) so the dialogue engine always knows what to offer/track.
+    function getNextQuestForLeader(leaderKey) {
+        let defs = Object.keys(QUEST_DEFS).map(id => QUEST_DEFS[id]).filter(q => q.giver === leaderKey);
+        return defs.find(q => !isQuestCompleted(q.id)) || null;
+    }
+
+    function startQuest(questId) {
+        ensureWorldExpansionDefaults();
+        let q = QUEST_DEFS[questId];
+        if (!q || isQuestActive(questId) || isQuestCompleted(questId)) return;
+        game.quests.active.push(questId);
+        saveGame(); updateUI();
+        showGameAlert(`📜 Quest Started: ${q.name}\n\n${q.desc}`);
+    }
+
+    function completeQuest(questId) {
+        ensureWorldExpansionDefaults();
+        let q = QUEST_DEFS[questId];
+        if (!q || isQuestCompleted(questId) || !isQuestActive(questId)) return;
+        if (!q.checkComplete(game)) {
+            showGameAlert("You haven't met the requirements for this quest yet.");
+            return;
+        }
+        if (q.onComplete) q.onComplete(game);
+        game.quests.active = game.quests.active.filter(id => id !== questId);
+        game.quests.completed.push(questId);
+        if (q.reward) {
+            if (q.reward.funds) game.funds += q.reward.funds;
+            if (q.reward.reputation) {
+                Object.keys(q.reward.reputation).forEach(repKey => bumpReputation(repKey, q.reward.reputation[repKey]));
+            }
+        }
+        checkAchievements();
+        saveGame(); updateUI();
+        showGameAlert(`✅ Quest Complete: ${q.name}\n\n${q.completeText || ''}`);
+        checkVikingHomesteadUnlock();
+    }
+
+    function setStoryFlag(flag, value = true) { ensureWorldExpansionDefaults(); game.quests.flags[flag] = value; }
+    function hasStoryFlag(flag) { return !!(game.quests && game.quests.flags && game.quests.flags[flag]); }
+
+    function checkVikingHomesteadUnlock() {
+        ensureWorldExpansionDefaults();
+        if (game.homestead.unlocked) return;
+        if (isQuestCompleted('vk_tribute') && isQuestCompleted('vk_trial')) {
+            game.homestead.unlocked = true;
+            checkAchievements();
+            saveGame(); updateUI();
+            showGameAlert("🏡 LAND DEED GRANTED!\n\nBjargaöldum hands you a weathered deed marked with his seal. \"The old coastal timber plot is yours now, outlander. Don't waste it.\"\n\nYou can now travel to the Deep Forest to harvest wood and begin building your Homestead.");
+        }
+    }
+
+    // --- DIALOGUE ENGINE ---
+    const NPC_LEADERS = {
+        viking: {
+            key: 'viking', name: "Jarl Bjargaöldum", title: "Jarl of the Nordic Fjord",
+            portrait: "/pictures/Bjargaoldum.jpg", fallbackEmoji: "🪓",
+            dialogue: {
+                start: {
+                    text: "Jarl Bjargaöldum straightens from his war-table, one hand resting on the haft of a bearded axe. \"An outlander in my hall. Speak your business - I've little patience for those who waste my time.\"",
+                    options: [
+                        { label: "Tell me about your people.", next: 'lore' },
+                        { label: "Farewell.", action: 'close' }
+                    ]
+                },
+                lore: {
+                    text: "\"My people have carved a life from stone and salt-spray for a hundred generations. We fish the fjord, raise our own longhouse timbers, and when raiders test our shores, they learn why. Loyalty is earned in blood and honest work - remember that.\"",
+                    options: [{ label: "Back", next: 'start' }]
+                }
+            }
+        },
+        oakhaven: {
+            key: 'oakhaven', name: "Elder Maeve", title: "Herbalist of Oakhaven Enclave",
+            portrait: "/pictures/elder_maeve.jpg", fallbackEmoji: "🌿",
+            dialogue: {
+                start: {
+                    text: "Elder Maeve looks up from a mortar of crushed herbs, her twig crown rustling gently. \"Ah, a new face beneath the canopy. Sit, child. The forest doesn't often send visitors who mean it well - but you have kind eyes.\"",
+                    options: [
+                        { label: "Tell me about Oakhaven.", next: 'lore' },
+                        { label: "Farewell.", action: 'close' }
+                    ]
+                },
+                lore: {
+                    text: "\"Oakhaven has stood beneath this canopy since before anyone living can remember. We take only what the forest offers freely, and in return it keeps our secrets - and our elixirs - potent.\"",
+                    options: [{ label: "Back", next: 'start' }]
+                }
+            }
+        },
+        duneSpire: {
+            key: 'duneSpire', name: "Sultan Tariq", title: "Sovereign of the Dune-Spire Bazaar",
+            portrait: "/pictures/sultan.jpg", fallbackEmoji: "🏺",
+            dialogue: {
+                start: {
+                    text: "Sultan Tariq reclines beneath a jeweled canopy, guards at his flanks. \"Another wanderer drawn by the glitter of my Bazaar, hm? Everything here has a price, outlander - including my attention.\"",
+                    options: [
+                        { label: "Tell me about the Bazaar.", next: 'lore' },
+                        { label: "Farewell.", action: 'close' }
+                    ]
+                },
+                lore: {
+                    text: "\"The Dune-Spire Bazaar sits astride three trade roads. Gold flows through my hands like sand, and I intend to keep it that way. Prove useful, and there's coin enough for both of us.\"",
+                    options: [{ label: "Back", next: 'start' }]
+                }
+            }
+        },
+        forgePeak: {
+            key: 'forgePeak', name: "High Smith Varek", title: "Master of Forge-Peak Citadel",
+            portrait: "/pictures/High_Smith_Varek.jpg", fallbackEmoji: "🔨",
+            dialogue: {
+                start: {
+                    text: "High Smith Varek doesn't look up from the anvil, volcanic veins glowing faintly beneath his skin with each hammer-fall. \"Speak quick or step back - Forge-Peak has no patience for the idle.\"",
+                    options: [
+                        { label: "Tell me about the Citadel.", next: 'lore' },
+                        { label: "Farewell.", action: 'close' }
+                    ]
+                },
+                lore: {
+                    text: "\"Every blade, every rune, every scrap of armor in this citadel passes through these hands or one of my apprentices'. The mountain gives us fire; we give it purpose. Bring me good steel and I'll show you what real power looks like.\"",
+                    options: [{ label: "Back", next: 'start' }]
+                }
+            }
+        },
+        mistVeil: {
+            key: 'mistVeil', name: "Lady Vespera", title: "Seer of Mist-Veil Hollow",
+            portrait: "/pictures/Lady_Vespera.jpg", fallbackEmoji: "👻",
+            dialogue: {
+                start: {
+                    text: "Lady Vespera turns toward you though her eyes are wrapped in cloth, spirit wisps drifting lazily around her lantern staff. \"I felt you crossing the bog before you arrived, little spark. The Hollow doesn't often welcome the living so warmly.\"",
+                    options: [
+                        { label: "Tell me about the Hollow.", next: 'lore' },
+                        { label: "Farewell.", action: 'close' }
+                    ]
+                },
+                lore: {
+                    text: "\"Mist-Veil Hollow keeps what the world above forgets - relics, regrets, and the restless dead. I purify what curses I can, and I listen to what the spirits still have to say. Some things deserve a second chance at rest.\"",
+                    options: [{ label: "Back", next: 'start' }]
+                }
+            }
+        }
+    };
+
+    let activeDialogueNpc = null;
+    let activeDialogueNode = 'start';
+
+    function getDynamicQuestOption(leaderKey) {
+        let quest = getNextQuestForLeader(leaderKey);
+        if (!quest) return null;
+        if (isQuestActive(quest.id)) {
+            if (quest.checkComplete(game)) return { label: `✅ Turn in: ${quest.name}`, action: 'turnInQuest', questId: quest.id };
+            return { label: `📜 (In Progress) ${quest.name}`, action: 'showQuestDesc', questId: quest.id };
+        }
+        return { label: `❗ ${quest.name}`, action: 'offerQuest', questId: quest.id };
+    }
+
+    function openDialogue(npcKey) {
+        if (!NPC_LEADERS[npcKey]) return;
+        activeDialogueNpc = npcKey;
+        activeDialogueNode = 'start';
+        renderDialogue();
+    }
+
+    function renderDialogue() {
+        let npc = NPC_LEADERS[activeDialogueNpc];
+        if (!npc) { closeDialogue(); return; }
+        let node = npc.dialogue[activeDialogueNode] || npc.dialogue.start;
+
+        document.getElementById('dialogue-name').innerText = npc.name;
+        document.getElementById('dialogue-title').innerText = npc.title;
+        document.getElementById('dialogue-text').innerText = node.text;
+
+        let portraitWrap = document.getElementById('dialogue-portrait-wrap');
+        portraitWrap.innerHTML = '';
+        let img = document.createElement('img');
+        img.src = npc.portrait;
+        img.alt = npc.name;
+        img.onerror = () => { portraitWrap.innerHTML = `<span class="dialogue-portrait-fallback">${npc.fallbackEmoji}</span>`; };
+        portraitWrap.appendChild(img);
+
+        let options = node.options.slice();
+        if (activeDialogueNode === 'start') {
+            let dyn = getDynamicQuestOption(npc.key);
+            if (dyn) options = [dyn].concat(options);
+        }
+
+        let optionsEl = document.getElementById('dialogue-options');
+        optionsEl.innerHTML = '';
+        options.forEach(opt => {
+            let btn = document.createElement('button');
+            btn.className = 'dialogue-option-btn';
+            btn.innerText = opt.label;
+            btn.onclick = () => dialogueChoice(opt);
+            optionsEl.appendChild(btn);
+        });
+
+        document.getElementById('dialogue-overlay').classList.add('active');
+    }
+
+    function dialogueChoice(opt) {
+        if (!opt) return;
+        if (opt.next) { activeDialogueNode = opt.next; renderDialogue(); return; }
+        if (opt.action === 'close') { closeDialogue(); return; }
+        if (opt.action === 'offerQuest') { startQuest(opt.questId); renderDialogue(); return; }
+        if (opt.action === 'turnInQuest') { completeQuest(opt.questId); renderDialogue(); return; }
+        if (opt.action === 'showQuestDesc') {
+            let q = QUEST_DEFS[opt.questId];
+            if (q) showGameAlert(`📜 ${q.name}\n\n${q.desc}`);
+            return;
+        }
+    }
+
+    function closeDialogue() {
+        let overlay = document.getElementById('dialogue-overlay');
+        if (overlay) overlay.classList.remove('active');
+        activeDialogueNpc = null;
+    }
+
+    // --- THE 5 REGIONAL SETTLEMENTS ---
+    const SETTLEMENTS_DATA = {
+        viking: { name: "Nordic Fjord (Viking Settlement)", leaderKey: 'viking', bg: "radial-gradient(circle at 50% 30%, #0a1a2a 0%, #020608 85%)", color: "#8fd3ff", icon: "🪓" },
+        oakhaven: { name: "Oakhaven Enclave", leaderKey: 'oakhaven', bg: "radial-gradient(circle at 50% 30%, #0a2210 0%, #020803 85%)", color: "#8fff8f", icon: "🌿" },
+        duneSpire: { name: "Dune-Spire Bazaar", leaderKey: 'duneSpire', bg: "radial-gradient(circle at 50% 30%, #3d2600 0%, #140c00 85%)", color: "#ffcc44", icon: "🏺" },
+        forgePeak: { name: "Forge-Peak Citadel", leaderKey: 'forgePeak', bg: "radial-gradient(circle at 50% 30%, #3d0000 0%, #140000 85%)", color: "#ff8844", icon: "🔨" },
+        mistVeil: { name: "Mist-Veil Hollow", leaderKey: 'mistVeil', bg: "radial-gradient(circle at 50% 30%, #1a1a2a 0%, #050508 85%)", color: "#c9a8ff", icon: "👻" }
+    };
+
+    function showSettlementsMap() {
+        playBGM('hq');
+        clearConsole("center", "radial-gradient(circle at 50% 40%, #1a1608 0%, #05040a 85%)", "#ffcc66");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#ffcc66; font-size:18px;">🏘️ REGIONAL SETTLEMENTS</h2>
+            <p style="color:#aaa; font-size:12px;">Five settlements, five leaders. Earn their trust, and their lands may open to you.</p>
+        `;
+        let btns = Object.keys(SETTLEMENTS_DATA).map(key => {
+            let s = SETTLEMENTS_DATA[key];
+            return { text: `${s.icon} ${s.name}`, class: "btn btn-sys", action: () => selectSettlement(key) };
+        });
+        btns.push({ text: "⬅ Back to World Map", class: "btn btn-back", action: showWorldMap });
+        renderButtons(btns);
+    }
+
+    function selectSettlement(key) {
+        let s = SETTLEMENTS_DATA[key];
+        if (!s) { showSettlementsMap(); return; }
+        game.location = s.name;
+        updateUI(); saveGame();
+        playBGM('hq');
+        clearConsole("center", s.bg, s.color);
+        document.getElementById("console").innerHTML = `
+            <div style="font-size:40px; margin-bottom:8px;">${s.icon}</div>
+            <h2 style="color:${s.color}; font-size:18px;">ARRIVED AT ${s.name.toUpperCase()}</h2>
+        `;
+        renderButtons([]);
+        setTimeout(() => showSettlementHub(key), 1100);
+    }
+
+    function showSettlementHub(key) {
+        let s = SETTLEMENTS_DATA[key];
+        if (!s) { showSettlementsMap(); return; }
+        let npc = NPC_LEADERS[s.leaderKey];
+        clearConsole("flex-start", s.bg, s.color);
+        let rep = (game.reputation && game.reputation[s.leaderKey]) || 0;
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:${s.color}; font-size:18px;">${s.icon} ${s.name.toUpperCase()}</h2>
+            <p style="color:#aaa; font-size:12px;">Leader: <strong style="color:${s.color};">${npc.name}</strong>, ${npc.title}</p>
+            <p style="color:#ffd700; font-size:11.5px;">⭐ Reputation: ${rep}</p>
+        `;
+        let btns = [{ text: `💬 Talk to ${npc.name.split(' ').slice(-1)[0]}`, class: "btn btn-maid", action: () => openDialogue(s.leaderKey) }];
+        btns = btns.concat(getSettlementActionButtons(key));
+        btns.push({ text: "🏘️ Switch Settlement", class: "btn btn-map", action: showSettlementsMap });
+        btns.push({ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu });
+        renderButtons(btns);
+    }
+
+    function getSettlementActionButtons(key) {
+        if (key === 'viking') {
+            let btns = [{ text: "🌲 Deep Forest", class: "btn btn-mine", action: showDeepForestMenu }];
+            if (game.homestead.unlocked) btns.push({ text: "🏡 Homestead", class: "btn btn-farm", action: showHomesteadMenu });
+            return btns;
+        }
+        if (key === 'oakhaven') return [{ text: "🌿 Forage Herbs (⚡10)", class: "btn btn-farm", action: forageHerbs }];
+        if (key === 'duneSpire') return [{ text: "🏺 Haggle at the Bazaar (⚡10)", class: "btn btn-mine", action: haggleBazaar }];
+        if (key === 'forgePeak') return [{ text: "🔨 Commission a Rune ($200)", class: "btn btn-combat", action: commissionRune }];
+        if (key === 'mistVeil') return [{ text: "👻 Consult the Spirits ($150)", class: "btn btn-goth", action: consultSpirits }];
+        return [];
+    }
+
+    // --- OAKHAVEN / DUNE-SPIRE / FORGE-PEAK / MIST-VEIL: lightweight themed actions ---
+    function forageHerbs() {
+        if ((game.stamina || 0) < 10) { log("❌ Not enough stamina to forage!", "color-red"); return; }
+        game.stamina -= 10;
+        let herbs = ["Moonleaf Sprig", "Silverroot", "Dew Blossom", "Bitter Fen Moss"];
+        let found = herbs[Math.floor(Math.random() * herbs.length)];
+        game.inventory.push(found);
+        bumpReputation('oakhaven', 2);
+        saveGame(); updateUI();
+        log(`🌿 You forage beneath the canopy and find: ${found}!`, "color-cyan");
+        showSettlementHub('oakhaven');
+    }
+
+    function haggleBazaar() {
+        if ((game.stamina || 0) < 10) { log("❌ Not enough stamina to haggle!", "color-red"); return; }
+        game.stamina -= 10;
+        let gained = Math.round(80 + Math.random() * 220);
+        game.funds += gained;
+        bumpReputation('duneSpire', 2);
+        saveGame(); updateUI();
+        log(`🏺 You strike a shrewd bargain in the Bazaar and pocket $${gained}.`, "color-cyan");
+        showSettlementHub('duneSpire');
+    }
+
+    function commissionRune() {
+        let cost = 200;
+        if (game.funds < cost) { log("❌ Not enough funds to commission a rune!", "color-red"); return; }
+        let champion = getChampion();
+        if (!champion || !champion.uid) { log("❌ You need a champion in your active party first!", "color-red"); return; }
+        game.funds -= cost;
+        let gain = Math.floor(4 + Math.random() * 5);
+        let member = game.staff.find(s => s.uid === champion.uid);
+        if (member) member.power = (member.power || 30) + gain;
+        bumpReputation('forgePeak', 2);
+        saveGame(); updateUI();
+        log(`🔨 High Smith Varek forges a rune into ${champion.name}'s gear! Power +${gain}.`, "color-cyan");
+        showSettlementHub('forgePeak');
+    }
+
+    function consultSpirits() {
+        let cost = 150;
+        if (game.funds < cost) { log("❌ Not enough funds for an offering!", "color-red"); return; }
+        game.funds -= cost;
+        game.stamina = Math.min(100, (game.stamina || 0) + 40);
+        bumpReputation('mistVeil', 2);
+        saveGame(); updateUI();
+        log(`👻 Lady Vespera's spirit wisps swirl around you, and your strength is restored. (+40 Stamina)`, "color-cyan");
+        showSettlementHub('mistVeil');
+    }
+
+    // --- VIKING HOMESTEAD: Deep Forest woodcutting, construction, guards, raids ---
+    function showDeepForestMenu() {
+        if (!game.homestead.unlocked) {
+            showGameAlert("The Deep Forest belongs to no one yet. Earn Bjargaöldum's trust and claim your land deed first.");
+            showSettlementHub('viking');
+            return;
+        }
+        playBGM('hq');
+        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #041006 0%, #010402 85%)", "#66ffaa");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#66ffaa; font-size:18px;">🌲 DEEP FOREST</h2>
+            <p style="color:#aaa; font-size:12px;">Your coastal timber plot. Chop wood to fuel your Homestead's construction.</p>
+            <p style="color:#ffd700; font-size:12px;">🪵 Wood: ${game.resources.wood || 0} | ⚡ Stamina: ${game.stamina || 0}</p>
+        `;
+        renderButtons([
+            { text: "🪓 Chop Wood (⚡8)", class: "btn btn-farm", action: chopWood },
+            { text: "🏡 Go to Homestead", class: "btn btn-farm", action: showHomesteadMenu },
+            { text: "⬅ Back to Fjord", class: "btn btn-back", action: () => showSettlementHub('viking') }
+        ]);
+    }
+
+    function chopWood() {
+        if ((game.stamina || 0) < 8) { log("❌ Not enough stamina to chop wood!", "color-red"); showDeepForestMenu(); return; }
+        game.stamina -= 8;
+        let gained = Math.floor(3 + Math.random() * 4); // 3-6
+        game.resources.wood = (game.resources.wood || 0) + gained;
+        saveGame(); updateUI();
+        log(`🪓 You chop timber and gather ${gained} wood. (${game.resources.wood} total)`, "color-cyan");
+        showDeepForestMenu();
+    }
+
+    const HOMESTEAD_STRUCTURES = {
+        longhouse: { name: "Longhouse / Main Hall", icon: "🏛️", desc: "Increases stamina recovered each Sleep cycle.", baseWoodCost: 20, baseFundsCost: 400 },
+        watchtower: { name: "Watchtower", icon: "🗼", desc: "Early warning against bandit raids - softens losses on defeat.", baseWoodCost: 15, baseFundsCost: 300 },
+        palisades: { name: "Perimeter Palisades", icon: "🛡️", desc: "Fortifies the settlement - raises guard defense during raids.", baseWoodCost: 25, baseFundsCost: 350 },
+        barracks: { name: "Guard Posts / Barracks", icon: "⛺", desc: "Adds an extra guard slot per level.", baseWoodCost: 18, baseFundsCost: 450 }
+    };
+
+    function homesteadStructureCost(type) {
+        let def = HOMESTEAD_STRUCTURES[type];
+        let level = game.homestead.structures[type] || 0;
+        return { wood: def.baseWoodCost * (level + 1), funds: def.baseFundsCost * (level + 1) };
+    }
+
+    function homesteadGuardSlotCount() {
+        return 2 + (game.homestead.structures.barracks || 0);
+    }
+
+    function showHomesteadMenu() {
+        if (!game.homestead.unlocked) { showGameAlert("You haven't been granted a land deed yet."); showSettlementHub('viking'); return; }
+        playBGM('hq');
+        clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #0a1a2a 0%, #020608 85%)", "#8fd3ff");
+        let html = `
+            <h2 style="color:#8fd3ff; font-size:18px;">🏡 YOUR HOMESTEAD</h2>
+            <p style="color:#aaa; font-size:12px;">🪵 Wood: ${game.resources.wood || 0} | 💰 Funds: $${Math.floor(game.funds)}</p>
+            <div style="width:100%;">
+        `;
+        Object.keys(HOMESTEAD_STRUCTURES).forEach(type => {
+            let def = HOMESTEAD_STRUCTURES[type];
+            let level = game.homestead.structures[type] || 0;
+            let cost = homesteadStructureCost(type);
+            html += `<div class="dex-card" style="display:block; text-align:left;">
+                <strong style="color:#8fd3ff;">${def.icon} ${def.name} (Lv. ${level})</strong><br>
+                <span style="font-size:11px; color:#aaa;">${def.desc}</span><br>
+                <span style="font-size:11px; color:#ffd700;">Upgrade cost: 🪵${cost.wood} + $${cost.funds}</span>
+                <button class="btn btn-farm" style="padding:4px 8px; font-size:11px; min-height:26px; margin-top:4px;" onclick="buildHomesteadStructure('${type}')">🔨 ${level === 0 ? 'Build' : 'Upgrade'}</button>
+            </div>`;
+        });
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([
+            { text: "🛡️ Guard Roster", class: "btn btn-maid", action: showGuardRosterMenu },
+            { text: "🔔 Scout for Raiders", class: "btn btn-combat", action: triggerBanditRaid },
+            { text: "🌲 Deep Forest", class: "btn btn-mine", action: showDeepForestMenu },
+            { text: "⬅ Back to Fjord", class: "btn btn-back", action: () => showSettlementHub('viking') }
+        ]);
+    }
+
+    function buildHomesteadStructure(type) {
+        if (!HOMESTEAD_STRUCTURES[type]) return;
+        let cost = homesteadStructureCost(type);
+        if ((game.resources.wood || 0) < cost.wood) { log("❌ Not enough wood!", "color-red"); showHomesteadMenu(); return; }
+        if (game.funds < cost.funds) { log("❌ Not enough funds!", "color-red"); showHomesteadMenu(); return; }
+        game.resources.wood -= cost.wood;
+        game.funds -= cost.funds;
+        game.homestead.structures[type] = (game.homestead.structures[type] || 0) + 1;
+        bumpReputation('viking', 5);
+        saveGame(); updateUI();
+        log(`🔨 ${HOMESTEAD_STRUCTURES[type].name} is now level ${game.homestead.structures[type]}!`, "color-cyan");
+        showHomesteadMenu();
+    }
+
+    function showGuardRosterMenu() {
+        playBGM('staff');
+        clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #0a1a2a 0%, #020608 85%)", "#8fd3ff");
+        let slotCount = homesteadGuardSlotCount();
+        let guards = game.homestead.guards || [];
+        let html = `
+            <h2 style="color:#8fd3ff; font-size:18px;">🛡️ GUARD ROSTER (${guards.length}/${slotCount})</h2>
+            <p style="color:#aaa; font-size:12px;">Assign roster members to defend the Homestead from bandit raids.</p>
+            <div style="width:100%;">
+        `;
+        for (let slot = 0; slot < slotCount; slot++) {
+            let assignment = guards.find(g => g.slot === slot);
+            let member = assignment ? game.staff.find(s => s.uid === assignment.uid) : null;
+            html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:12px;">Slot ${slot + 1}: ${member ? `${member.name} (Pwr ${member.power || 0})${member.fatigued ? ' 😴' : ''}` : 'Empty'}</span>
+                ${member ? `<button class="btn btn-back" style="padding:4px 8px; font-size:11px; min-height:26px;" onclick="unassignHomesteadGuard(${slot})">Remove</button>` : `<button class="btn btn-farm" style="padding:4px 8px; font-size:11px; min-height:26px;" onclick="showGuardPicker(${slot})">Assign</button>`}
+            </div>`;
+        }
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([{ text: "⬅ Back to Homestead", class: "btn btn-back", action: showHomesteadMenu }]);
+    }
+
+    function showGuardPicker(slot) {
+        clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #0a1a2a 0%, #020608 85%)", "#8fd3ff");
+        let assignedUids = (game.homestead.guards || []).map(g => g.uid);
+        let available = (game.staff || []).filter(s => !assignedUids.includes(s.uid));
+        let html = `<h2 style="color:#8fd3ff; font-size:18px;">Assign Guard - Slot ${slot + 1}</h2><div style="width:100%;">`;
+        if (!available.length) html += `<p style="color:#666; font-size:12px;">No available roster members to assign.</p>`;
+        available.forEach(s => {
+            html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:12px;">${s.name} (Pwr ${s.power || 0})</span>
+                <button class="btn btn-farm" style="padding:4px 8px; font-size:11px; min-height:26px;" onclick="assignHomesteadGuard('${s.uid}', ${slot})">Assign</button>
+            </div>`;
+        });
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons([{ text: "⬅ Cancel", class: "btn btn-back", action: showGuardRosterMenu }]);
+    }
+
+    function assignHomesteadGuard(characterId, slot) {
+        if (!game.staff.find(s => s.uid === characterId)) { showGuardRosterMenu(); return; }
+        if (!Array.isArray(game.homestead.guards)) game.homestead.guards = [];
+        let slotCount = homesteadGuardSlotCount();
+        if (slot < 0 || slot >= slotCount) { showGuardRosterMenu(); return; }
+        game.homestead.guards = game.homestead.guards.filter(g => g.slot !== slot && g.uid !== characterId);
+        game.homestead.guards.push({ uid: characterId, slot: slot });
+        saveGame(); updateUI();
+        showGuardRosterMenu();
+    }
+
+    function unassignHomesteadGuard(slot) {
+        game.homestead.guards = (game.homestead.guards || []).filter(g => g.slot !== slot);
+        saveGame(); updateUI();
+        showGuardRosterMenu();
+    }
+
+    // Resolves an immediate bandit assault using the same mitigation formula the raid
+    // boss retaliation uses (computeMitigatedDamage) - assigned guards' total power is
+    // the settlement's offense, palisades level is its defense.
+    function triggerBanditRaid() {
+        if (!game.homestead.unlocked) { showSettlementHub('viking'); return; }
+        let guards = (game.homestead.guards || [])
+            .map(g => Object.assign({}, g, { member: game.staff.find(s => s.uid === g.uid) }))
+            .filter(g => g.member && !g.member.fatigued);
+
+        if (!guards.length) {
+            showGameAlert("🔔 No rested guards are standing watch! Assign roster members to your Guard Roster before scouting for raiders.");
+            return;
+        }
+
+        let guardPower = guards.reduce((sum, g) => sum + (g.member.power || 0), 0);
+        let palisadesLevel = game.homestead.structures.palisades || 0;
+        let watchtowerLevel = game.homestead.structures.watchtower || 0;
+        let defense = palisadesLevel * 15;
+
+        // Bandit strength scales gently with how far into the game the player is.
+        let banditAttack = 60 + (game.day || 1) * 3;
+        let mitigatedThreat = computeMitigatedDamage(banditAttack, defense, 0.1);
+        let victory = guardPower >= mitigatedThreat;
+
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #2a0a0a 0%, #080202 85%)", "#ff6666");
+        if (victory) {
+            let salvage = Math.round(150 + Math.random() * 250 + palisadesLevel * 20);
+            game.funds += salvage;
+            bumpReputation('viking', 8);
+            saveGame(); updateUI();
+            document.getElementById("console").innerHTML = `
+                <div style="font-size:40px;">⚔️</div>
+                <h2 style="color:#66ff99; font-size:18px;">RAID REPELLED!</h2>
+                <p style="color:#fff; font-size:12px;">Your guards (combined power ${guardPower}) drove off a bandit warband! Salvage recovered: $${salvage}.</p>
+            `;
+        } else {
+            let repairCost = Math.round(80 + Math.random() * 120);
+            game.funds = Math.max(0, game.funds - repairCost);
+            // A watchtower softens the blow - higher levels spare more guards from fatigue.
+            let fatigueSpared = Math.min(guards.length, watchtowerLevel);
+            guards.forEach((g, idx) => { if (idx >= fatigueSpared) g.member.fatigued = true; });
+            saveGame(); updateUI();
+            document.getElementById("console").innerHTML = `
+                <div style="font-size:40px;">💥</div>
+                <h2 style="color:#ff6666; font-size:18px;">HOMESTEAD RAIDED!</h2>
+                <p style="color:#fff; font-size:12px;">Your guards (combined power ${guardPower}) couldn't fully hold the line. Bandits looted before fleeing - minor repairs cost $${repairCost}, and some guards are now fatigued (they'll recover after your next Sleep cycle).</p>
+            `;
+        }
+        renderButtons([{ text: "✔ Return to Homestead", class: "btn btn-start", action: showHomesteadMenu }]);
     }
 
     function getManagerTitle() {
@@ -1925,6 +2603,7 @@
         if (typeof game.cloudLinked !== 'boolean') game.cloudLinked = false;
         if (typeof game.cloudSyncedAt !== 'number') game.cloudSyncedAt = 0;
         ensureProgressionDefaults();
+        ensureWorldExpansionDefaults();
 
         document.getElementById("funds-display").innerText = Math.floor(game.funds || 0);
         document.getElementById("stamina-display").innerText = game.stamina || 0;
@@ -4660,11 +5339,15 @@
         `;
         renderButtons([]);
         setTimeout(() => {
-            game.stamina = 100;
+            ensureWorldExpansionDefaults();
+            let longhouseLevel = (game.homestead.structures && game.homestead.structures.longhouse) || 0;
+            game.stamina = 100 + longhouseLevel * 10;
             game.day++;
             let passive = (game.staff || []).length * 50;
             game.funds += passive;
             tickFarmDay();
+            // Guard fatigue from a lost bandit raid is temporary - a night's rest clears it.
+            (game.staff || []).forEach(s => { if (s.fatigued) delete s.fatigued; });
             saveGame(); showMainMenu();
         }, 3800);
     }
@@ -4818,6 +5501,7 @@
             { text: "🌲 Whispering Forest", class: "btn btn-farm", action: () => selectRegion('forest') },
             { text: "🏜️ Sunscorched Desert", class: "btn btn-mine", action: () => selectRegion('desert') },
             { text: "🌋 Obsidian Volcano", class: "btn btn-combat", action: () => selectRegion('volcano') },
+            { text: "🏘️ Regional Settlements", class: "btn btn-dlc", action: showSettlementsMap },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
