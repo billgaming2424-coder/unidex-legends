@@ -165,6 +165,34 @@
         @keyframes joinToastIn { 0% { opacity: 0; transform: translateX(20px); } 100% { opacity: 1; transform: translateX(0); } }
         @keyframes joinToastOut { 0% { opacity: 1; transform: translateX(0); } 100% { opacity: 0; transform: translateX(20px); } }
 
+        /* In-page replacement for window.alert() - the native browser alert() (and
+           confirm()/prompt()) forcibly kicks the page out of Fullscreen API mode the
+           instant it pops up, which is exactly what was booting fullscreen players out
+           of the game on every "not enough funds"/"released!" style message. This is a
+           normal DOM overlay instead, so it never touches fullscreen state. */
+        #game-alert-overlay {
+            position: fixed; inset: 0; z-index: 20000;
+            background: rgba(0,0,0,0.65);
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        #game-alert-overlay.active { opacity: 1; pointer-events: auto; }
+        #game-alert-box {
+            background: #0b0b14; border: 1px solid #00ffff88; border-radius: 8px;
+            padding: 18px 22px; max-width: 88%; width: 340px;
+            box-shadow: 0 0 24px rgba(0,255,255,0.25);
+            text-align: center;
+            transform: scale(0.9); transition: transform 0.2s ease;
+        }
+        #game-alert-overlay.active #game-alert-box { transform: scale(1); }
+        #game-alert-message { color: #fff; font-size: 13px; line-height: 1.5; margin-bottom: 14px; white-space: pre-line; }
+        #game-alert-ok-btn {
+            background: #00332e; color: #00ffcc; border: 1px solid #00ffcc; border-radius: 4px;
+            padding: 6px 26px; font-size: 12px; cursor: pointer; font-family: inherit;
+        }
+        #game-alert-ok-btn:hover { background: #00544a; }
+
         /* --- Animated Title Screen --- */
         .title-stage { position: relative; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
         .title-particles { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
@@ -297,6 +325,8 @@
         .btn-hooters { border-color: #ff5500; color: #ff9955; background: #331100; }
         .btn-spin { border-color: #ffff00; color: #ffff00; background: #333300; }
         .btn-raid { border-color: #ff0055; color: #ffffff; background: #4a001a; font-weight: bold; }
+        .btn-hazbin { border-color: #e0115f; color: #ff5599; background: #2a0016; }
+        .btn-helluva { border-color: #7d3cff; color: #b28dff; background: #150029; }
         
         .clickable-portrait { cursor: pointer; transition: transform 0.2s ease, border-color 0.2s ease; border: 3px solid transparent; border-radius: 10px; padding: 4px; background: rgba(0,0,0,0.4); }
         .clickable-portrait:hover { transform: scale(1.05); border-color: #00ffff; box-shadow: 0 0 12px rgba(0,255,255,0.4); }
@@ -455,6 +485,12 @@
     </div>
     <div id="save-toast">💾 Game Saved</div>
     <div id="join-toast-container"></div>
+    <div id="game-alert-overlay" onclick="if (event.target === this) dismissGameAlert();">
+        <div id="game-alert-box">
+            <div id="game-alert-message"></div>
+            <button id="game-alert-ok-btn" onclick="dismissGameAlert()">OK</button>
+        </div>
+    </div>
     <div id="stats-bar">
         <div>🌍 <span id="loc-display">Nexus HQ</span> | Trainer: <span class="stat-highlight" id="player-name-display">Trainer</span></div>
         <div style="display: flex; align-items: center; gap: 6px;">
@@ -625,6 +661,47 @@
             setTimeout(() => entry.remove(), 350);
         }, 3500);
     }
+
+    // In-page stand-in for window.alert() - see the #game-alert-overlay CSS comment for
+    // why native alert() can't be used (it force-exits Fullscreen mode). Messages queue
+    // up if more than one fires in quick succession (e.g. two socket events back to back)
+    // instead of clobbering each other.
+    let gameAlertQueue = [];
+    let gameAlertShowing = false;
+
+    function showGameAlert(message) {
+        gameAlertQueue.push(message);
+        if (!gameAlertShowing) renderNextGameAlert();
+    }
+
+    function renderNextGameAlert() {
+        const overlay = document.getElementById('game-alert-overlay');
+        if (!overlay) {
+            // Should never happen (the overlay ships with the page), but never let a
+            // message silently vanish if it somehow is missing.
+            if (gameAlertQueue.length) console.warn(gameAlertQueue.shift());
+            gameAlertShowing = false;
+            return;
+        }
+        if (gameAlertQueue.length === 0) { gameAlertShowing = false; overlay.classList.remove('active'); return; }
+        gameAlertShowing = true;
+        document.getElementById('game-alert-message').innerText = gameAlertQueue.shift();
+        overlay.classList.add('active');
+    }
+
+    function dismissGameAlert() {
+        const overlay = document.getElementById('game-alert-overlay');
+        if (overlay) overlay.classList.remove('active');
+        setTimeout(renderNextGameAlert, 200); // let the fade-out finish before the next one pops in
+    }
+
+    document.addEventListener('keydown', (e) => {
+        const overlay = document.getElementById('game-alert-overlay');
+        if (overlay && overlay.classList.contains('active') && (e.key === 'Enter' || e.key === 'Escape' || e.key === ' ')) {
+            e.preventDefault();
+            dismissGameAlert();
+        }
+    });
 
     function showLivePlayersModal() {
         clearConsole("center", "radial-gradient(circle at 50% 30%, #001f3f 0%, #000814 85%)", "#00ffff");
@@ -816,6 +893,34 @@
             { name: "Sora (Keyblade Wielder)", origin: "Destiny Islands", type: "Cosmic", id: 10305 },
             { name: "Ratchet", origin: "Planet Veldin", type: "Electric", id: 10306 }
         ],
+        'hazbinHotel': [
+            { name: "Charlie Morningstar", origin: "The Hazbin Hotel", type: "Fairy", id: 10401 },
+            { name: "Vaggie", origin: "The Hazbin Hotel", type: "Fighting", id: 10402 },
+            { name: "Alastor", origin: "The Hazbin Hotel", type: "Ghost", id: 10403 },
+            { name: "Angel Dust", origin: "The Hazbin Hotel", type: "Poison", id: 10404 },
+            { name: "Husk", origin: "The Hazbin Hotel", type: "Dark", id: 10405 },
+            { name: "Niffty", origin: "The Hazbin Hotel", type: "Bug", id: 10406 },
+            { name: "Sir Pentious", origin: "The Hazbin Hotel", type: "Steel", id: 10407 },
+            { name: "Lucifer Morningstar", origin: "Pentagram City", type: "Dark", id: 10408 },
+            { name: "Rosie", origin: "The Cannibal Colony", type: "Normal", id: 10409 },
+            { name: "Adam", origin: "Heaven (Exorcist Corps)", type: "Electric", id: 10410 },
+            { name: "Lute", origin: "Heaven (Exorcist Corps)", type: "Fighting", id: 10411 },
+            { name: "Cherri Bomb", origin: "Pentagram City", type: "Fire", id: 10412 }
+        ],
+        'helluvaBoss': [
+            { name: "Blitzo", origin: "I.M.P.", type: "Dark", id: 10501 },
+            { name: "Moxxie", origin: "I.M.P.", type: "Fighting", id: 10502 },
+            { name: "Millie", origin: "I.M.P.", type: "Fire", id: 10503 },
+            { name: "Loona", origin: "I.M.P.", type: "Dark", id: 10504 },
+            { name: "Octavia", origin: "Stolas' Manor", type: "Rock", id: 10505 },
+            { name: "Stolas", origin: "Ars Goetia (Hell's Court)", type: "Cosmic", id: 10506 },
+            { name: "Asmodeus", origin: "Ars Goetia (Hell's Court)", type: "Poison", id: 10507 },
+            { name: "Striker", origin: "Hell's Underbelly", type: "Fighting", id: 10508 },
+            { name: "Verosika Mayday", origin: "Verosika Records", type: "Electric", id: 10509 },
+            { name: "Fizzarolli", origin: "Ozzie's Circus", type: "Fairy", id: 10510 },
+            { name: "Barbie Wire", origin: "I.M.P.", type: "Steel", id: 10511 },
+            { name: "Crimson", origin: "Ozzie's Circus", type: "Fire", id: 10512 }
+        ],
         // Exclusive characters only obtainable through Mystery Gift redeem codes -
         // never appear in wild encounters or portal pulls, but still show up (locked)
         // in the UniDex list like any other entry.
@@ -877,7 +982,9 @@
         casino: new Audio('/music/casino.mp3'),
         mining: new Audio('/music/mining.mp3'),
         desert: new Audio('/music/desert.mp3'),
-        volcano: new Audio('/music/volcano.mp3')
+        volcano: new Audio('/music/volcano.mp3'),
+        hazbin: new Audio('/music/hazbin.mp3'),
+        helluva: new Audio('/music/helluva.mp3')
     };
 
     let currentTrackName = null;
@@ -2435,7 +2542,7 @@
 
     function benchPartyMember(uid) {
         if (game.partyUids.length <= 1) {
-            alert("You need at least one active party member!");
+            showGameAlert("You need at least one active party member!");
             return;
         }
         game.partyUids = game.partyUids.filter(u => u !== uid);
@@ -2490,7 +2597,7 @@
         let member = game.staff.find(s => s.uid === uid);
         if (!member) return;
         if (game.staff.length <= 1) {
-            alert("You need at least one team member! Recruit another before releasing this one.");
+            showGameAlert("You need at least one team member! Recruit another before releasing this one.");
             return;
         }
         playBGM('staff');
@@ -2524,7 +2631,7 @@
 
         game.funds += 50;
         saveGame(); updateUI();
-        alert(`👋 Released ${member.name} back into the multiverse. (+$50)`);
+        showGameAlert(`👋 Released ${member.name} back into the multiverse. (+$50)`);
         showStaffMenu();
     }
 
@@ -2558,8 +2665,8 @@
                     member.power = (member.power || 20) + 5;
                     member.giftsGiven = (member.giftsGiven || 0) + 1;
                     saveGame(); updateUI();
-                    alert(`${member.name} smiles warmly! Power increased by +5! (Next gift: $${giftCostFor(member)})`);
-                } else { alert(`Not enough funds - this gift costs $${liveCost}!`); }
+                    showGameAlert(`${member.name} smiles warmly! Power increased by +5! (Next gift: $${giftCostFor(member)})`);
+                } else { showGameAlert(`Not enough funds - this gift costs $${liveCost}!`); }
                 showStaffMenu();
             }},
             { text: "⬅ Back to Roster", class: "btn btn-back", action: showStaffMenu }
@@ -2686,6 +2793,8 @@
             { text: "🦸 Superhero Multiverse", class: "btn btn-raid", action: () => triggerPortalTheme("superheroMultiverse", 'superheroMultiverse') },
             { text: "🐉 Fantasy Quest", class: "btn btn-goth", action: () => triggerPortalTheme("fantasyQuest", 'fantasyQuest') },
             { text: "🎮 Game Legends", class: "btn btn-waffle", action: () => triggerPortalTheme("gameLegends", 'gameLegends') },
+            { text: "🏨 Hazbin Hotel", class: "btn btn-hazbin", action: () => triggerPortalTheme("hazbinHotel", 'hazbin') },
+            { text: "💼 Helluva Boss", class: "btn btn-helluva", action: () => triggerPortalTheme("helluvaBoss", 'helluva') },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
@@ -3138,7 +3247,7 @@
         let input = document.getElementById("trade-cash-input");
         let amount = input ? parseInt(input.value, 10) : NaN;
         if (!amount || amount <= 0) return;
-        if (amount > (game.funds || 0)) { alert("You don't have that much cash!"); return; }
+        if (amount > (game.funds || 0)) { showGameAlert("You don't have that much cash!"); return; }
         sendTradeOffer(partnerIdx, 'cash', amount);
     }
 
@@ -3155,7 +3264,7 @@
         } else {
             let member = game.staff.find(s => s.uid === payload);
             if (!member) return;
-            if (game.staff.length <= 1) { alert("You need at least one team member!"); return; }
+            if (game.staff.length <= 1) { showGameAlert("You need at least one team member!"); return; }
             pendingOutgoingTrade = { targetId: partner.id, targetName: partner.name, kind, character: member, staffUid: payload };
             offerPayload = { character: member };
         }
@@ -3228,7 +3337,7 @@
         let input = document.getElementById("incoming-cash-input");
         let amount = input ? parseInt(input.value, 10) : NaN;
         if (!amount || amount <= 0) return;
-        if (amount > (game.funds || 0)) { alert("You don't have that much cash!"); return; }
+        if (amount > (game.funds || 0)) { showGameAlert("You don't have that much cash!"); return; }
         finalizeIncomingTrade('cash', amount);
     }
 
@@ -3255,7 +3364,7 @@
             applyReceivedTrade(received.kind, received.payload);
             receiveMessage = `You gave $${choiceValue} and received ${tradeOfferSummary(o)} from ${o.senderName}!`;
         } else {
-            if ((game.staff || []).length <= 1) { alert("You need at least one team member!"); return; }
+            if ((game.staff || []).length <= 1) { showGameAlert("You need at least one team member!"); return; }
             let myCharacter = game.staff.find(s => s.uid === choiceValue);
             if (!myCharacter) return;
             let idx = game.staff.findIndex(s => s.uid === choiceValue);
@@ -3480,7 +3589,7 @@
     }
 
     function executeRaidStrike() {
-        if (!socket || !socket.connected) { alert("Not connected to the server - can't reach the raid boss right now."); return; }
+        if (!socket || !socket.connected) { showGameAlert("Not connected to the server - can't reach the raid boss right now."); return; }
         let lead = getChampion();
         let dmg = (lead.power || 35) + Math.floor(Math.random() * 20);
         socket.emit('attackRaidBoss', { damage: dmg, trainerName: game.playerName, championName: lead.name });
@@ -3551,7 +3660,7 @@
 
         socket.on('tradeOfferDeclined', (data) => {
             if (pendingOutgoingTrade) {
-                alert(`${data.declinerName || "The trainer"} declined your trade offer.`);
+                showGameAlert(`${data.declinerName || "The trainer"} declined your trade offer.`);
                 pendingOutgoingTrade = null;
                 renderActiveLobbyView();
             }
@@ -3572,7 +3681,7 @@
         socket.on('itemSoldNotification', (data) => {
             game.funds += data.price;
             saveGame(); updateUI();
-            alert(`💰 ${data.buyer} bought your ${data.item} for $${data.price}!`);
+            showGameAlert(`💰 ${data.buyer} bought your ${data.item} for $${data.price}!`);
         });
 
         socket.on('marketListingCancelled', (listing) => {
@@ -3589,7 +3698,7 @@
 
         socket.on('pvpChallengeDeclined', (data) => {
             if (pendingPvPTarget) {
-                alert(`${data.declinerName || "The trainer"} declined your duel challenge.`);
+                showGameAlert(`${data.declinerName || "The trainer"} declined your duel challenge.`);
                 pendingPvPTarget = null;
                 renderActiveLobbyView();
             }
