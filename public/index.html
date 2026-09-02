@@ -758,18 +758,27 @@
     // Pulls down {exists, updatedAt, saveData, playerName, day, funds} for the
     // signed-in account's single cloud save. Cached in cloudSaveMeta so screens
     // can render synchronously between fetches.
+    //
+    // IMPORTANT: a failed/uncertain check must never be reported as "no cloud save
+    // exists" - a caller (linkCurrentSaveToCloud in particular) uses `exists` to decide
+    // whether it's safe to upload without asking first, and a false negative there would
+    // silently overwrite a real cloud save with whatever's on this device. So a network
+    // hiccup or query error sets `checkFailed: true` and leaves the previous cached
+    // result alone, instead of collapsing to exists:false.
     async function fetchCloudSaveMeta() {
-        if (!supabaseClient || !cloudUser) { cloudSaveMeta = { exists: false }; return cloudSaveMeta; }
+        if (!supabaseClient || !cloudUser) { cloudSaveMeta = { exists: false, checkFailed: false }; return cloudSaveMeta; }
         try {
             const { data, error } = await supabaseClient
                 .from('player_saves')
                 .select('save_data, updated_at')
                 .eq('user_id', cloudUser.id)
                 .maybeSingle();
-            if (error || !data) { cloudSaveMeta = { exists: false }; return cloudSaveMeta; }
+            if (error) { cloudSaveMeta = { ...cloudSaveMeta, checkFailed: true }; return cloudSaveMeta; }
+            if (!data) { cloudSaveMeta = { exists: false, checkFailed: false }; return cloudSaveMeta; }
             let sd = data.save_data || {};
             cloudSaveMeta = {
                 exists: true,
+                checkFailed: false,
                 updatedAt: new Date(data.updated_at).getTime(),
                 saveData: sd,
                 playerName: sd.playerName || "Trainer",
@@ -777,7 +786,7 @@
                 funds: sd.funds || 0
             };
         } catch (e) {
-            cloudSaveMeta = { exists: false };
+            cloudSaveMeta = { ...cloudSaveMeta, checkFailed: true };
         }
         return cloudSaveMeta;
     }
@@ -971,6 +980,16 @@
         showCloudAccountMenu();
         try {
             const meta = await fetchCloudSaveMeta();
+            if (meta.checkFailed) {
+                // Couldn't confirm whether this account already has a cloud save - never
+                // guess "no" here, since that would let finalizeLinkAndUpload silently
+                // overwrite a real save. Stop and let the player retry instead of losing
+                // their (or another device's) progress to a transient network error.
+                cloudBusy = false;
+                showCloudAccountMenu();
+                log("❌ Couldn't verify your cloud save status. Check your connection and try linking again.", "color-red");
+                return;
+            }
             if (meta.exists) {
                 cloudBusy = false;
                 showLinkOverwriteConfirm(meta);
@@ -1016,6 +1035,7 @@
                 <h2 style="color:#22d3ee;">CLOUD ACCOUNT</h2>
                 <p style="color:#9be; font-size:12px;">Signed in as <strong>${cloudUser.email}</strong></p>
                 <p style="color:#9be; font-size:12px;">${linked ? `✅ This save is cloud-linked.<br>Last synced: ${syncedLabel}` : `⚪ This save is not cloud-linked yet.`}</p>
+                ${cloudSaveMeta.checkFailed ? `<p style="color:#ff9966; font-size:11px;">⚠️ Couldn't reach the server to check your cloud save status - info below may be out of date.</p>` : ""}
                 ${cloudBusy ? `<p style="color:#ffd700; font-size:12px;">⏳ Working...</p>` : ""}
             `;
             let btns = [];
