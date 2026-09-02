@@ -479,6 +479,102 @@
             font-size: 10.5px; letter-spacing: 1.5px; color: #4c1d95;
             opacity: 0; animation: studioTextReveal 0.9s ease 2.8s forwards;
         }
+
+        /* ================= HOLLOW KING TRAILER (new-game cold open) ================= */
+        #hollow-king-trailer {
+            position: fixed; inset: 0; z-index: 99998;
+            background: #000;
+            display: none; align-items: center; justify-content: center;
+            overflow: hidden;
+            opacity: 0; transition: opacity 0.7s ease;
+        }
+        #hollow-king-trailer.hkt-visible { opacity: 1; }
+        #hollow-king-trailer.hkt-hidden { opacity: 0; pointer-events: none; }
+        #hollow-king-trailer video { width: 100%; height: 100%; object-fit: contain; background: #000; display: block; }
+        .hkt-skip-btn {
+            position: absolute; top: 22px; right: 26px; z-index: 2;
+            font-family: 'Courier New', monospace; font-size: 11.5px; letter-spacing: 1.5px;
+            color: #cdd6ff; background: rgba(10,10,20,0.55); border: 1px solid rgba(148,163,255,0.4);
+            border-radius: 4px; padding: 8px 14px; cursor: pointer;
+            transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+        }
+        .hkt-skip-btn:hover { background: rgba(34,211,238,0.18); border-color: #22d3ee; color: #fff; }
+
+        /* ================= ACT 0: NEXUS TERMINAL GLITCH ================= */
+        #act0-glitch-overlay {
+            position: fixed; inset: 0; z-index: 50000;
+            background: rgba(2,2,6,0.94);
+            display: none; align-items: center; justify-content: center;
+            opacity: 0; transition: opacity 0.5s ease;
+            cursor: pointer;
+        }
+        #act0-glitch-overlay.a0g-visible { opacity: 1; }
+        #act0-glitch-overlay.a0g-hidden { opacity: 0; pointer-events: none; }
+        .a0g-card {
+            position: relative; width: min(560px, 88vw);
+            background: #05070a; border: 1px solid rgba(0,255,204,0.35);
+            border-radius: 6px; padding: 22px 26px 18px;
+            font-family: 'Courier New', monospace; color: #7fffd4;
+            box-shadow: 0 0 30px rgba(0,255,204,0.12), inset 0 0 40px rgba(0,255,204,0.04);
+            overflow: hidden;
+            transition: transform 0.05s linear;
+        }
+        .a0g-card::before {
+            content: ""; position: absolute; inset: 0; pointer-events: none;
+            background: repeating-linear-gradient(to bottom, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 3px);
+            mix-blend-mode: overlay; opacity: 0.5;
+        }
+        .a0g-header {
+            font-size: 11px; letter-spacing: 3px; color: #4fd1c5; opacity: 0.85;
+            border-bottom: 1px solid rgba(0,255,204,0.2); padding-bottom: 10px; margin-bottom: 12px;
+        }
+        .a0g-readout { min-height: 108px; font-size: 12.5px; line-height: 1.9; }
+        .a0g-line { white-space: pre; letter-spacing: 0.5px; transition: color 0.1s linear; }
+        .a0g-line.a0g-runic {
+            color: #b9a3ff; text-shadow: -1.5px 0 rgba(255,60,80,0.75), 1.5px 0 rgba(0,220,255,0.75);
+            letter-spacing: 2px; font-size: 13.5px;
+        }
+        .a0g-status {
+            margin-top: 14px; padding-top: 10px; border-top: 1px solid rgba(0,255,204,0.15);
+            font-size: 10.5px; letter-spacing: 1.5px; color: #4c9a8f;
+        }
+        .a0g-whisper {
+            position: absolute; left: 50%; bottom: -34px; transform: translateX(-50%);
+            font-family: Georgia, 'Times New Roman', serif; font-style: italic;
+            font-size: 13px; letter-spacing: 2px; color: #a68cd6;
+            opacity: 0; transition: opacity 0.4s ease;
+            text-shadow: 0 0 10px rgba(166,140,214,0.6);
+        }
+        .a0g-whisper.a0g-whisper-visible { opacity: 0.85; animation: a0gWhisperFlicker 1.1s ease-in-out infinite; }
+        @keyframes a0gWhisperFlicker {
+            0%, 100% { opacity: 0.85; } 45% { opacity: 0.4; } 55% { opacity: 0.9; } 80% { opacity: 0.55; }
+        }
+        /* Corruption state: the whole card jitters/skews on an irregular cadence (steps()
+           rather than a smooth ease, so it reads as a glitch and not an animation) plus a
+           faint RGB-split sheen sweeping across it. */
+        #act0-glitch-overlay.a0g-corrupting .a0g-card {
+            animation: a0gJitter 2.15s steps(1) infinite;
+        }
+        @keyframes a0gJitter {
+            0% { transform: translate(0,0); }
+            4% { transform: translate(-3px,1px) skewX(-1deg); }
+            8% { transform: translate(2px,-1px); }
+            12% { transform: translate(0,0); }
+            41% { transform: translate(0,0); }
+            44% { transform: translate(4px,-2px) skewX(1.5deg); }
+            48% { transform: translate(-2px,1px); }
+            52% { transform: translate(0,0); }
+            77% { transform: translate(0,0); }
+            80% { transform: translate(-3px,2px); }
+            84% { transform: translate(0,0); }
+            100% { transform: translate(0,0); }
+        }
+        /* Screen-tear: a hard, sudden jump held for ~90ms via JS toggling this class. */
+        #act0-glitch-overlay.a0g-tear .a0g-card {
+            transform: translate(6px,0);
+            clip-path: polygon(0 0, 100% 0, 100% 38%, 0 41%, 0 58%, 100% 61%, 100% 100%, 0 100%);
+        }
+        #act0-glitch-overlay.a0g-corrupting .a0g-header { color: #ff6688; }
     </style>
 </head>
 <body>
@@ -541,6 +637,18 @@
         <div class="studio-intro-title">CHASE STUDIOS</div>
         <div class="studio-intro-motto">EVERY GENRE. NO LIMITS.</div>
         <div class="studio-intro-skip-hint">Click or press any key to skip</div>
+    </div>
+    <div id="hollow-king-trailer" role="presentation" aria-label="The Hollow King: Convergence">
+        <video id="hollow-king-trailer-video" playsinline preload="metadata" src="/videos/hollow_king_trailer.mp4"></video>
+        <button type="button" class="hkt-skip-btn" onclick="finishHollowKingTrailer()">SKIP ▶</button>
+    </div>
+    <div id="act0-glitch-overlay" role="presentation" aria-label="Terminal Sync Anomaly">
+        <div class="a0g-card">
+            <div class="a0g-header">NEXUS TERMINAL — DATA SYNC</div>
+            <div class="a0g-readout" id="act0-glitch-readout"></div>
+            <div class="a0g-status" id="act0-glitch-status">SYNCING PORTAL TELEMETRY...</div>
+            <div class="a0g-whisper" id="act0-glitch-whisper"></div>
+        </div>
     </div>
     <div id="save-toast">💾 Game Saved</div>
     <div id="join-toast-container"></div>
@@ -1839,7 +1947,14 @@
         let streakBonus = Math.min(500, 50 * game.loginStreak);
         game.funds += streakBonus;
         saveGame();
-        showGameAlert(`📅 Day streak: ${game.loginStreak}! New daily quests are up. +$${streakBonus} login bonus!`);
+        // The Hollow King campaign is only allowed to announce itself through a Terminal
+        // sync - this is that sync. Funds/streak/daily quests still process normally either
+        // way; only the modal shown to the player differs, once, the run this first fires.
+        if (checkHollowKingCampaignUnlock()) {
+            triggerAct0Glitch();
+        } else {
+            showGameAlert(`📅 Day streak: ${game.loginStreak}! New daily quests are up. +$${streakBonus} login bonus!`);
+        }
     }
 
     function checkAchievements() {
@@ -1888,7 +2003,7 @@
             checkComplete: (g) => g.funds >= 1000,
             onComplete: (g) => { g.funds -= 1000; },
             reward: { reputation: { viking: 10 } },
-            completeText: "The Jarl weighs the coin in his palm and grunts approval. \"Coin buys a seat. It does not buy respect. That, you will earn.\""
+            completeText: "The Jarl weighs the coin in his palm and grunts approval. \"Coin buys a seat. It does not buy respect. That, you will earn.\" For a moment his gaze drifts past you, toward the shoreline where the ice groans - like something underneath shifted, just slightly - before he shakes it off and turns back to his mead."
         },
         vk_trial: {
             id: 'vk_trial', giver: 'viking', name: "Bjargaöldum's Trial",
@@ -1896,7 +2011,7 @@
             checkComplete: (g) => (g.stats.totalRaidKills || 0) >= 1,
             onComplete: null,
             reward: { funds: 500, reputation: { viking: 15 } },
-            completeText: "\"Blood spilled in a fair fight. Now THAT I respect.\" Bjargaöldum claps a heavy hand on your shoulder."
+            completeText: "\"Blood spilled in a fair fight. Now THAT I respect.\" Bjargaöldum claps a heavy hand on your shoulder - then frowns at the creature now standing loyally beside you, like he almost recognized something in the way it flinched when it crossed into this world."
         },
         ok_gather: {
             id: 'ok_gather', giver: 'oakhaven', name: "A Gesture of Goodwill",
@@ -1904,7 +2019,7 @@
             checkComplete: (g) => (g.stats.totalHarvests || 0) >= 5,
             onComplete: null,
             reward: { funds: 300, reputation: { oakhaven: 10 } },
-            completeText: "\"Good hands and good patience. The canopy remembers kindness.\" Elder Maeve smiles warmly."
+            completeText: "\"Good hands and good patience. The canopy remembers kindness.\" Elder Maeve smiles warmly, though it falters when she glances toward the tree line, where the leaves have gone quiet in a way that has nothing to do with the wind."
         },
         ds_trade: {
             id: 'ds_trade', giver: 'duneSpire', name: "A Trader's Word",
@@ -1912,7 +2027,7 @@
             checkComplete: (g) => (g.stats.totalMarketListings || 0) >= 2,
             onComplete: null,
             reward: { funds: 300, reputation: { duneSpire: 10 } },
-            completeText: "\"Hah! A trader's instinct after all. Perhaps you're worth my caravans' protection, outlander.\""
+            completeText: "\"Hah! A trader's instinct after all. Perhaps you're worth my caravans' protection, outlander.\" He turns one of your traded goods over in his hand, and for just a moment his smile tightens - it's warm to the touch, like it spent longer near a portal than it should have."
         },
         fp_forge: {
             id: 'fp_forge', giver: 'forgePeak', name: "Tempered Discipline",
@@ -1920,7 +2035,7 @@
             checkComplete: (g) => (g.stats.totalTrainingSessions || 0) >= 3,
             onComplete: null,
             reward: { funds: 300, reputation: { forgePeak: 10 } },
-            completeText: "\"Discipline. That's how steel is made - and how trainers are, too.\" Varek's hammer doesn't pause once."
+            completeText: "\"Discipline. That's how steel is made - and how trainers are, too.\" Varek's hammer doesn't pause once - though the runes lining his anvil flare a half-shade brighter with every new face in your roster, and he's the only one who doesn't seem to notice."
         },
         mv_relic: {
             id: 'mv_relic', giver: 'mistVeil', name: "A Kindred Spark",
@@ -1928,7 +2043,7 @@
             checkComplete: (g) => (g.stats.totalShinyCatches || 0) >= 1,
             onComplete: null,
             reward: { funds: 300, reputation: { mistVeil: 10 } },
-            completeText: "\"There. The spark I felt. The Hollow's spirits will remember your name.\" The wisps circle you once, and settle."
+            completeText: "\"There. The spark I felt. The Hollow's spirits will remember your name.\" The wisps circle you once, and settle - though Vespera's blindfolded gaze lingers a moment too long on your newest catch, as if she felt it arrive from somewhere no portal should reach. She says nothing. Not yet."
         },
 
         // --- MAIN STORY: "The Hollow King", Act I ---
@@ -2007,11 +2122,26 @@
         let completeText = (typeof q.completeText === 'function') ? q.completeText() : (q.completeText || '');
         showGameAlert(`✅ Quest Complete: ${q.name}\n\n${completeText}`);
         checkVikingHomesteadUnlock();
-        checkMainStoryUnlock();
+        // NOTE: deliberately NOT checking the Hollow King campaign unlock here - that
+        // event is only allowed to fire from a Nexus Terminal sync (checkDailyReset),
+        // never immediately off the back of a quest turn-in. See checkHollowKingCampaignUnlock().
     }
 
     function setStoryFlag(flag, value = true) { ensureWorldExpansionDefaults(); game.quests.flags[flag] = value; }
     function hasStoryFlag(flag) { return !!(game.quests && game.quests.flags && game.quests.flags[flag]); }
+
+    // Hidden main-story counter: every creature pulled through a portal is, unknown to
+    // the player (and to the Professor), a creature pulled through one of the five
+    // pressure cracks in the Hollow King's containment field - each catch strains the
+    // Sealstone network a little further. Not surfaced anywhere in the UI yet; later
+    // Acts read this to decide how far the seal has actually been pushed by the time
+    // the truth comes out. Deliberately NOT bumped for the Professor's own starter pick
+    // or for traded/gifted/redeemed characters - only for creatures actually drawn out
+    // through a live portal.
+    function bumpSealStrain(amount = 1) {
+        if (!game.stats) game.stats = {};
+        game.stats.sealStrainTotal = (game.stats.sealStrainTotal || 0) + amount;
+    }
 
     function checkVikingHomesteadUnlock() {
         ensureWorldExpansionDefaults();
@@ -2025,18 +2155,39 @@
     }
 
     // --- MAIN STORY: "The Hollow King" ---
-    // Act 0's omen fires once every one of the five leaders' starter quests is
-    // done - the multiverse has already introduced itself to the player five
-    // times over by then, so the sixth "introduction" can afford to be wrong.
-    function checkMainStoryUnlock() {
+    // Act 0 must NOT fire the moment the starter loop ends - it should land only once
+    // the player is genuinely mid-game: settled into the portal/exploration/homestead
+    // routine, not still on their first lap of the five settlements. This is a pure
+    // predicate (no side effects) so it's safe to poll from anywhere; the actual event
+    // is fired by triggerAct0Glitch() below, once, from the next Nexus Terminal sync.
+    const HOLLOW_KING_STARTER_QUEST_IDS = ['vk_tribute', 'vk_trial', 'ok_gather', 'ds_trade', 'fp_forge', 'mv_relic'];
+    const HOLLOW_KING_MIN_ROSTER = 4;
+    const HOLLOW_KING_MIN_HUBS = 3;
+    const HOLLOW_KING_RAPPORT_THRESHOLD = 15; // above what a single starter quest alone grants at 4 of the 5 hubs - forces real repeat engagement, not just finishing the checklist
+    const REGIONAL_HUB_KEYS = ['viking', 'oakhaven', 'duneSpire', 'forgePeak', 'mistVeil'];
+
+    function checkHollowKingCampaignUnlock() {
         ensureWorldExpansionDefaults();
-        if (hasStoryFlag('act0_omen_seen')) return;
-        const starterQuestIds = ['vk_tribute', 'vk_trial', 'ok_gather', 'ds_trade', 'fp_forge', 'mv_relic'];
-        if (starterQuestIds.every(id => isQuestCompleted(id))) {
-            setStoryFlag('act0_omen_seen');
-            saveGame(); updateUI();
-            showGameAlert("⚠️ SOMETHING FLICKERS...\n\nMid-catch, one of your roster stutters - its outline glitching like a bad signal, its cry catching for half a second on a voice that isn't its own. The air around it tastes faintly of static and old smoke.\n\nThen it's gone. Everything reads normal. Your roster is fine, your save is fine, nothing logs an error.\n\nBut you saw it. And you can't shake the feeling that somewhere, something noticed you noticing.");
-        }
+        if (hasStoryFlag('act0_omen_seen')) return false;
+        if (!HOLLOW_KING_STARTER_QUEST_IDS.every(id => isQuestCompleted(id))) return false;
+        if ((game.staff || []).length < HOLLOW_KING_MIN_ROSTER) return false;
+        if (!(game.homestead && game.homestead.unlocked)) return false;
+        let hubsWithRapport = REGIONAL_HUB_KEYS.filter(k => (game.reputation[k] || 0) >= HOLLOW_KING_RAPPORT_THRESHOLD).length;
+        if (hubsWithRapport < HOLLOW_KING_MIN_HUBS) return false;
+        return true;
+    }
+
+    // The corrupted-sync event itself: a full-card CSS glitch overlay (screen tear +
+    // scanlines + the roster readout corrupting into runic script) that plays out over
+    // the terminal, then hands off to the Professor's reaction and sets the flag that
+    // unlocks Act I. Called once, from checkDailyReset(), the moment a Terminal sync
+    // happens after checkHollowKingCampaignUnlock() first returns true.
+    function triggerAct0Glitch() {
+        setStoryFlag('act0_omen_seen');
+        saveGame(); updateUI();
+        playAct0GlitchOverlay(() => {
+            showGameAlert("👴 [Professor Bill]:\n\n\"Show me the log - no, don't bother, there isn't one, is there.\" He rubs his temples. \"That's not a rendering glitch and it isn't corrupted data, I've seen both. Whatever came through that feed, it wasn't ours.\"\n\nHe's quiet for a moment, then reaches for something in his desk drawer he clearly wasn't planning to bring up today. \"There's someone I should have introduced you to a long time ago. A seer, out past the settlements - Mist-Veil Hollow. Off the record, understand - this isn't in any research charter. But if anyone can tell you what just spoke through my equipment, it's her. Go carefully.\"");
+        });
     }
 
     // Act II: a one-time named boss fight rather than a repeatable regional monster -
@@ -2157,7 +2308,7 @@
                             return "Lady Vespera turns toward you as you enter, spirit wisps curling in greeting. \"Back again, little spark. The Hollow rests easier since we spoke - though I still feel eyes elsewhere in the world, watching, waiting for another seal to falter. Bjargaöldum should know what we know.\"";
                         }
                         if (hasStoryFlag('act0_omen_seen')) {
-                            return "Lady Vespera's blindfolded gaze fixes on you before you've said a word. \"You've felt it too, haven't you? That flicker in the weave, like something exhaled where nothing should be breathing. Come closer, outlander. It's past time I told you what the Hollow truly guards.\"";
+                            return "Lady Vespera's blindfolded gaze fixes on you before you've said a word. \"The old scholar sent you, didn't he - I can feel his questions still clinging to you like woodsmoke. But it wasn't his instruments that felt it, was it? Something spoke through your machine. Something old enough that it shouldn't know what a machine is, and used one anyway.\" Her staff-wisps draw close, wary. \"Come closer, outlander. It's past time I told you what the Hollow truly guards.\"";
                         }
                         return "Lady Vespera turns toward you though her eyes are wrapped in cloth, spirit wisps drifting lazily around her lantern staff. \"I felt you crossing the bog before you arrived, little spark. The Hollow doesn't often welcome the living so warmly.\"";
                     },
@@ -2824,7 +2975,7 @@
             showMainMenu();
         } else {
             game = defaultGameState();
-            showProfessorDialogue1();
+            showHollowKingTrailer();
         }
     }
 
@@ -4472,6 +4623,7 @@
             if (success) {
                 addStaffMember({ name: activeEncounter.name, power: activeEncounter.power, origin: activeEncounter.origin, dexId: activeEncounter.dexId, shiny: activeEncounter.isShiny || false });
                 recordDex(activeEncounter.dexId, activeEncounter.isShiny || false);
+                bumpSealStrain();
                 saveGame(); updateUI();
                 if (statusEl) statusEl.innerHTML = `<strong style="color:#55ff99;">🎉 CAPTURED ${activeEncounter.name}${shinyTag}!</strong>`;
             } else {
@@ -5981,6 +6133,175 @@
         document.addEventListener('keydown', studioIntroKeyHandler);
         studioIntroTimers.push(setTimeout(playStudioChime, 550));
         studioIntroTimers.push(setTimeout(finishStudioIntro, 4600));
+    }
+
+    // ================= HOLLOW KING TRAILER (new-game cold open) =================
+    // Plays once, right when a brand-new save slot is started, then rolls into
+    // Professor Bill's intro dialogue. Returning players (loading an existing slot)
+    // never see this - it's a "previously on..." style cold open for a fresh story,
+    // not a splash screen that gets in the way every session.
+    let hollowKingTrailerResolved = true;
+
+    function hollowKingTrailerKeyHandler(e) {
+        if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter') finishHollowKingTrailer();
+    }
+
+    function finishHollowKingTrailer() {
+        if (hollowKingTrailerResolved) return;
+        hollowKingTrailerResolved = true;
+        document.removeEventListener('keydown', hollowKingTrailerKeyHandler);
+        const el = document.getElementById('hollow-king-trailer');
+        const vid = document.getElementById('hollow-king-trailer-video');
+        if (vid) {
+            vid.pause();
+            vid.removeEventListener('ended', finishHollowKingTrailer);
+        }
+        if (el) {
+            el.classList.remove('hkt-visible');
+            el.classList.add('hkt-hidden');
+            setTimeout(() => {
+                el.style.display = 'none';
+                el.classList.remove('hkt-hidden');
+                if (vid) { vid.currentTime = 0; }
+            }, 700);
+        }
+        showProfessorDialogue1();
+    }
+
+    function showHollowKingTrailer() {
+        const el = document.getElementById('hollow-king-trailer');
+        const vid = document.getElementById('hollow-king-trailer-video');
+        if (!el || !vid) { showProfessorDialogue1(); return; }
+        hollowKingTrailerResolved = false;
+        stopAllMusic();
+        el.style.display = 'flex';
+        // force layout so the opacity transition on the next frame actually animates
+        void el.offsetWidth;
+        el.classList.add('hkt-visible');
+        vid.muted = false;
+        vid.volume = 0.85;
+        vid.addEventListener('ended', finishHollowKingTrailer, { once: true });
+        document.addEventListener('keydown', hollowKingTrailerKeyHandler);
+        const playPromise = vid.play();
+        if (playPromise && playPromise.catch) {
+            // Autoplay-with-sound can still be blocked in rare cases even after a real
+            // click - fall back to a muted autoplay so the trailer isn't just a stuck
+            // black screen (the player can still skip past it either way).
+            playPromise.catch(() => { vid.muted = true; vid.play().catch(() => {}); });
+        }
+    }
+
+    // ================= ACT 0: NEXUS TERMINAL GLITCH =================
+    // Runic (Elder Futhark) glyphs used to "corrupt" the readout - real Unicode runes
+    // rather than random symbols, so it reads as an actual script and not noise.
+    const ACT0_RUNES = "ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛊᛏᛒᛖᛗᛚᛜᛞᛟ";
+    function act0RandomRunes(len) {
+        let s = '';
+        for (let i = 0; i < len; i++) s += ACT0_RUNES[Math.floor(Math.random() * ACT0_RUNES.length)];
+        return s;
+    }
+
+    let act0GlitchTimers = [];
+    let act0CorruptInterval = null;
+    let act0GlitchResolved = true;
+    let act0GlitchOnComplete = null;
+
+    function clearAct0GlitchTimers() {
+        act0GlitchTimers.forEach(t => clearTimeout(t));
+        act0GlitchTimers = [];
+        if (act0CorruptInterval) { clearInterval(act0CorruptInterval); act0CorruptInterval = null; }
+    }
+
+    function act0GlitchKeyHandler() { finishAct0Glitch(); }
+
+    // Builds the readout's fake roster lines from the player's real staff (falls back
+    // to generic placeholders for an empty/short roster) so the moment feels like it's
+    // actually about *your* recruits, not a canned screen.
+    function act0BuildReadoutLines() {
+        let names = (game.staff || []).map(s => s.name).slice(0, 4);
+        while (names.length < 4) names.push(`UNCATALOGUED-${names.length + 1}`);
+        return names.map((n, i) => `UNIT_${String(i + 1).padStart(2, '0')}: ${n.toUpperCase()} — SYNCED`);
+    }
+
+    function playAct0GlitchOverlay(onComplete) {
+        const el = document.getElementById('act0-glitch-overlay');
+        const readoutEl = document.getElementById('act0-glitch-readout');
+        const whisperEl = document.getElementById('act0-glitch-whisper');
+        const statusEl = document.getElementById('act0-glitch-status');
+        if (!el || !readoutEl) { onComplete(); return; }
+
+        act0GlitchResolved = false;
+        clearAct0GlitchTimers();
+
+        const normalLines = act0BuildReadoutLines();
+        readoutEl.innerHTML = normalLines.map(l => `<div class="a0g-line">${l}</div>`).join('');
+        whisperEl.textContent = '';
+        whisperEl.classList.remove('a0g-whisper-visible');
+        statusEl.textContent = 'SYNCING PORTAL TELEMETRY...';
+        el.classList.remove('a0g-hidden', 'a0g-corrupting', 'a0g-tear');
+        el.style.display = 'flex';
+        void el.offsetWidth;
+        el.classList.add('a0g-visible');
+        document.addEventListener('keydown', act0GlitchKeyHandler);
+        el.addEventListener('click', finishAct0Glitch);
+
+        const lineEls = () => Array.from(readoutEl.querySelectorAll('.a0g-line'));
+
+        act0GlitchTimers.push(setTimeout(() => {
+            el.classList.add('a0g-corrupting');
+            statusEl.textContent = 'SIGNAL INTEGRITY: DEGRADED';
+            // Randomly swap individual lines between their real text and runic garbage,
+            // and throw in the occasional screen-tear jump, for the corruption's duration.
+            // Started here (not before) so the text-scramble and the card's visual jitter
+            // kick in together rather than the text corrupting on an otherwise-still card.
+            act0CorruptInterval = setInterval(() => {
+                let els = lineEls();
+                if (!els.length) return;
+                let target = els[Math.floor(Math.random() * els.length)];
+                let idx = els.indexOf(target);
+                let isRunic = !target.classList.contains('a0g-runic');
+                target.classList.toggle('a0g-runic', isRunic);
+                target.textContent = isRunic ? act0RandomRunes(14 + Math.floor(Math.random() * 10)) : normalLines[idx];
+                if (Math.random() < 0.3) {
+                    el.classList.add('a0g-tear');
+                    setTimeout(() => el.classList.remove('a0g-tear'), 90);
+                }
+            }, 140);
+        }, 450));
+
+        act0GlitchTimers.push(setTimeout(() => {
+            whisperEl.textContent = act0RandomRunes(3) + '  ' + act0RandomRunes(5) + '  ' + act0RandomRunes(4);
+            whisperEl.classList.add('a0g-whisper-visible');
+        }, 1400));
+
+        act0GlitchTimers.push(setTimeout(() => {
+            if (act0CorruptInterval) { clearInterval(act0CorruptInterval); act0CorruptInterval = null; }
+            el.classList.remove('a0g-corrupting', 'a0g-tear');
+            whisperEl.classList.remove('a0g-whisper-visible');
+            readoutEl.innerHTML = normalLines.map(l => `<div class="a0g-line">${l}</div>`).join('');
+            statusEl.textContent = 'SYNC COMPLETE — NO ERRORS LOGGED';
+        }, 2600));
+
+        act0GlitchTimers.push(setTimeout(finishAct0Glitch, 3600));
+
+        act0GlitchOnComplete = onComplete;
+    }
+
+    function finishAct0Glitch() {
+        if (act0GlitchResolved) return;
+        act0GlitchResolved = true;
+        clearAct0GlitchTimers();
+        document.removeEventListener('keydown', act0GlitchKeyHandler);
+        const el = document.getElementById('act0-glitch-overlay');
+        if (el) {
+            el.removeEventListener('click', finishAct0Glitch);
+            el.classList.remove('a0g-visible');
+            el.classList.add('a0g-hidden');
+            setTimeout(() => { el.style.display = 'none'; el.classList.remove('a0g-hidden', 'a0g-corrupting', 'a0g-tear'); }, 700);
+        }
+        const cb = act0GlitchOnComplete;
+        act0GlitchOnComplete = null;
+        if (cb) cb();
     }
 
     // Deliberately NOT window.onload - that waits for every resource on the page to
