@@ -2581,23 +2581,63 @@
         renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
     }
 
+    // Keyed by display name (not a short key) so existing saves - which already store
+    // "Luxury Couch" / "Multiversal Painting" as plain strings in game.homeDecor.items -
+    // keep working unchanged; ownership is just items.includes(name), same as before.
+    const HOME_DECOR_CATALOG = [
+        { name: "Cosmic Lava Lamp", emoji: "🌋", cost: 500 },
+        { name: "Void Terrarium", emoji: "🪴", cost: 800 },
+        { name: "Portal-Weave Rug", emoji: "🧶", cost: 1200 },
+        { name: "Multiversal Painting", emoji: "🖼️", cost: 1500 },
+        { name: "Luxury Couch", emoji: "🛋️", cost: 2000 },
+        { name: "Dimensional Fish Tank", emoji: "🐠", cost: 2800 },
+        { name: "Retro Arcade Cabinet", emoji: "🕹️", cost: 3200 },
+        { name: "Crystal Star Chandelier", emoji: "💎", cost: 4000 },
+        { name: "Zero-Gravity Bed", emoji: "🛏️", cost: 4500 },
+        { name: "Champion's Trophy Case", emoji: "🏆", cost: 5000 },
+        { name: "Founder's Statue", emoji: "🗿", cost: 6000 },
+        { name: "Void Titan Throne", emoji: "🐉", cost: 7500 }
+    ];
+
+    // Index 0 is unused so tier numbers line up 1:1 with array indices (matches
+    // game.homeDecor.tier, which has always been 1-based). Tiers 1-2 keep their
+    // original names/costs exactly so existing saves aren't affected.
+    const HOME_TIER_CATALOG = [
+        null,
+        { tier: 1, name: "Standard Suite", upgradeCost: 0 },
+        { tier: 2, name: "Aetheria Luxury Penthouse", upgradeCost: 5000 },
+        { tier: 3, name: "Void Manor", upgradeCost: 12000 },
+        { tier: 4, name: "Celestial Sky Palace", upgradeCost: 25000 },
+        { tier: 5, name: "Chase Studios Founder's Estate", upgradeCost: 50000 }
+    ];
+
     function showHomeDecorMenu() {
         playBGM('hq');
         clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #173b5c 0%, #0a141e 80%)", "#33aaff");
-        let decor = game.homeDecor || { tier: 1, name: "Standard Suite", items: [] };
+        let decor = game.homeDecor || defaultGameState().homeDecor;
+        let nextTier = HOME_TIER_CATALOG[decor.tier + 1];
         document.getElementById("console").innerHTML = `
             <h2 style="color: #33aaff; font-size:18px;">🏠 HOME DECOR & SUITE UPGRADE</h2>
             <div class="dex-card" style="display:block; font-size:12px;">
                 🏠 Current Suite: <strong style="color:#00ffff;">${decor.name} (Tier ${decor.tier})</strong><br>
-                🎨 Installed Decor: <span style="color:#ff00ff;">${decor.items.join(", ") || "None"}</span>
+                🎨 Installed Decor (${decor.items.length}/${HOME_DECOR_CATALOG.length}): <span style="color:#ff00ff;">${decor.items.join(", ") || "None"}</span>
             </div>
         `;
-        renderButtons([
-            { text: "🛋️ Buy Luxury Couch ($2000)", action: () => buyHomeDecor("Luxury Couch", 2000) },
-            { text: "🖼️ Multiversal Painting ($1500)", action: () => buyHomeDecor("Multiversal Painting", 1500) },
-            { text: "🏰 Upgrade Suite ($5000)", action: upgradeHomeTier },
-            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
-        ]);
+        let btns = HOME_DECOR_CATALOG.map(def => {
+            let owned = decor.items.includes(def.name);
+            return {
+                text: owned ? `✔ ${def.emoji} ${def.name} (Owned)` : `${def.emoji} ${def.name} ($${def.cost})`,
+                class: owned ? "btn btn-sys" : "btn btn-farm",
+                action: owned ? () => {} : () => buyHomeDecor(def.name, def.cost)
+            };
+        });
+        btns.push({
+            text: nextTier ? `🏰 Upgrade to ${nextTier.name} ($${nextTier.upgradeCost})` : "🏆 Suite at Maximum Tier",
+            class: nextTier ? "btn btn-dlc" : "btn btn-sys",
+            action: nextTier ? upgradeHomeTier : () => {}
+        });
+        btns.push({ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu });
+        renderButtons(btns);
     }
 
     function buyHomeDecor(decorName, cost) {
@@ -2613,16 +2653,15 @@
     }
 
     function upgradeHomeTier() {
-        if (game.homeDecor.tier < 2) {
-            if (game.funds >= 5000) {
-                game.funds -= 5000;
-                game.homeDecor.tier = 2;
-                game.homeDecor.name = "Aetheria Luxury Penthouse";
-                updateUI(); saveGame();
-                log("🏰 Upgraded home to Aetheria Luxury Penthouse!", "color-cyan");
-                showHomeDecorMenu();
-            } else { log("❌ Need $5000 to upgrade home!", "color-red"); }
-        } else { log("❌ Home is already at maximum tier!", "color-yellow"); }
+        let nextTier = HOME_TIER_CATALOG[game.homeDecor.tier + 1];
+        if (!nextTier) { log("❌ Home is already at maximum tier!", "color-yellow"); return; }
+        if (game.funds < nextTier.upgradeCost) { log(`❌ Need $${nextTier.upgradeCost} to upgrade home!`, "color-red"); return; }
+        game.funds -= nextTier.upgradeCost;
+        game.homeDecor.tier = nextTier.tier;
+        game.homeDecor.name = nextTier.name;
+        updateUI(); saveGame();
+        log(`🏰 Upgraded home to ${nextTier.name}!`, "color-cyan");
+        showHomeDecorMenu();
     }
 
     function showFarmMenu() {
