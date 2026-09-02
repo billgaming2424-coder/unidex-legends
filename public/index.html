@@ -172,7 +172,7 @@
            of the game on every "not enough funds"/"released!" style message. This is a
            normal DOM overlay instead, so it never touches fullscreen state. */
         #game-alert-overlay {
-            position: fixed; inset: 0; z-index: 20000;
+            position: fixed; inset: 0; z-index: 22000;
             background: rgba(0,0,0,0.65);
             display: flex; align-items: center; justify-content: center;
             opacity: 0; pointer-events: none;
@@ -1992,7 +1992,7 @@
     const NPC_LEADERS = {
         viking: {
             key: 'viking', name: "Jarl Bjargaöldum", title: "Jarl of the Nordic Fjord",
-            portrait: "/pictures/Bjargaoldum.jpg", fallbackEmoji: "🪓",
+            portrait: "/pictures/Bjargaoldum.png", fallbackEmoji: "🪓",
             dialogue: {
                 start: {
                     text: "Jarl Bjargaöldum straightens from his war-table, one hand resting on the haft of a bearded axe. \"An outlander in my hall. Speak your business - I've little patience for those who waste my time.\"",
@@ -2009,7 +2009,7 @@
         },
         oakhaven: {
             key: 'oakhaven', name: "Elder Maeve", title: "Herbalist of Oakhaven Enclave",
-            portrait: "/pictures/elder_maeve.jpg", fallbackEmoji: "🌿",
+            portrait: "/pictures/elder_maeve.png", fallbackEmoji: "🌿",
             dialogue: {
                 start: {
                     text: "Elder Maeve looks up from a mortar of crushed herbs, her twig crown rustling gently. \"Ah, a new face beneath the canopy. Sit, child. The forest doesn't often send visitors who mean it well - but you have kind eyes.\"",
@@ -2026,7 +2026,7 @@
         },
         duneSpire: {
             key: 'duneSpire', name: "Sultan Tariq", title: "Sovereign of the Dune-Spire Bazaar",
-            portrait: "/pictures/sultan.jpg", fallbackEmoji: "🏺",
+            portrait: "/pictures/sultan.png", fallbackEmoji: "🏺",
             dialogue: {
                 start: {
                     text: "Sultan Tariq reclines beneath a jeweled canopy, guards at his flanks. \"Another wanderer drawn by the glitter of my Bazaar, hm? Everything here has a price, outlander - including my attention.\"",
@@ -2043,7 +2043,7 @@
         },
         forgePeak: {
             key: 'forgePeak', name: "High Smith Varek", title: "Master of Forge-Peak Citadel",
-            portrait: "/pictures/High_Smith_Varek.jpg", fallbackEmoji: "🔨",
+            portrait: "/pictures/High_Smith_Varek.png", fallbackEmoji: "🔨",
             dialogue: {
                 start: {
                     text: "High Smith Varek doesn't look up from the anvil, volcanic veins glowing faintly beneath his skin with each hammer-fall. \"Speak quick or step back - Forge-Peak has no patience for the idle.\"",
@@ -2060,7 +2060,7 @@
         },
         mistVeil: {
             key: 'mistVeil', name: "Lady Vespera", title: "Seer of Mist-Veil Hollow",
-            portrait: "/pictures/Lady_Vespera.jpg", fallbackEmoji: "👻",
+            portrait: "/pictures/Lady_Vespera.png", fallbackEmoji: "👻",
             dialogue: {
                 start: {
                     text: "Lady Vespera turns toward you though her eyes are wrapped in cloth, spirit wisps drifting lazily around her lantern staff. \"I felt you crossing the bog before you arrived, little spark. The Hollow doesn't often welcome the living so warmly.\"",
@@ -5491,7 +5491,7 @@
         clearConsole("center", reg.bg, reg.color);
         let animDivClass = reg.animClass ? reg.animClass : '';
         document.getElementById("console").innerHTML = `
-            <div class="${animDivClass}" style="width:100%; height:100%;">
+            <div class="${animDivClass}" style="width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center;">
                 <div class="travel-animation">
                     <div style="font-size: 40px; margin-bottom: 8px;">${reg.icon || '🚀'}</div>
                     <h2 style="color: ${reg.color}; font-size:18px;">ARRIVED IN ${reg.name.toUpperCase()}</h2>
