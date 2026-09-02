@@ -2689,11 +2689,85 @@
         return "Novice Trainer";
     }
 
+    // --- Scene background system: turns each screen's flat base gradient into a
+    // richer, layered "scene" (glow sources + a tonal band + a theme-appropriate
+    // texture) built entirely from that screen's own accent color and gradient
+    // focal point, so every tab reads as distinct without needing image assets. ---
+    function _sceneHexToRgb(hex) {
+        hex = (hex || "#00ffff").toString().replace("#", "").trim();
+        if (hex.length === 3) hex = hex.split("").map(c => c + c).join("");
+        let n = parseInt(hex, 16);
+        if (isNaN(n)) n = 0x00ffff;
+        return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+    }
+
+    function _sceneHue(r, g, b) {
+        const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+        if (d === 0) return { hue: 0, sat: 0 };
+        const rn = r / 255, gn = g / 255, bn = b / 255, dn = d / 255;
+        let h;
+        if (max === r) h = ((gn - bn) / dn) % 6;
+        else if (max === g) h = (bn - rn) / dn + 2;
+        else h = (rn - gn) / dn + 4;
+        h *= 60;
+        if (h < 0) h += 360;
+        return { hue: h, sat: d };
+    }
+
+    function sceneBg(baseGradient, accent) {
+        if (!baseGradient || typeof baseGradient !== "string") return baseGradient;
+        const { r, g, b } = _sceneHexToRgb(accent);
+        const { hue, sat } = _sceneHue(r, g, b);
+        const posMatch = baseGradient.match(/at\s+(-?\d+)%\s+(-?\d+)%/);
+        const cx = posMatch ? parseInt(posMatch[1], 10) : 50;
+        const cy = posMatch ? parseInt(posMatch[2], 10) : 30;
+        const clamp = v => Math.max(6, Math.min(94, v));
+        const gx = clamp(cx - 30), gy = clamp(cy - 14);
+        const gx2 = clamp(100 - cx + 16), gy2 = clamp(100 - cy + 20);
+        const rgba = a => `rgba(${r},${g},${b},${a})`;
+
+        const glow1 = `radial-gradient(circle at ${gx}% ${gy}%, ${rgba(0.17)} 0%, transparent 40%)`;
+        const glow2 = `radial-gradient(circle at ${gx2}% ${gy2}%, ${rgba(0.10)} 0%, transparent 48%)`;
+        const band = `linear-gradient(160deg, ${rgba(0.07)} 0%, transparent 28%, transparent 72%, rgba(0,0,0,0.42) 100%)`;
+
+        let flavor;
+        if (sat < 20) {
+            // near-grayscale accent (white/silver) - clean spotlight rays
+            flavor = `conic-gradient(from 0deg at 50% -20%, transparent 0deg, rgba(255,255,255,0.05) 8deg, transparent 20deg, transparent 160deg, rgba(255,255,255,0.05) 168deg, transparent 180deg)`;
+        } else if (hue < 20 || hue >= 340) {
+            // red - danger/combat cracks
+            flavor = `repeating-linear-gradient(72deg, ${rgba(0.05)} 0px, ${rgba(0.05)} 2px, transparent 2px, transparent 22px)`;
+        } else if (hue < 50) {
+            // orange - ember/forge strata
+            flavor = `repeating-linear-gradient(0deg, ${rgba(0.05)} 0px, transparent 3px, transparent 26px, ${rgba(0.04)} 29px)`;
+        } else if (hue < 70) {
+            // yellow/gold - drifting motes
+            flavor = `radial-gradient(circle at 30% 70%, ${rgba(0.05)} 0%, transparent 3%), radial-gradient(circle at 70% 25%, ${rgba(0.05)} 0%, transparent 2.5%), radial-gradient(circle at 45% 45%, ${rgba(0.04)} 0%, transparent 2%)`;
+        } else if (hue < 160) {
+            // green - growth/vine curves
+            flavor = `repeating-linear-gradient(115deg, ${rgba(0.045)} 0px, transparent 4px, transparent 34px)`;
+        } else if (hue < 200) {
+            // teal/cyan - tech circuitry grid
+            flavor = `linear-gradient(90deg, ${rgba(0.045)} 1px, transparent 1px) 0 0/38px 38px, linear-gradient(0deg, ${rgba(0.045)} 1px, transparent 1px) 0 0/38px 38px`;
+        } else if (hue < 250) {
+            // blue - water ripple bands
+            flavor = `repeating-radial-gradient(circle at 50% 115%, transparent 0, transparent 30px, ${rgba(0.05)} 32px)`;
+        } else if (hue < 300) {
+            // purple - arcane rune-glow rays
+            flavor = `conic-gradient(from 200deg at 50% 15%, ${rgba(0.06)}, transparent 12%, transparent 88%, ${rgba(0.06)})`;
+        } else {
+            // magenta/pink - neon spotlight beams
+            flavor = `conic-gradient(from 0deg at 50% -10%, transparent 0deg, ${rgba(0.09)} 6deg, transparent 14deg, transparent 40deg, ${rgba(0.09)} 46deg, transparent 54deg, transparent 220deg, ${rgba(0.09)} 226deg, transparent 234deg)`;
+        }
+
+        return [glow1, glow2, band, flavor, baseGradient].join(", ");
+    }
+
     function clearConsole(align="flex-start", bgGradient="radial-gradient(circle at 50% 30%, #15002b 0%, #05000a 80%)", borderColor="#00ffff") {
         const consoleDiv = document.getElementById("console");
         consoleDiv.innerHTML = "";
         consoleDiv.style.justifyContent = align;
-        consoleDiv.style.background = bgGradient;
+        consoleDiv.style.background = sceneBg(bgGradient, borderColor);
         consoleDiv.style.borderColor = borderColor;
         consoleDiv.scrollTop = 0;
     }
