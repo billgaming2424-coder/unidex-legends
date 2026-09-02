@@ -281,6 +281,27 @@
         @keyframes ballShakeCapture { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-12deg); } 75% { transform: rotate(12deg); } }
         .shiny-frame { display: inline-block; border: 3px solid #ffdd00; border-radius: 12px; box-shadow: 0 0 20px rgba(255,221,0,0.7); padding: 2px; }
 
+        /* Portal reroll spin */
+        @keyframes rerollSpinAnim {
+            0% { transform: rotate(0deg) scale(1); filter: brightness(1) blur(0px); opacity: 1; }
+            40% { transform: rotate(220deg) scale(0.55); filter: brightness(2.2) blur(2px); opacity: 0.35; }
+            70% { transform: rotate(300deg) scale(0.55); filter: brightness(2.2) blur(2px); opacity: 0.35; }
+            100% { transform: rotate(360deg) scale(1); filter: brightness(1) blur(0px); opacity: 1; }
+        }
+        .encounter-portrait-wrap.reroll-spin { animation: rerollSpinAnim 0.65s ease-in-out; }
+
+        /* Unique evolution overlay */
+        .evolution-overlay { position: fixed; inset: 0; background: radial-gradient(circle, rgba(50,0,70,0.92) 0%, rgba(0,0,0,0.96) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; animation: evoOverlayFade 2.2s ease-in-out forwards; }
+        .evolution-flash { position: absolute; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, #fff 0%, #ffe066 30%, transparent 70%); animation: evoFlashPulse 1.1s ease-in-out infinite; }
+        .evolution-text { position: relative; z-index: 2; text-align: center; animation: fadeUpIn 0.6s ease-out 0.3s both; padding: 0 20px; }
+        @keyframes evoFlashPulse { 0%, 100% { transform: scale(0.6); opacity: 0.5; } 50% { transform: scale(1.35); opacity: 1; } }
+        @keyframes evoOverlayFade { 0% { opacity: 0; } 10% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; } }
+
+        /* Cloud sync status indicator */
+        @keyframes cloudSyncSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .sync-status-syncing { display: inline-block; animation: cloudSyncSpin 1s linear infinite; }
+        .sync-status-error { color: #ff6666; }
+
         /* Responsive Action Button Grid */
         #controls {
             display: grid;
@@ -499,6 +520,7 @@
                 🟢 Online: <span id="global-online-count">1</span>
             </span>
             💼 <span id="manager-title-display" style="color:#00ffcc; font-weight:bold;">Novice</span> | 💰 $<span class="stat-money" id="funds-display">5000</span> | Day <span id="day-display">1</span> | ⚡ <span id="stamina-display">100</span> | 🌌 <span id="dex-count-display">0/2000</span>
+            <span id="cloud-sync-indicator" onclick="cloudMenuReturnTo = showMainMenu; openCloudAccountMenu();" style="cursor:pointer; font-size:12px;" title=""></span>
             <input type="range" id="master-volume" min="0" max="1" step="0.05" value="0.35" oninput="updateMasterVolume(this.value)" style="width: 55px; cursor: pointer;" title="Master Volume">
             <button onclick="toggleAudioMute()" style="background:#111; color:#00ffff; border:1px solid #00ffff; border-radius:3px; padding:2px 5px; font-size:10px; cursor:pointer;" id="audio-toggle-btn">🔊</button>
             <button onclick="toggleFullScreen()" style="background:#111; color:#00ffcc; border:1px solid #00ffcc; border-radius:3px; padding:2px 5px; font-size:10px; cursor:pointer;" title="Toggle Fullscreen">⛶</button>
@@ -608,16 +630,44 @@
     let cloudPushInFlight = false;
     let cloudPushQueued = false;
 
+    // 'idle' | 'syncing' | 'synced' | 'error' - drives the small cloud icon in the stats bar.
+    let cloudSyncStatus = 'idle';
+    let cloudSyncRetryCount = 0;
+    let cloudSyncRetryTimer = null;
+
+    function updateCloudSyncIndicator() {
+        let el = document.getElementById("cloud-sync-indicator");
+        if (!el) return;
+        if (!supabaseClient || !cloudUser || !game.cloudLinked) { el.textContent = ''; el.title = ''; el.className = ''; return; }
+        const ICONS = { idle: '☁️', syncing: '🔄', synced: '☁️', error: '⚠️' };
+        const TITLES = { idle: 'Cloud sync ready', syncing: 'Syncing to the cloud...', synced: `Synced ${game.cloudSyncedAt ? 'at ' + new Date(game.cloudSyncedAt).toLocaleTimeString() : ''}`, error: 'Cloud sync failed - retrying automatically. Click to open cloud menu.' };
+        el.textContent = ICONS[cloudSyncStatus] || '☁️';
+        el.title = TITLES[cloudSyncStatus] || '';
+        el.className = cloudSyncStatus === 'error' ? 'sync-status-error' : (cloudSyncStatus === 'syncing' ? 'sync-status-syncing' : '');
+    }
+
     function scheduleCloudPush() {
         if (!supabaseClient || !cloudUser || !game.cloudLinked) return;
         clearTimeout(cloudPushTimer);
         cloudPushTimer = setTimeout(() => { performCloudPush(); }, 800);
     }
 
+    // Auto-retries with backoff on failure (network hiccup, dropped session, etc.)
+    // instead of silently giving up until the next manual save.
+    function scheduleCloudSyncRetry() {
+        clearTimeout(cloudSyncRetryTimer);
+        if (cloudSyncRetryCount >= 5) return;
+        let delay = Math.min(60000, 5000 * Math.pow(2, cloudSyncRetryCount));
+        cloudSyncRetryCount++;
+        cloudSyncRetryTimer = setTimeout(() => { if (game.cloudLinked) performCloudPush(); }, delay);
+    }
+
     async function performCloudPush() {
         if (!supabaseClient || !cloudUser || !game.cloudLinked) return;
         if (cloudPushInFlight) { cloudPushQueued = true; return; }
         cloudPushInFlight = true;
+        cloudSyncStatus = 'syncing';
+        updateCloudSyncIndicator();
         try {
             const { data, error } = await supabaseClient
                 .from('player_saves')
@@ -627,11 +677,32 @@
             if (!error && data) {
                 game.cloudSyncedAt = new Date(data.updated_at).getTime();
                 cloudSaveMeta = { exists: true, updatedAt: game.cloudSyncedAt, saveData: game, playerName: game.playerName, day: game.day, funds: game.funds };
+                cloudSyncStatus = 'synced';
+                cloudSyncRetryCount = 0;
+                clearTimeout(cloudSyncRetryTimer);
+            } else {
+                cloudSyncStatus = 'error';
+                scheduleCloudSyncRetry();
             }
-        } catch (e) { /* best-effort - will retry on the next save */ }
+        } catch (e) {
+            cloudSyncStatus = 'error';
+            scheduleCloudSyncRetry();
+        }
         cloudPushInFlight = false;
+        updateCloudSyncIndicator();
         if (cloudPushQueued) { cloudPushQueued = false; performCloudPush(); }
     }
+
+    // Background safety net on top of the debounced push-on-save: catches any drift
+    // (e.g. a change that didn't route through saveGame) while the tab is open.
+    setInterval(() => {
+        if (game && game.cloudLinked && supabaseClient && cloudUser && !cloudPushInFlight) performCloudPush();
+    }, 120000);
+
+    // Best-effort final sync when the player alt-tabs away, minimizes, or closes the tab.
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden" && game && game.cloudLinked && !cloudPushInFlight) performCloudPush();
+    });
 
     async function submitCloudAuth(mode) {
         let emailInput = document.getElementById("cloud-email-input");
@@ -880,6 +951,14 @@
     const SHINY_CHANCE = 1 / 64;
     const BALL_CATCH_BONUS = { "Pokéball": 0, "Great Ball": 0.15, "Ultra Ball": 0.30, "Master Ball": 1 };
     const BALL_EMOJI = { "Pokéball": "🔴", "Great Ball": "🔵", "Ultra Ball": "🟠", "Master Ball": "🟣" };
+
+    // --- PORTAL REROLL (escalating cost, resets per fresh encounter) ---
+    const REROLL_BASE_COST = 300;
+    const REROLL_INCREMENT = 150;
+
+    // --- UNIQUE EVOLUTION (unlocked once a character's been caught this many times) ---
+    const EVOLUTION_THRESHOLD = 3;
+    const EVOLUTION_TITLES = ["Ascended", "Primal", "Radiant", "Awakened", "Transcendent", "Exalted", "Hyper", "Omega"];
     const BALL_ORDER = ["Pokéball", "Great Ball", "Ultra Ball", "Master Ball"];
 
     // ==================================================================
@@ -1521,8 +1600,8 @@
 
     function getAllDexEntries() {
         let poolEntries = [];
-        Object.values(PORTAL_CHAR_POOLS).forEach(pool => {
-            pool.forEach(c => poolEntries.push({ id: c.id, name: c.name, origin: c.origin, type: c.type }));
+        Object.keys(PORTAL_CHAR_POOLS).forEach(poolKey => {
+            PORTAL_CHAR_POOLS[poolKey].forEach(c => poolEntries.push({ id: c.id, name: c.name, origin: c.origin, type: c.type, portal: poolKey }));
         });
         let existingIds = new Set(REAL_CHARACTERS_DB.map(c => c.id));
         return REAL_CHARACTERS_DB.concat(poolEntries.filter(c => !existingIds.has(c.id)))
@@ -1554,6 +1633,7 @@
 
     let game = defaultGameState();
     let activeEncounter = null;
+    let encounterRerollCount = 0;
     let activeCombatSession = null;
 
     function showSaveToast() {
@@ -1755,6 +1835,7 @@
         let totalCount = getAllDexEntries().length;
         document.getElementById("dex-count-display").innerText = `${unlockedCount}/${totalCount}`;
         syncTrainerPresence();
+        updateCloudSyncIndicator();
     }
 
     function getSaveKey(slot) { return `unidexSave_slot_${slot}`; }
@@ -1764,6 +1845,7 @@
         syncTrainerPresence();
         showSaveToast();
         scheduleCloudPush();
+        updateCloudSyncIndicator();
     }
 
     function renderButtons(buttons) {
@@ -2016,6 +2098,61 @@
         if (!game.pokedex[key]) game.pokedex[key] = { discovered: true, shiny: isShiny, count: 1 };
         else { game.pokedex[key].count++; if (isShiny) game.pokedex[key].shiny = true; }
         checkAchievements();
+    }
+
+    // --- UNIQUE EVOLUTION ---
+    // Deterministic-but-distinctive title per character name (same input always yields
+    // the same evolved form) so every player's evolved copy of a given character matches.
+    function getEvolvedName(name) {
+        let hash = 0;
+        for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+        let title = EVOLUTION_TITLES[hash % EVOLUTION_TITLES.length];
+        return `${title} ${name}`;
+    }
+
+    // Unlocked once a character's been caught EVOLUTION_THRESHOLD times (tracked via the
+    // existing dex duplicate-catch counter). Evolves one un-evolved roster copy in place:
+    // renames it to its unique evolved form and boosts its power. Free (the duplicate
+    // catches themselves are the cost), one-time per dex entry.
+    function evolveCharacter(dexId, returnPage = 1, returnQuery = "", returnPortal = "") {
+        let dexEntry = game.pokedex && game.pokedex[String(dexId)];
+        if (!dexEntry || (dexEntry.count || 0) < EVOLUTION_THRESHOLD || dexEntry.evolved) {
+            showDexEntryDetail(dexId, returnPage, returnQuery, returnPortal);
+            return;
+        }
+        let candidate = game.staff.find(s => s.dexId === dexId && !s.isEvolved);
+        if (!candidate) {
+            log("❌ You need an un-evolved copy of this character in your roster to evolve it!", "color-red");
+            showDexEntryDetail(dexId, returnPage, returnQuery, returnPortal);
+            return;
+        }
+        let oldName = candidate.name;
+        let newName = getEvolvedName(candidate.baseName || oldName);
+        candidate.baseName = candidate.baseName || oldName;
+        candidate.name = newName;
+        candidate.power = Math.round((candidate.power || 30) * 1.5);
+        candidate.isEvolved = true;
+        dexEntry.evolved = true;
+        dexEntry.evolvedName = newName;
+        saveGame(); updateUI();
+        showEvolutionAnimation(oldName, newName, () => showDexEntryDetail(dexId, returnPage, returnQuery, returnPortal));
+    }
+
+    function showEvolutionAnimation(oldName, newName, onDone) {
+        let overlay = document.createElement("div");
+        overlay.className = "evolution-overlay";
+        overlay.innerHTML = `
+            <div class="evolution-flash"></div>
+            <div class="evolution-text">
+                <p style="color:#fff; font-size:14px; margin:0 0 6px 0;">${oldName} is evolving...</p>
+                <h2 style="color:#ffe066; font-size:22px; text-shadow:0 0 14px #ffe066; margin:0;">✨ ${newName} ✨</h2>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        setTimeout(() => {
+            overlay.remove();
+            if (onDone) onDone();
+        }, 2200);
     }
 
     // --- CHAMPION & ACTIVE PARTY (max 6, Pokémon-style) ---
@@ -2919,7 +3056,7 @@
                 <div style="display:flex; align-items:center; gap:8px;">
                     <img src="${getCharacterPortrait(s.name)}" style="width:34px;height:34px;object-fit:contain;border-radius:6px;border:1px solid #a020f0;" onerror="applyTypeIconFallback(this, '${escAttr(s.name)}')"/>
                     <div style="font-size:12px;">
-                        <strong>${isChampion ? '👑 ' : ''}${s.name}${s.shiny ? ' ✨' : ''}${costumeDef ? ` ${costumeDef.emoji}` : ''}</strong><br>
+                        <strong>${isChampion ? '👑 ' : ''}${s.name}${s.shiny ? ' ✨' : ''}${s.isEvolved ? ' 🌟' : ''}${costumeDef ? ` ${costumeDef.emoji}` : ''}</strong><br>
                         <span style="font-size:10.5px;color:#aaa;">Origin: ${s.origin || 'Unknown'} | Power: ${s.power || 0}${costumeDef ? ` | 🎭 ${costumeDef.name}` : ''}</span>
                     </div>
                 </div>
@@ -3247,6 +3384,19 @@
         ]);
     }
 
+    // Shared random-pick logic used for a fresh encounter AND for rerolling one, so a
+    // reroll always redraws from the exact same source (portal pool or the wild UniDex).
+    function drawEncounterFromSource(poolKey, isWild) {
+        if (isWild) {
+            if (!REAL_CHARACTERS_DB || REAL_CHARACTERS_DB.length === 0) return null;
+            let chosen = REAL_CHARACTERS_DB[Math.floor(Math.random() * REAL_CHARACTERS_DB.length)];
+            return { name: chosen.name, origin: chosen.origin, power: rollEncounterPower(), dexId: chosen.id, baseChance: 0.50, isShiny: Math.random() < SHINY_CHANCE, poolKey: null, isWild: true };
+        }
+        let pool = PORTAL_CHAR_POOLS[poolKey] || PORTAL_CHAR_POOLS.standard;
+        let chosen = pool[Math.floor(Math.random() * pool.length)];
+        return { name: chosen.name, origin: chosen.origin, power: rollEncounterPower(), dexId: chosen.id, baseChance: 0.50, isShiny: Math.random() < SHINY_CHANCE, poolKey: poolKey, isWild: false };
+    }
+
     function triggerPortalTheme(poolKey, musicKey) {
         playBGM(musicKey || 'rift');
         let costumeDef = COSTUME_CATALOG[poolKey];
@@ -3254,9 +3404,8 @@
             grantCostume(costumeDef);
             return;
         }
-        let pool = PORTAL_CHAR_POOLS[poolKey] || PORTAL_CHAR_POOLS.standard;
-        let chosen = pool[Math.floor(Math.random() * pool.length)];
-        activeEncounter = { name: chosen.name, origin: chosen.origin, power: rollEncounterPower(), dexId: chosen.id, baseChance: 0.50, isShiny: Math.random() < SHINY_CHANCE };
+        encounterRerollCount = 0;
+        activeEncounter = drawEncounterFromSource(poolKey, false);
         renderEncounterScreen();
     }
 
@@ -3264,22 +3413,58 @@
     // so that entries #1-2000 are actually reachable in gameplay, not just listed in the dex.
     function spawnWildUniDexEncounter() {
         if (!REAL_CHARACTERS_DB || REAL_CHARACTERS_DB.length === 0) { showMainMenu(); return; }
-        let chosen = REAL_CHARACTERS_DB[Math.floor(Math.random() * REAL_CHARACTERS_DB.length)];
-        activeEncounter = { name: chosen.name, origin: chosen.origin, power: rollEncounterPower(), dexId: chosen.id, baseChance: 0.50, isShiny: Math.random() < SHINY_CHANCE };
+        encounterRerollCount = 0;
+        activeEncounter = drawEncounterFromSource(null, true);
         renderEncounterScreen();
+    }
+
+    // Escalates each consecutive reroll on the SAME encounter; resets to base cost the
+    // moment a fresh encounter is triggered (see encounterRerollCount resets above).
+    function getRerollCost() {
+        return REROLL_BASE_COST + encounterRerollCount * REROLL_INCREMENT;
+    }
+
+    // Costs escalating cash (never free) and redraws from the same source pool as the
+    // current encounter, with a short spin/flash animation on the portrait.
+    function rerollEncounter() {
+        if (!activeEncounter) return;
+        let cost = getRerollCost();
+        if ((game.funds || 0) < cost) {
+            let statusEl = document.getElementById("capture-status");
+            if (statusEl) statusEl.innerHTML = `<strong style="color:#ff6666;">💸 Not enough funds to reroll! Need $${cost}.</strong>`;
+            return;
+        }
+        game.funds -= cost;
+        encounterRerollCount++;
+        updateUI(); saveGame();
+
+        renderButtons([]);
+        let wrap = document.getElementById("encounter-portrait-wrap");
+        if (wrap) wrap.classList.add("reroll-spin");
+        let statusEl = document.getElementById("capture-status");
+        if (statusEl) statusEl.innerText = "🌀 Rerolling the portal...";
+
+        setTimeout(() => {
+            let redrawn = drawEncounterFromSource(activeEncounter.poolKey, activeEncounter.isWild);
+            if (redrawn) activeEncounter = redrawn;
+            renderEncounterScreen();
+        }, 650);
     }
 
     function renderEncounterScreen() {
         clearConsole("center", "radial-gradient(circle at 50% 50%, #4d004d 0%, #1a001a 80%)", "#ff00ff");
         let ballTypes = getAvailableBallTypes();
         let portraitHtml = characterPortrait(activeEncounter.name, 120);
+        let rerollCost = getRerollCost();
         document.getElementById("console").innerHTML = `
             <div class="pokeball-container">
                 <div class="pokeball-sprite">
                     <div class="ball-top"></div><div class="ball-center-band"></div><div class="ball-center-btn"></div><div class="ball-bottom"></div>
                 </div>
             </div>
-            ${activeEncounter.isShiny ? `<div class="shiny-frame">${portraitHtml}</div>` : portraitHtml}
+            <div class="encounter-portrait-wrap" id="encounter-portrait-wrap">
+                ${activeEncounter.isShiny ? `<div class="shiny-frame">${portraitHtml}</div>` : portraitHtml}
+            </div>
             <h2 style="font-size:16px;">🌌 WILD ENCOUNTER!</h2>
             ${activeEncounter.isShiny ? `<p style="color:#ffdd00; font-size:14px; text-shadow:0 0 8px #ffdd00; margin:2px 0;">✨ SHINY! ✨</p>` : ''}
             <p style="color:#00ffff; font-size:18px; margin:2px 0;"><strong>${activeEncounter.name}</strong></p>
@@ -3287,15 +3472,12 @@
             ${!ballTypes.length ? `<p style="color:#ff6666; font-size:12px;">You're out of balls! Visit Don's General Store or Fr3xi0us's Black Market.</p>` : ''}
             <p id="capture-status" style="color:#ffff66; font-size:12px;">${ballTypes.length ? 'Choose a ball to throw...' : ''}</p>
         `;
-        if (ballTypes.length) {
-            renderButtons(ballTypes.map(b => ({
-                text: `${BALL_EMOJI[b]} ${b} (${countOwnedBalls(b)})`, class: "btn btn-start", action: () => processPortalCatch(b)
-            })).concat([{ text: "🏃 Flee", class: "btn btn-back", action: showMainMenu }]));
-            return;
-        }
-        renderButtons([
-            { text: "🏃 Flee", class: "btn btn-back", action: showMainMenu }
-        ]);
+        let btns = ballTypes.map(b => ({
+            text: `${BALL_EMOJI[b]} ${b} (${countOwnedBalls(b)})`, class: "btn btn-start", action: () => processPortalCatch(b)
+        }));
+        btns.push({ text: `🎲 Reroll ($${rerollCost})`, class: "btn btn-dlc", action: rerollEncounter });
+        btns.push({ text: "🏃 Flee", class: "btn btn-back", action: showMainMenu });
+        renderButtons(btns);
     }
 
     function processPortalCatch(ballType) {
@@ -4279,14 +4461,17 @@
         }, 3800);
     }
 
-    function showDexMenu(page = 1, searchQuery = "") {
+    function showDexMenu(page = 1, searchQuery = "", portalFilter = "") {
         playBGM('dex');
         clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #1a1500 0%, #080702 85%)", "#ffff00");
-        
+
         let entries = getAllDexEntries();
         if (searchQuery.trim() !== "") {
             let q = searchQuery.toLowerCase();
             entries = entries.filter(c => c.name.toLowerCase().includes(q) || (c.origin && c.origin.toLowerCase().includes(q)));
+        }
+        if (portalFilter) {
+            entries = entries.filter(c => c.portal === portalFilter);
         }
 
         let perPage = 15;
@@ -4294,12 +4479,22 @@
         page = Math.max(1, Math.min(page, totalPages));
         let slice = entries.slice((page-1)*perPage, page*perPage);
 
+        let portalOptions = Object.keys(PORTAL_CHAR_POOLS).map(key =>
+            `<option value="${key}" ${portalFilter === key ? 'selected' : ''}>${formatPortalLabel(key)}</option>`
+        ).join('');
+
         let html = `
             <h2 style="color:#ffff00; font-size:18px;">📖 UNIDEX (${page}/${totalPages})</h2>
-            <div style="margin: 6px 0; width: 100%; display: flex; justify-content: center; gap: 4px;">
+            <div style="margin: 6px 0; width: 100%; display: flex; justify-content: center; gap: 4px; flex-wrap: wrap;">
                 <input type="text" id="dex-search-input" placeholder="Search name/origin..." value="${searchQuery}" style="background: #111; color: #0ff; border: 1px solid #0ff; padding: 5px; font-family: 'Courier New'; font-size: 11px; border-radius: 4px; width: 60%; max-width: 180px;" />
                 <button class="btn btn-sys" style="padding: 4px 8px; font-size: 11px; min-height:28px;" onclick="filterDexSearch()">Search</button>
-                ${searchQuery ? `<button class="btn btn-back" style="padding: 4px 6px; font-size: 11px; min-height:28px;" onclick="showDexMenu(1, '')">Reset</button>` : ''}
+                ${(searchQuery || portalFilter) ? `<button class="btn btn-back" style="padding: 4px 6px; font-size: 11px; min-height:28px;" onclick="showDexMenu(1, '', '')">Reset</button>` : ''}
+            </div>
+            <div style="margin: 0 0 6px 0; width: 100%; display: flex; justify-content: center;">
+                <select id="dex-portal-filter" onchange="filterDexPortal()" style="background: #111; color: #ff00ff; border: 1px solid #ff00ff; padding: 5px; font-family: 'Courier New'; font-size: 11px; border-radius: 4px; max-width: 220px;">
+                    <option value="" ${portalFilter ? '' : 'selected'}>🌌 All Portals</option>
+                    ${portalOptions}
+                </select>
             </div>
             <div style="width:100%;">
         `;
@@ -4308,17 +4503,19 @@
             let caught = !!dexEntry;
             let icon = caught ? `<img src="${getCharacterPortrait(e.name)}" style="width:26px;height:26px;object-fit:contain;border-radius:4px;border:1px solid #0ff;" onerror="applyTypeIconFallback(this, '${escAttr(e.name)}')"/>` : '⚪';
             let shinyTag = caught && dexEntry.shiny ? ' ✨' : '';
+            let evoTag = caught && dexEntry.evolved ? ' 🌟' : '';
+            let portalTag = e.portal ? `<span style="color:#ff77ff; font-size:9.5px;"> [${formatPortalLabel(e.portal)}]</span>` : '';
             // Only caught entries are clickable - just like a real Pokedex, you can't pull
             // up a profile page for something you've never actually recruited.
-            let clickAttr = caught ? ` onclick="showDexEntryDetail(${e.id}, ${page}, '${escAttr(searchQuery)}')" style="font-size:11.5px; cursor:pointer;"` : ` style="font-size:11.5px;"`;
-            html += `<div class="dex-card"${clickAttr}>${icon} <span>#${e.id} - ${caught ? e.name : '????????'}${shinyTag}</span>${caught ? POKEBALL_SVG : ''}</div>`;
+            let clickAttr = caught ? ` onclick="showDexEntryDetail(${e.id}, ${page}, '${escAttr(searchQuery)}', '${escAttr(portalFilter)}')" style="font-size:11.5px; cursor:pointer;"` : ` style="font-size:11.5px;"`;
+            html += `<div class="dex-card"${clickAttr}>${icon} <span>#${e.id} - ${caught ? e.name : '????????'}${shinyTag}${evoTag}${caught ? portalTag : ''}</span>${caught ? POKEBALL_SVG : ''}</div>`;
         });
         html += `</div>`;
         document.getElementById("console").innerHTML = html;
 
         let btns = [];
-        if (page > 1) btns.push({ text: "⬅ Prev", action: () => showDexMenu(page - 1, searchQuery) });
-        if (page < totalPages) btns.push({ text: "Next ➡", action: () => showDexMenu(page + 1, searchQuery) });
+        if (page > 1) btns.push({ text: "⬅ Prev", action: () => showDexMenu(page - 1, searchQuery, portalFilter) });
+        if (page < totalPages) btns.push({ text: "Next ➡", action: () => showDexMenu(page + 1, searchQuery, portalFilter) });
         btns.push({ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu });
         renderButtons(btns);
 
@@ -4339,10 +4536,10 @@
     // A single Pokedex-style entry profile: big portrait, type badge, origin, and
     // whatever flavor data this character has (persona, transcendent evolution, first
     // portal) - only reachable for entries you've actually caught.
-    function showDexEntryDetail(id, returnPage = 1, returnQuery = "") {
+    function showDexEntryDetail(id, returnPage = 1, returnQuery = "", returnPortal = "") {
         let entry = getAllDexEntries().find(e => e.id === id);
         let dexEntry = game.pokedex && game.pokedex[String(id)];
-        if (!entry || !dexEntry) { showDexMenu(returnPage, returnQuery); return; }
+        if (!entry || !dexEntry) { showDexMenu(returnPage, returnQuery, returnPortal); return; }
 
         playBGM('dex');
         clearConsole("center", "radial-gradient(circle at 50% 20%, #1a1500 0%, #080702 85%)", "#ffff00");
@@ -4350,6 +4547,17 @@
         let type = resolveCharacterType(entry.name);
         let theme = TYPE_ICON_THEME[type] || TYPE_ICON_THEME.Normal;
         let portraitHtml = characterPortrait(entry.name, 150);
+        let caughtCount = dexEntry.count || 1;
+        let canEvolve = caughtCount >= EVOLUTION_THRESHOLD && !dexEntry.evolved;
+
+        let evolutionLine;
+        if (dexEntry.evolved) {
+            evolutionLine = `<strong style="color:#ffe066;">Unique Evolution:</strong> ✨ ${dexEntry.evolvedName} ✨<br>`;
+        } else if (canEvolve) {
+            evolutionLine = `<strong style="color:#00ffff;">Unique Evolution:</strong> <span style="color:#55ff99;">Ready to evolve!</span><br>`;
+        } else {
+            evolutionLine = `<strong style="color:#888;">Unique Evolution:</strong> Catch ${EVOLUTION_THRESHOLD - caughtCount} more to unlock (${caughtCount}/${EVOLUTION_THRESHOLD})<br>`;
+        }
 
         document.getElementById("console").innerHTML = `
             <p style="color:#888; font-size:11px; margin:0 0 2px 0;">UNIDEX ENTRY #${entry.id}</p>
@@ -4364,18 +4572,30 @@
                 ${entry.persona ? `<strong style="color:#00ffff;">Persona:</strong> ${entry.persona}<br>` : ''}
                 ${entry.evo ? `<strong style="color:#00ffff;">Evolves into:</strong> ${entry.evo}<br>` : ''}
                 ${entry.portal ? `<strong style="color:#00ffff;">First seen at:</strong> ${formatPortalLabel(entry.portal)}<br>` : ''}
-                <strong style="color:#00ffff;">Times caught:</strong> ${dexEntry.count || 1}
+                <strong style="color:#00ffff;">Times caught:</strong> ${caughtCount}<br>
+                ${evolutionLine}
             </div>
         `;
-        renderButtons([
-            { text: "⬅ Back to UniDex", class: "btn btn-back", action: () => showDexMenu(returnPage, returnQuery) }
-        ]);
+        let btns = [];
+        if (canEvolve) btns.push({ text: "⭐ Evolve!", class: "btn btn-start", action: () => evolveCharacter(id, returnPage, returnQuery, returnPortal) });
+        btns.push({ text: "⬅ Back to UniDex", class: "btn btn-back", action: () => showDexMenu(returnPage, returnQuery, returnPortal) });
+        renderButtons(btns);
     }
 
     function filterDexSearch() {
         let input = document.getElementById("dex-search-input");
+        let portalSelect = document.getElementById("dex-portal-filter");
         let query = input ? input.value.trim() : "";
-        showDexMenu(1, query);
+        let portal = portalSelect ? portalSelect.value : "";
+        showDexMenu(1, query, portal);
+    }
+
+    function filterDexPortal() {
+        let input = document.getElementById("dex-search-input");
+        let portalSelect = document.getElementById("dex-portal-filter");
+        let query = input ? input.value.trim() : "";
+        let portal = portalSelect ? portalSelect.value : "";
+        showDexMenu(1, query, portal);
     }
 
     // --- REGIONS & MONSTER ENCOUNTERS ---
