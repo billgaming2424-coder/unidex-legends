@@ -1015,7 +1015,7 @@
     }
 
     function showCloudAccountMenu() {
-        clearConsole("center", "radial-gradient(circle at 50% 30%, #001a2e 0%, #000814 85%)", "#22d3ee");
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #001a2e 0%, #000814 85%)", "#22d3ee", SCENE_IMAGES.cloudAccount);
 
         if (!supabaseClient) {
             document.getElementById("console").innerHTML = `
@@ -2734,11 +2734,39 @@
         return { hue: h, sat: d };
     }
 
-    function sceneBg(baseGradient, accent) {
-        if (!baseGradient || typeof baseGradient !== "string") return baseGradient;
+    // AI-generated background art for the busiest HQ dashboard screens - referenced by
+    // clearConsole()'s optional 4th arg. Purely additive: any screen not listed here just
+    // keeps the CSS-only sceneBg() treatment.
+    const SCENE_IMAGES = {
+        hq: "/backgrounds/hq.jpg",
+        worldMap: "/backgrounds/worldmap.jpg",
+        mining: "/backgrounds/mining.jpg",
+        market: "/backgrounds/market.jpg",
+        casino: "/backgrounds/casino.jpg",
+        inventory: "/backgrounds/inventory.jpg",
+        home: "/backgrounds/home.jpg",
+        farm: "/backgrounds/farm.jpg",
+        training: "/backgrounds/training.jpg",
+        staff: "/backgrounds/staff.jpg",
+        dex: "/backgrounds/dex.jpg",
+        portals: "/backgrounds/portals.jpg",
+        costumes: "/backgrounds/costumes.jpg",
+        dailyQuests: "/backgrounds/dailyquests.jpg",
+        achievements: "/backgrounds/achievements.jpg",
+        redeem: "/backgrounds/redeem.jpg",
+        dlc: "/backgrounds/dlc.jpg",
+        onlineHub: "/backgrounds/onlinehub.jpg",
+        cloudAccount: "/backgrounds/cloudaccount.jpg",
+        credits: "/backgrounds/credits.jpg"
+    };
+
+    // Shared by sceneBg() and sceneBgPhoto(): the glow/band/flavor decorative layers,
+    // without the base gradient itself - callers append their own base (opaque for a
+    // pure-CSS screen, translucent when there's a photo underneath).
+    function _sceneLayers(baseGradient, accent) {
         const { r, g, b } = _sceneHexToRgb(accent);
         const { hue, sat } = _sceneHue(r, g, b);
-        const posMatch = baseGradient.match(/at\s+(-?\d+)%\s+(-?\d+)%/);
+        const posMatch = (baseGradient || "").match(/at\s+(-?\d+)%\s+(-?\d+)%/);
         const cx = posMatch ? parseInt(posMatch[1], 10) : 50;
         const cy = posMatch ? parseInt(posMatch[2], 10) : 30;
         const clamp = v => Math.max(6, Math.min(94, v));
@@ -2780,14 +2808,40 @@
             flavor = `conic-gradient(from 0deg at 50% -10%, transparent 0deg, ${rgba(0.09)} 6deg, transparent 14deg, transparent 40deg, ${rgba(0.09)} 46deg, transparent 54deg, transparent 220deg, ${rgba(0.09)} 226deg, transparent 234deg)`;
         }
 
-        return [glow1, glow2, band, flavor, baseGradient].join(", ");
+        return [glow1, glow2, band, flavor];
     }
 
-    function clearConsole(align="flex-start", bgGradient="radial-gradient(circle at 50% 30%, #15002b 0%, #05000a 80%)", borderColor="#00ffff") {
+    function sceneBg(baseGradient, accent) {
+        if (!baseGradient || typeof baseGradient !== "string") return baseGradient;
+        return [..._sceneLayers(baseGradient, accent), baseGradient].join(", ");
+    }
+
+    // Rewrites a gradient's opaque #hex stops to translucent rgba(...) at the given
+    // alpha, so a photo placed underneath shows through instead of being fully hidden
+    // by what was originally a 100%-opaque base gradient.
+    function _sceneGradientToAlpha(gradientStr, alpha) {
+        return (gradientStr || "").replace(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g, (m, hex) => {
+            if (hex.length === 3) hex = hex.split("").map(c => c + c).join("");
+            const n = parseInt(hex, 16);
+            const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+            return `rgba(${r},${g},${b},${alpha})`;
+        });
+    }
+
+    // Same layered treatment as sceneBg(), but with a generated background photo placed
+    // behind a translucent version of the base gradient (instead of the opaque original)
+    // so the art shows through while staying dark enough for text to stay readable.
+    function sceneBgPhoto(baseGradient, accent, imageUrl) {
+        if (!imageUrl) return sceneBg(baseGradient, accent);
+        const translucentBase = _sceneGradientToAlpha(baseGradient, 0.62);
+        return [..._sceneLayers(baseGradient, accent), translucentBase, `url('${imageUrl}') center/cover no-repeat`].join(", ");
+    }
+
+    function clearConsole(align="flex-start", bgGradient="radial-gradient(circle at 50% 30%, #15002b 0%, #05000a 80%)", borderColor="#00ffff", bgImage=null) {
         const consoleDiv = document.getElementById("console");
         consoleDiv.innerHTML = "";
         consoleDiv.style.justifyContent = align;
-        consoleDiv.style.background = sceneBg(bgGradient, borderColor);
+        consoleDiv.style.background = bgImage ? sceneBgPhoto(bgGradient, borderColor, bgImage) : sceneBg(bgGradient, borderColor);
         consoleDiv.style.borderColor = borderColor;
         consoleDiv.scrollTop = 0;
     }
@@ -3340,7 +3394,7 @@
     // --- MAIN HQ DASHBOARD ---
     function showMainMenu() {
         playBGM('hq');
-        clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #1a1500 0%, #080702 85%)", "#ffaa00");
+        clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #1a1500 0%, #080702 85%)", "#ffaa00", SCENE_IMAGES.hq);
         document.getElementById("stats-bar").style.display = "flex";
         updateUI();
         checkDailyReset();
@@ -3378,7 +3432,7 @@
     // --- TRAINING GROUNDS: power progression outside of catching/evolving ---
     function showTrainingGroundsMenu() {
         playBGM('staff');
-        clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #1a0800 0%, #080300 85%)", "#ff8800");
+        clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #1a0800 0%, #080300 85%)", "#ff8800", SCENE_IMAGES.training);
         let html = `
             <h2 style="color:#ff8800; font-size:18px;">💪 TRAINING GROUNDS</h2>
             <p style="color:#aaa; font-size:12px; max-width:340px;">Spend stamina and cash to push a roster member's power higher. The cost climbs the stronger they already are.</p>
@@ -3422,7 +3476,7 @@
     // --- DAILY QUESTS & ACHIEVEMENTS SCREENS ---
     function showDailyQuestsMenu() {
         playBGM('hq');
-        clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #001a1a 0%, #000808 85%)", "#00ffcc");
+        clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #001a1a 0%, #000808 85%)", "#00ffcc", SCENE_IMAGES.dailyQuests);
         ensureProgressionDefaults();
         let html = `
             <h2 style="color:#00ffcc; font-size:18px;">📋 DAILY QUESTS</h2>
@@ -3448,7 +3502,7 @@
 
     function showAchievementsMenu() {
         playBGM('dex');
-        clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #1a1500 0%, #080702 85%)", "#ffd700");
+        clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #1a1500 0%, #080702 85%)", "#ffd700", SCENE_IMAGES.achievements);
         let unlockedCount = Object.keys(game.achievements || {}).length;
         let html = `<h2 style="color:#ffd700; font-size:18px;">🏆 ACHIEVEMENTS (${unlockedCount}/${ACHIEVEMENT_DEFS.length})</h2><div style="width:100%;">`;
         ACHIEVEMENT_DEFS.forEach(a => {
@@ -3468,7 +3522,7 @@
 
     function showCasinoMenu() {
         playBGM('casino');
-        clearConsole("center", "radial-gradient(circle at 50% 30%, #330022 0%, #0a000a 85%)", "#ff00aa");
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #330022 0%, #0a000a 85%)", "#ff00aa", SCENE_IMAGES.casino);
         document.getElementById("console").innerHTML = `
             <div style="font-size:50px; margin-bottom:8px;">🎰</div>
             <h2 style="color:#ff00aa; font-size:18px;">CASINO & MINI-GAME DISTRICT</h2>
@@ -3790,7 +3844,7 @@
     // --- EXPLORE & SHOPS (DOUG, DON, FR3XIOUS) ---
     function showExploreMenu() {
         playBGM('shop');
-        clearConsole("flex-start", "radial-gradient(ellipse at 50% 20%, #3d1c00 0%, #140a00 70%)", "#ff8c00");
+        clearConsole("flex-start", "radial-gradient(ellipse at 50% 20%, #3d1c00 0%, #140a00 70%)", "#ff8c00", SCENE_IMAGES.market);
         document.getElementById("console").innerHTML = `
             ${portrait("/pictures/doug.png", "Doug", 120)}
             <h2 style="color: #ffaa00; font-size:18px;">🏪 AETHERIA MARKET DISTRICT</h2>
@@ -3908,7 +3962,7 @@
 
     function showInventoryMenu() {
         playBGM('shop');
-        clearConsole("flex-start", "radial-gradient(ellipse at 50% 20%, #1a0f00 0%, #080400 80%)", "#33ccff");
+        clearConsole("flex-start", "radial-gradient(ellipse at 50% 20%, #1a0f00 0%, #080400 80%)", "#33ccff", SCENE_IMAGES.inventory);
         let gear = game.equippedGear || { weapon: "None", armor: "None", helmet: "None", accessory: "None" };
         let html = `
             <h2 style="color: #33ccff; margin: 2px 0; font-size:18px;">🎒 INVENTORY & GEAR SLOTS</h2>
@@ -3961,7 +4015,7 @@
 
     function showHomeDecorMenu() {
         playBGM('hq');
-        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #173b5c 0%, #0a141e 80%)", "#33aaff");
+        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #173b5c 0%, #0a141e 80%)", "#33aaff", SCENE_IMAGES.home);
         let decor = game.homeDecor || defaultGameState().homeDecor;
         let nextTier = HOME_TIER_CATALOG[decor.tier + 1];
         document.getElementById("console").innerHTML = `
@@ -4014,7 +4068,7 @@
 
     function showFarmMenu() {
         playBGM('farm');
-        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #053b16 0%, #021408 80%)", "#00ff66");
+        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #053b16 0%, #021408 80%)", "#00ff66", SCENE_IMAGES.farm);
         updateUI();
         ensureFarmDefaults();
         let farm = game.farm;
@@ -4284,7 +4338,7 @@
 
     function showStaffMenu() {
         playBGM('staff');
-        clearConsole("flex-start", "radial-gradient(circle at 50% 25%, #2b005c 0%, #0c001a 80%)", "#a020f0");
+        clearConsole("flex-start", "radial-gradient(circle at 50% 25%, #2b005c 0%, #0c001a 80%)", "#a020f0", SCENE_IMAGES.staff);
         ensurePartySystem();
         let party = getActiveParty();
         let reserve = getReserve();
@@ -4506,7 +4560,7 @@
 
     function showCostumesMenu() {
         playBGM('staff');
-        clearConsole("flex-start", "radial-gradient(circle at 50% 25%, #4d004d 0%, #0c001a 80%)", "#ff66ff");
+        clearConsole("flex-start", "radial-gradient(circle at 50% 25%, #4d004d 0%, #0c001a 80%)", "#ff66ff", SCENE_IMAGES.costumes);
         if (!game.unlockedCostumes) game.unlockedCostumes = [];
         let html = `<h2 style="color:#ff66ff; font-size:18px;">🎭 COSTUME WARDROBE</h2>`;
 
@@ -4577,7 +4631,7 @@
     // --- PORTALS & EXCLUSIVE HOLIDAY THEMES ---
     function showFreePortalsMenu() {
         playBGM('dlcHub');
-        clearConsole("center", "radial-gradient(circle at 50% 50%, #4d004d 0%, #1a001a 80%)", "#ff00ff");
+        clearConsole("center", "radial-gradient(circle at 50% 50%, #4d004d 0%, #1a001a 80%)", "#ff00ff", SCENE_IMAGES.portals);
         renderButtons([
             { text: "🌌 Standard Multiverse", class: "btn btn-sys", action: () => triggerPortalTheme("standard", 'standard') },
             { text: "🦉 Femboy Hooters", class: "btn btn-hooters", action: () => triggerPortalTheme("femboyHooters", 'femboyHooters') },
@@ -4731,7 +4785,7 @@
     // --- MYSTERY GIFT / REDEEM CODE SYSTEM ---
     function showRedeemCodeMenu(message = "") {
         playBGM('dlcHub');
-        clearConsole("center", "radial-gradient(circle at 50% 50%, #002b1a 0%, #001008 80%)", "#00ff99");
+        clearConsole("center", "radial-gradient(circle at 50% 50%, #002b1a 0%, #001008 80%)", "#00ff99", SCENE_IMAGES.redeem);
         document.getElementById("console").innerHTML = `
             <h2 style="color: #00ff99; font-size:18px;">🎁 MYSTERY GIFT</h2>
             <p style="color: #aaa; font-size:12px; max-width:360px;">Enter a code from an event, promo, or the beta test to claim your reward.</p>
@@ -4778,7 +4832,7 @@
     function openDLCDispatch() {
         if (game.dlcUnlocked) { showPremiumDLCMenu(); return; }
         playBGM('dlcHub');
-        clearConsole("center", "radial-gradient(circle at 50% 50%, #4d004d 0%, #1a001a 80%)", "#ff00ff");
+        clearConsole("center", "radial-gradient(circle at 50% 50%, #4d004d 0%, #1a001a 80%)", "#ff00ff", SCENE_IMAGES.dlc);
         document.getElementById("console").innerHTML = `
             <h2 style="color: #ff00ff; font-size:18px;">🔒 SECURE PREMIUM NETWORK</h2>
             <p style="color: #00ffff; font-size:12px;">Enter the VIP Passcode to permanently unlock premium dimensions.</p>
@@ -4800,7 +4854,7 @@
 
     function showPremiumDLCMenu() {
         playBGM('dlcHub');
-        clearConsole("center", "radial-gradient(circle at 50% 50%, #4d004d 0%, #1a001a 80%)", "#ff00ff");
+        clearConsole("center", "radial-gradient(circle at 50% 50%, #4d004d 0%, #1a001a 80%)", "#ff00ff", SCENE_IMAGES.dlc);
         document.getElementById("console").innerHTML = `
             <h2 style="color: #ff00ff; text-shadow: 0 0 10px #ff00ff; font-size:18px;">PREMIUM DLC DIMENSIONS</h2>
             <p style="color:#ff99ff; font-size:12px;">Explore exclusive high-tier sectors!</p>
@@ -4815,7 +4869,7 @@
     // --- MULTIPLAYER ONLINE HUB ---
     function showOnlineLobbyGate() {
         playBGM('trade');
-        clearConsole("center", "radial-gradient(circle at 50% 30%, #003366 0%, #000c14 85%)", "#00aaff");
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #003366 0%, #000c14 85%)", "#00aaff", SCENE_IMAGES.onlineHub);
         document.getElementById("console").innerHTML = `
             <h2 style="color:#00ffff; font-size:18px;">🌐 ONLINE MULTIPLAYER HUB</h2>
             <p style="color:#aaa; max-width:380px; font-size:12px;">Join a shared timeline room with your friends to view rosters, trade, fight PvP duels, or tackle Co-Op Raid Bosses!</p>
@@ -5643,7 +5697,7 @@
 
     function showCreditsMenu() {
         playBGM('credits');
-        clearConsole("center", "radial-gradient(circle at 50% 30%, #151515 0%, #000 85%)", "#ffffff");
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #151515 0%, #000 85%)", "#ffffff", SCENE_IMAGES.credits);
         document.getElementById("console").innerHTML = `
             <h2 style="color:#fff; font-size:18px;">📜 UNIMON LEGENDS — CREDITS</h2>
             <div class="dex-card" style="display:block;line-height:1.5;font-size:12px;text-align:center;">
@@ -5687,7 +5741,7 @@
 
     function showDexMenu(page = 1, searchQuery = "", portalFilter = "") {
         playBGM('dex');
-        clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #1a1500 0%, #080702 85%)", "#ffff00");
+        clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #1a1500 0%, #080702 85%)", "#ffff00", SCENE_IMAGES.dex);
 
         let entries = getAllDexEntries();
         if (searchQuery.trim() !== "") {
@@ -5825,7 +5879,7 @@
     // --- REGIONS & MONSTER ENCOUNTERS ---
     function showWorldMap() {
         playBGM('hq');
-        clearConsole("center", "radial-gradient(circle at 50% 40%, #002244 0%, #02060a 85%)", "#00ffcc");
+        clearConsole("center", "radial-gradient(circle at 50% 40%, #002244 0%, #02060a 85%)", "#00ffcc", SCENE_IMAGES.worldMap);
         document.getElementById("console").innerHTML = `
             <h2 style="color: #00ffcc; font-size:18px;">🗺️ AETHERIA REGIONS MAP</h2>
             <p style="color: #aaa; font-size:12px;">Explore diverse biomes and hunt regional monsters (Costs 5 Stamina):</p>
@@ -5917,8 +5971,8 @@
 
     function showMiningHub() {
         playBGM('mining');
-        clearConsole("flex-start", "radial-gradient(circle at 50% 35%, #1a0f00 0%, #050200 85%)", "#ff8800");
-        
+        clearConsole("flex-start", "radial-gradient(circle at 50% 35%, #1a0f00 0%, #050200 85%)", "#ff8800", SCENE_IMAGES.mining);
+
         let inventoryHTML = `<div style="width:98%; max-width:380px; background:#0b0800; border:1px dashed #ffaa0088; border-radius:6px; padding:6px; margin:6px 0; text-align:left;">
             <strong style="color:#ffaa00; font-size:12px;">🎒 Bag Minerals (${game.inventory.filter(i => ['Copper Ore','Diamond'].includes(i)).length}):</strong><br>
             <span style="font-size:11px; color:#aaa;">${game.inventory.filter(i => ['Copper Ore','Diamond'].includes(i)).join(', ') || 'No ores or gems in backpack yet.'}</span>
