@@ -4,7 +4,7 @@
     
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Unimon Legends</title>
-    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://unidex-legends.onrender.com/socket.io/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * { box-sizing: border-box; }
@@ -697,7 +697,14 @@
 
 <script>
     let socket = null;
-    try { socket = io({ transports: ['websocket', 'polling'] }); } catch(e) {}
+    // Frontend is static (Cloudflare Pages); the game server runs separately on Render.
+    // Connect there explicitly, except in local dev where same-origin still works.
+    try {
+        const isLocalDev = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+        socket = isLocalDev
+            ? io({ transports: ['websocket', 'polling'] })
+            : io('https://unidex-legends.onrender.com', { transports: ['websocket', 'polling'] });
+    } catch(e) {}
 
     let REAL_CHARACTERS_DB = [];
     let currentSaveSlot = 1;
