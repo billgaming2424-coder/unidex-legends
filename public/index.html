@@ -332,9 +332,10 @@
         #dialogue-overlay.active #dialogue-box { transform: translateY(0); }
         .dialogue-header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
         .dialogue-portrait-wrap {
-            width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
-            border: 2px solid #ffcc66; box-shadow: 0 0 12px rgba(255,204,102,0.5);
+            width: 92px; height: 92px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+            border: 3px solid #ffcc66; box-shadow: 0 0 18px rgba(255,204,102,0.5), 0 0 0 4px rgba(255,204,102,0.15);
             background: #1a1508; display: flex; align-items: center; justify-content: center;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
         .dialogue-portrait-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .dialogue-portrait-fallback { font-size: 30px; }
@@ -2063,6 +2064,33 @@
         game.reputation[key] = (game.reputation[key] || 0) + amount;
     }
 
+    // Shared so Sleep and the Energy Core item (see useEnergyCore()) agree on the cap -
+    // the Homestead Longhouse raises max stamina by 10 per level.
+    function getMaxStamina() {
+        ensureWorldExpansionDefaults();
+        let longhouseLevel = (game.homestead.structures && game.homestead.structures.longhouse) || 0;
+        return 100 + longhouseLevel * 10;
+    }
+
+    // Energy Core (Don's General Store, $1200): an instant full stamina refill that does
+    // NOT advance the day, unlike Sleep - the whole point is topping off mid-day without
+    // losing today's remaining daily quests, wheel spin, or triggering likeness decay/
+    // reputation resets. Callable from the Inventory screen (see showInventoryMenu()).
+    function useEnergyCore() {
+        let idx = game.inventory.indexOf('Energy Core');
+        if (idx === -1) { log("❌ You don't have an Energy Core!", "color-red"); return; }
+        let maxStamina = getMaxStamina();
+        if ((game.stamina || 0) >= maxStamina) {
+            log("⚡ Your stamina is already full.", "color-cyan");
+            return;
+        }
+        game.inventory.splice(idx, 1);
+        game.stamina = maxStamina;
+        saveGame(); updateUI();
+        log(`⚡ You crack open an Energy Core - stamina fully restored to ${maxStamina}!`, "color-cyan");
+        showInventoryMenu();
+    }
+
     // --- QUEST FRAMEWORK ---
     const QUEST_DEFS = {
         vk_tribute: {
@@ -2285,7 +2313,7 @@
     const NPC_LEADERS = {
         viking: {
             key: 'viking', name: "Jarl Bjargaöldum", title: "Jarl of the Nordic Fjord",
-            portrait: "/pictures/Bjargaoldum.png", fallbackEmoji: "🪓",
+            portrait: "/pictures/Bjargaoldum.png", fallbackEmoji: "🪓", accentColor: "#8fd3ff",
             dialogue: {
                 start: {
                     text: () => {
@@ -2301,6 +2329,7 @@
                         let opts = [];
                         if (hasStoryFlag('act1_complete')) opts.push({ label: "Why did you really test my steel?", next: 'shieldwall_truth' });
                         opts.push({ label: "Tell me about your people.", next: 'lore' });
+                        opts.push({ label: "What do you make of me, truthfully?", next: 'assessment' });
                         opts.push({ label: "Farewell.", action: 'close' });
                         return opts;
                     }
@@ -2312,63 +2341,112 @@
                 shieldwall_truth: {
                     text: "Bjargaöldum is quiet for a long moment before he answers. \"My line has stood watch over a fragment of an old binding since before we had a written word for 'promise.' We test outsiders in blood because the Shieldwall cannot afford weakness - not pride, not tradition. A ward. Your trial in the multiverse was no hazing, outlander. It was me deciding whether you were strong enough to stand a line I hoped you'd never have to. I hoped wrong.\"",
                     options: [{ label: "Back", next: 'start' }]
+                },
+                assessment: {
+                    text: "Bjargaöldum studies you a beat too long before grunting. \"Soft hands, when you first came through that portal. Steadier now. I don't hand out my respect for free, outlander - but you've stopped flinching when the ice groans, and that's more than I can say for the last three fools who wandered up from the coast.\"",
+                    options: [{ label: "Back", next: 'start' }]
                 }
             }
         },
         oakhaven: {
             key: 'oakhaven', name: "Elder Maeve", title: "Herbalist of Oakhaven Enclave",
-            portrait: "/pictures/elder_maeve.png", fallbackEmoji: "🌿",
+            portrait: "/pictures/elder_maeve.png", fallbackEmoji: "🌿", accentColor: "#00ff88",
             dialogue: {
                 start: {
-                    text: "Elder Maeve looks up from a mortar of crushed herbs, her twig crown rustling gently. \"Ah, a new face beneath the canopy. Sit, child. The forest doesn't often send visitors who mean it well - but you have kind eyes.\"",
+                    text: () => {
+                        if (hasStoryFlag('act1_complete')) {
+                            return "Elder Maeve's twig crown dips low as you approach, her hands still for once. \"The Fjord sent word through the roots, child. Old promises, old wardens - I felt this coming before either of them said a word. The canopy has been listening differently, since. What do you need?\"";
+                        }
+                        return "Elder Maeve looks up from a mortar of crushed herbs, her twig crown rustling gently. \"Ah, a new face beneath the canopy. Sit, child. The forest doesn't often send visitors who mean it well - but you have kind eyes.\"";
+                    },
                     options: [
-                        { label: "Tell me about Oakhaven.", next: 'lore' },
+                        { label: "What do you tend, out here?", next: 'lore' },
+                        { label: "Ask about the old bloodlines.", next: 'bloodlines' },
                         { label: "Farewell.", action: 'close' }
                     ]
                 },
                 lore: {
                     text: "\"Oakhaven has stood beneath this canopy since before anyone living can remember. We take only what the forest offers freely, and in return it keeps our secrets - and our elixirs - potent.\"",
                     options: [{ label: "Back", next: 'start' }]
+                },
+                bloodlines: {
+                    text: () => {
+                        if (hasStoryFlag('act1_complete')) {
+                            return "Elder Maeve's smile thins. \"Yes - I know what you're really asking now. My line has tended this canopy since before it was called Oakhaven, child, and we were never simply herbalists. We were told to watch the roots for a stirring that should never come. I had hoped to die of old age before it did.\"";
+                        }
+                        return "Elder Maeve's eyes crinkle, but there's something old behind the warmth. \"Every enclave here traces back further than anyone admits at market, dear. Mine included. Some roots go deeper than the soil.\" She says no more, and for a moment you get the sense she's decided that on purpose.";
+                    },
+                    options: [{ label: "Back", next: 'start' }]
                 }
             }
         },
         duneSpire: {
             key: 'duneSpire', name: "Sultan Tariq", title: "Sovereign of the Dune-Spire Bazaar",
-            portrait: "/pictures/sultan.png", fallbackEmoji: "🏺",
+            portrait: "/pictures/sultan.png", fallbackEmoji: "🏺", accentColor: "#ffaa00",
             dialogue: {
                 start: {
-                    text: "Sultan Tariq reclines beneath a jeweled canopy, guards at his flanks. \"Another wanderer drawn by the glitter of my Bazaar, hm? Everything here has a price, outlander - including my attention.\"",
+                    text: () => {
+                        if (hasStoryFlag('act1_complete')) {
+                            return "Sultan Tariq's jeweled fingers still on the armrest as you approach. \"An outlander who's been to the Fjord recently, hm? I can smell the sea-salt and the bad news on you both. Speak, before my guards start charging admission for the drama.\"";
+                        }
+                        return "Sultan Tariq reclines beneath a jeweled canopy, guards at his flanks. \"Another wanderer drawn by the glitter of my Bazaar, hm? Everything here has a price, outlander - including my attention.\"";
+                    },
                     options: [
-                        { label: "Tell me about the Bazaar.", next: 'lore' },
+                        { label: "Tell me how you built this place.", next: 'lore' },
+                        { label: "What do you really guard here?", next: 'guardianship' },
                         { label: "Farewell.", action: 'close' }
                     ]
                 },
                 lore: {
                     text: "\"The Dune-Spire Bazaar sits astride three trade roads. Gold flows through my hands like sand, and I intend to keep it that way. Prove useful, and there's coin enough for both of us.\"",
                     options: [{ label: "Back", next: 'start' }]
+                },
+                guardianship: {
+                    text: () => {
+                        if (hasStoryFlag('act1_complete')) {
+                            return "For once, Tariq's smile doesn't reach his eyes. \"Careful with that question, outlander. My family has been 'guarding' more than gold since long before the Bazaar had walls. I'd hoped that particular inheritance had gone quiet for good. Apparently sand remembers what people forget.\"";
+                        }
+                        return "Tariq waves a jeweled hand, amused. \"Guard? I sell, outlander, I don't guard.\" He pauses, just a beat too long. \"Though... my family has held this crossing a very long time. Longer than the trade routes, if the old ledgers are honest.\"";
+                    },
+                    options: [{ label: "Back", next: 'start' }]
                 }
             }
         },
         forgePeak: {
             key: 'forgePeak', name: "High Smith Varek", title: "Master of Forge-Peak Citadel",
-            portrait: "/pictures/High_Smith_Varek.png", fallbackEmoji: "🔨",
+            portrait: "/pictures/High_Smith_Varek.png", fallbackEmoji: "🔨", accentColor: "#ff3300",
             dialogue: {
                 start: {
-                    text: "High Smith Varek doesn't look up from the anvil, volcanic veins glowing faintly beneath his skin with each hammer-fall. \"Speak quick or step back - Forge-Peak has no patience for the idle.\"",
+                    text: () => {
+                        if (hasStoryFlag('act1_complete')) {
+                            return "High Smith Varek's hammer stops mid-swing - a rare thing. \"Word from the Fjord already? Hmph. Figures the old promises would come due on my watch.\" He sets the hammer down and actually looks at you. \"Say your piece, outlander. Forge-Peak keeps its oaths same as it keeps its steel.\"";
+                        }
+                        return "High Smith Varek doesn't look up from the anvil, volcanic veins glowing faintly beneath his skin with each hammer-fall. \"Speak quick or step back - Forge-Peak has no patience for the idle.\"";
+                    },
                     options: [
-                        { label: "Tell me about the Citadel.", next: 'lore' },
+                        { label: "Tell me what this mountain forges.", next: 'lore' },
+                        { label: "What are those runes for?", next: 'runes' },
                         { label: "Farewell.", action: 'close' }
                     ]
                 },
                 lore: {
                     text: "\"Every blade, every rune, every scrap of armor in this citadel passes through these hands or one of my apprentices'. The mountain gives us fire; we give it purpose. Bring me good steel and I'll show you what real power looks like.\"",
                     options: [{ label: "Back", next: 'start' }]
+                },
+                runes: {
+                    text: () => {
+                        if (hasStoryFlag('act1_complete')) {
+                            return "Varek's expression hardens. \"You've a sharper eye than most. These runes aren't decoration, outlander - they're a ward, cut into the mountain's own bones generations before I was born. My forebears swore to keep it fed with fire and discipline. I always thought it was tradition. I no longer think that.\"";
+                        }
+                        return "Varek grunts, not looking up. \"Old runework. Keeps the mountain's temper in check, my grandfather always said. I've never had reason to doubt him - and Forge-Peak has never once let its fire go out, not in longer than any of us can account for.\"";
+                    },
+                    options: [{ label: "Back", next: 'start' }]
                 }
             }
         },
         mistVeil: {
             key: 'mistVeil', name: "Lady Vespera", title: "Seer of Mist-Veil Hollow",
-            portrait: "/pictures/Lady_Vespera.png", fallbackEmoji: "👻",
+            portrait: "/pictures/Lady_Vespera.png", fallbackEmoji: "👻", accentColor: "#c9a8ff",
             dialogue: {
                 start: {
                     text: () => {
@@ -2384,6 +2462,7 @@
                         let opts = [];
                         if (hasStoryFlag('act0_omen_seen')) opts.push({ label: "What's happening to the multiverse?", next: 'hollow_king' });
                         opts.push({ label: "Tell me about the Hollow.", next: 'lore' });
+                        opts.push({ label: "What's it like, carrying that alone?", next: 'burden' });
                         opts.push({ label: "Farewell.", action: 'close' });
                         return opts;
                     }
@@ -2394,6 +2473,10 @@
                 },
                 hollow_king: {
                     text: "Lady Vespera's staff dims, and when she speaks again her usual playfulness is gone. \"Long before Mist-Veil Hollow had a name, five wardens bound a being the old records only call the Hollow King - something that tried to collapse every world in the multiverse into one, with itself the only thing left standing in it. It could not be destroyed. Only sealed. Five fragments of that seal - Sealstones, the old tongue calls them - were entrusted to five bloodlines, and over centuries those bloodlines became the settlements you already know. My order became the Hollow-Watch, because someone has always had to listen for it stirring. I have listened my whole life and heard nothing - until now. The seal is thinning, outlander. Not randomly. Something is testing it, region by region, looking for the weakest point. I don't yet know who, or what, or why now. But I know it isn't finished.\"",
+                    options: [{ label: "Back", next: 'start' }]
+                },
+                burden: {
+                    text: "Vespera's usual playful edge fades. \"Lonely, if I'm honest. The Hollow-Watch doesn't exactly draw a crowd, little spark. I've spent more nights listening to spirits than to anyone living.\" A small, real smile. \"You're the first outlander in longer than I'd like to admit who's asked how I'm doing, rather than what I can do for them. Don't let it go to your head.\"",
                     options: [{ label: "Back", next: 'start' }]
                 }
             }
@@ -2433,9 +2516,15 @@
 
         let portraitWrap = document.getElementById('dialogue-portrait-wrap');
         portraitWrap.innerHTML = '';
+        // Each Guardian gets their region's own accent color on the frame (falls back to
+        // the default gold) so the portrait reads like a distinct character, not a reskin.
+        let accent = npc.accentColor || '#ffcc66';
+        portraitWrap.style.borderColor = accent;
+        portraitWrap.style.boxShadow = `0 0 18px ${accent}88, 0 0 0 4px rgba(255,204,102,0.18)`;
         let img = document.createElement('img');
         img.src = npc.portrait;
         img.alt = npc.name;
+        img.style.objectPosition = 'center 15%';
         img.onerror = () => { portraitWrap.innerHTML = `<span class="dialogue-portrait-fallback">${npc.fallbackEmoji}</span>`; };
         portraitWrap.appendChild(img);
 
@@ -3469,6 +3558,7 @@
             { text: "🎰 Casino & Mini-Games", class: "btn btn-spin", action: showCasinoMenu },
             { text: "🎒 Inventory & Gear", class: "btn btn-gear", action: showInventoryMenu },
             { text: "🏠 Home & Decor", class: "btn btn-sys", action: showHomeDecorMenu },
+            { text: "🔬 Professor's Lab", class: "btn btn-sys", action: showProfessorLab },
             { text: "🌱 Greenhouse Farm", class: "btn btn-farm", action: showFarmMenu },
             { text: "💪 Training Grounds", class: "btn btn-combat", action: showTrainingGroundsMenu },
             { text: "⚔️ Staff Roster", class: "btn btn-maid", action: showStaffMenu },
@@ -4141,8 +4231,11 @@
             <p style="color:#00ff88; font-size:11.5px; margin:4px 0;">Backpack Items (${game.inventory.length}):</p>
         `;
         game.inventory.forEach((item) => {
+            let useBtn = item === "Energy Core"
+                ? `<button class="btn btn-sys" style="padding:3px 8px; font-size:10.5px; margin:0;" onclick="useEnergyCore()">⚡ Use</button>`
+                : "";
             html += `<div style="background:#08080f; border:1px solid #222233; padding:5px; margin:2px 0; border-radius:4px; font-size:12px; display:flex; justify-content:space-between; align-items:center;">
-                <span>📦 ${item}</span>
+                <span>📦 ${item}</span>${useBtn}
             </div>`;
         });
         document.getElementById("console").innerHTML = html;
@@ -4222,6 +4315,107 @@
         });
         btns.push({ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu });
         renderButtons(btns);
+    }
+
+    // --- PROFESSOR BILL'S LAB: talkable NPC hub, same pattern as Alfred's Home Decor
+    // screen (portrait(), quote pool, buttons) - reachable any time after the intro,
+    // not just during the starter sequence. Doubles as the UniDex progress-check the
+    // Professor would naturally offer, Pokémon-professor style. {PLAYER} swapped at
+    // render time for the same reason ALFRED_QUOTES does it - names aren't chosen yet
+    // when this array loads.
+    const PROFESSOR_QUOTES = [
+        `"Ah, {PLAYER}! Back from the field already? Tell me everything - every crossing matters to the research."`,
+        `*Adjusts glasses, scribbling in a well-worn notebook* "Fascinating. Absolutely fascinating. The multiverse never repeats itself twice."`,
+        `"Do you know, I've catalogued entries from realities I'm fairly certain shouldn't be able to reach us at all? And yet, here we are."`,
+        `"Some days I think I understand the portals. Other days they remind me I'm still just a man with a clipboard and a lot of questions."`,
+        `"Every entry you bring back rewrites a page of the UniDex, {PLAYER}. History, written in real time. Remarkable work."`
+    ];
+    // Fires once the player has seen the Act 0 terminal glitch - the Professor doesn't
+    // know what the player and Vespera know yet, just that his instruments have started
+    // behaving strangely. Deliberately unresolved/oblivious in tone; he's not part of
+    // the Hollow-Watch, he's just the first to notice the readings are off.
+    const PROFESSOR_OMEN_QUOTE = `*Frowns at a console full of static* "My apologies, {PLAYER} - the Nexus Terminal has been reading... strangely, since your last sync. Background noise, probably. Multiversal weather. Still, do let me know if anything about a crossing feels ever so slightly wrong."`;
+
+    function showProfessorLab() {
+        playBGM('dex');
+        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #002b2b 0%, #00080a 85%)", "#00ffcc", SCENE_IMAGES.dex);
+        let quote = hasStoryFlag('act0_omen_seen')
+            ? PROFESSOR_OMEN_QUOTE
+            : PROFESSOR_QUOTES[Math.floor(Math.random() * PROFESSOR_QUOTES.length)];
+        quote = quote.replace(/\{PLAYER\}/g, game.playerName || 'Trainer');
+        let dexCaughtCount = Object.keys(game.pokedex || {}).length;
+        let dexTotalCount = getAllDexEntries().length;
+        document.getElementById("console").innerHTML = `
+            <img src="/pictures/professor.jpg" alt="Professor Bill" style="width:110px; height:110px; border-radius:50%; object-fit:cover; object-position: center 15%; margin-bottom:8px; border: 3px solid #00ffcc; box-shadow: 0 0 18px rgba(0,255,204,0.45), 0 0 0 5px rgba(0,255,255,0.15); background:#0d0d0d;" onerror="this.style.display='none';" />
+            <h2 style="color: #00ffcc; font-size:18px;">🔬 PROFESSOR BILL'S LAB</h2>
+            <p style="color:#aaa; font-size:11.5px;">👴 <strong style="color:#00ffcc;">Professor Bill</strong>, the Dimension Prof</p>
+            <p style="color: #ccc; font-size:12px; max-width:380px; font-style:italic;">${quote}</p>
+            <div class="dex-card" style="display:block; font-size:12px;">
+                📖 UniDex Progress: <strong style="color:#ffff00;">${dexCaughtCount}/${dexTotalCount}</strong> (${dexTotalCount ? Math.round(dexCaughtCount / dexTotalCount * 100) : 0}%)
+            </div>
+        `;
+        renderButtons([
+            { text: "📊 Check My UniDex Progress", class: "btn btn-dex", action: showProfessorDexReport },
+            { text: "🌌 Ask About the Multiverse", class: "btn btn-sys", action: showProfessorLoreDialogue },
+            { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
+        ]);
+    }
+
+    // A proper Pokémon-professor-style progress report: overall completion plus a
+    // breakdown by source (wild UniDex vs. each portal pool) so it actually feels like
+    // the Professor is tracking your research, not just repeating the HQ header number.
+    function showProfessorDexReport() {
+        let entries = getAllDexEntries();
+        let dexCaughtCount = Object.keys(game.pokedex || {}).length;
+        let dexTotalCount = entries.length;
+        let pct = dexTotalCount ? Math.round(dexCaughtCount / dexTotalCount * 100) : 0;
+        let shinyCount = (game.stats && game.stats.totalShinyCatches) || 0;
+        let evoCount = (game.stats && game.stats.totalEvolutions) || 0;
+
+        let groups = {};
+        entries.forEach(e => {
+            let key = e.portal || '__wild';
+            if (!groups[key]) groups[key] = { total: 0, caught: 0 };
+            groups[key].total++;
+            if (game.pokedex && game.pokedex[String(e.id)]) groups[key].caught++;
+        });
+        let groupRows = Object.keys(groups).sort((a, b) => {
+            if (a === '__wild') return -1;
+            if (b === '__wild') return 1;
+            return a.localeCompare(b);
+        }).map(key => {
+            let g = groups[key];
+            let label = key === '__wild' ? "🌐 Wild UniDex" : `🌀 ${formatPortalLabel(key)}`;
+            let gPct = g.total ? Math.round(g.caught / g.total * 100) : 0;
+            return `<div style="display:flex; justify-content:space-between; font-size:11.5px; padding:2px 0; border-bottom:1px solid #113;">
+                <span>${label}</span><span style="color:#00ffcc;">${g.caught}/${g.total} (${gPct}%)</span>
+            </div>`;
+        }).join('');
+
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#00ffcc; font-size:18px;">📊 UNIDEX RESEARCH REPORT</h2>
+            <p style="color:#ccc; font-size:12px; max-width:380px; font-style:italic;">"Let's see how your research is coming along, ${game.playerName || 'Trainer'}..."</p>
+            <div class="dex-card" style="display:block; font-size:12px; width:100%; max-width:380px;">
+                📖 Overall: <strong style="color:#ffff00;">${dexCaughtCount}/${dexTotalCount} (${pct}%)</strong><br>
+                ✨ Shiny Catches: <strong style="color:#ffdd00;">${shinyCount}</strong><br>
+                🌟 Evolutions Triggered: <strong style="color:#ff00ff;">${evoCount}</strong><br>
+                ⚔️ Active Roster: <strong style="color:#00ffff;">${(game.staff || []).length}</strong>
+            </div>
+            <div class="dex-card" style="display:block; font-size:12px; width:100%; max-width:380px; margin-top:6px;">
+                <strong style="color:#00ffcc;">By Source:</strong>
+                ${groupRows}
+            </div>
+        `;
+        renderButtons([{ text: "⬅ Back to the Lab", class: "btn btn-back", action: showProfessorLab }]);
+    }
+
+    function showProfessorLoreDialogue() {
+        document.getElementById("console").innerHTML = `
+            <img src="/pictures/professor.jpg" alt="Professor Bill" style="width:90px; height:90px; border-radius:50%; object-fit:cover; object-position: center 15%; margin-bottom:8px; border: 3px solid #00ffcc; box-shadow: 0 0 14px rgba(0,255,204,0.4);" onerror="this.style.display='none';" />
+            <h2 style="color: #00ffcc; font-size:16px;">🌌 THE MULTIVERSE, EXPLAINED (BADLY)</h2>
+            <p style="color: #ccc; font-size:12px; max-width:380px; line-height:1.5;">"Aetheria sits at a nexus point where countless realities brush up against one another. Every portal you open is a tear along one of those seams. I've spent thirty years trying to map the pattern behind which worlds we touch and when." *He taps his notebook.* "Lately the pattern's been... harder to predict than usual. Probably nothing. Probably."</p>
+        `;
+        renderButtons([{ text: "⬅ Back to the Lab", class: "btn btn-back", action: showProfessorLab }]);
     }
 
     function buyHomeDecor(decorName, cost) {
@@ -6007,8 +6201,7 @@
         renderButtons([]);
         setTimeout(() => {
             ensureWorldExpansionDefaults();
-            let longhouseLevel = (game.homestead.structures && game.homestead.structures.longhouse) || 0;
-            game.stamina = 100 + longhouseLevel * 10;
+            game.stamina = getMaxStamina();
             game.day++;
             let passive = (game.staff || []).length * 25;
             game.funds += passive;
