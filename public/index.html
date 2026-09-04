@@ -4198,7 +4198,7 @@
         let nextTier = HOME_TIER_CATALOG[decor.tier + 1];
         let alfredQuote = ALFRED_QUOTES[Math.floor(Math.random() * ALFRED_QUOTES.length)].replace('{PLAYER}', game.playerName || 'Bruce');
         document.getElementById("console").innerHTML = `
-            ${portrait("/pictures/alfred.jpg", "Alfred Pennyworth", 120)}
+            <img src="/pictures/alfred.jpg" alt="Alfred Pennyworth" style="width:110px; height:110px; border-radius:50%; object-fit:cover; object-position: center 15%; margin-bottom:8px; border: 3px solid #c9a24b; box-shadow: 0 0 18px rgba(201,162,75,0.45), 0 0 0 5px rgba(51,170,255,0.15); background:#0d0d0d;" onerror="this.style.display='none';" />
             <h2 style="color: #33aaff; font-size:18px;">🏠 HOME DECOR & SUITE UPGRADE</h2>
             <p style="color:#aaa; font-size:11.5px;">🎩 <strong style="color:#33aaff;">Alfred Pennyworth</strong>, your ever-patient butler</p>
             <p style="color: #ccc; font-size:12px; max-width:380px; font-style:italic;">${alfredQuote}</p>
