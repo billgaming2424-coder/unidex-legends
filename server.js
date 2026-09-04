@@ -38,8 +38,8 @@ function normalizePvpParty(rawParty) {
 // baseAtk/armorPen are new - the raid boss never retaliated against players at all
 // before this pass, so there was no prior ATK value to scale up from.
 let raidBosses = {
-    titan: { name: "Void Titan Chronos", hp: 7000, maxHp: 7000, level: 50, reward: 2500, baseAtk: 45, armorPen: 0.2 },
-    dragon: { name: "Shadow Dragon Netherfang", hp: 17000, maxHp: 17000, level: 90, reward: 8000, baseAtk: 90, armorPen: 0.3 }
+    titan: { name: "Void Titan Chronos", hp: 7000, maxHp: 7000, level: 50, reward: 1250, baseAtk: 45, armorPen: 0.2 },
+    dragon: { name: "Shadow Dragon Netherfang", hp: 17000, maxHp: 17000, level: 90, reward: 4000, baseAtk: 90, armorPen: 0.3 }
 };
 let activeRaidKey = "titan";
 

@@ -33,7 +33,18 @@
         }
         .stat-highlight { color: #ff00ff; font-weight: bold; text-shadow: 0 0 8px #ff00ff88; }
         .stat-money { color: #ffff00; font-weight: bold; text-shadow: 0 0 8px #ffff0088; }
-        
+
+        /* Creator/"god" tag - gated to the dev's own cloud account (see isCreatorAccount()).
+           A slowly-cycling gold/rainbow glow instead of a flat color, so it reads as
+           distinct from every other highlighted stat in the UI. */
+        @keyframes creatorGlowShift {
+            0% { color: #ffd700; text-shadow: 0 0 6px #ffd700, 0 0 14px #ffae00; }
+            33% { color: #ff66ff; text-shadow: 0 0 6px #ff66ff, 0 0 14px #a020f0; }
+            66% { color: #00eaff; text-shadow: 0 0 6px #00eaff, 0 0 14px #0088ff; }
+            100% { color: #ffd700; text-shadow: 0 0 6px #ffd700, 0 0 14px #ffae00; }
+        }
+        .creator-glow { font-weight: bold; animation: creatorGlowShift 3.5s ease-in-out infinite; }
+
         /* Main Interactive Console Wrapper */
         #screen-wrapper {
             position: relative;
@@ -719,6 +730,15 @@
     const SUPABASE_URL = "https://rvetucuqburqnrgoatui.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ2ZXR1Y3VxYnVycW5yZ29hdHVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyOTMyOTcsImV4cCI6MjEwMzg2OTI5N30.Q3g0deWdLd8b0oczpDd1gwdRcTm2xJ_RBhjhtCgm19g";
 
+    // The creator/"god" tag is gated to this one cloud account - only someone signed in
+    // as this exact Supabase user sees/shows it. Purely cosmetic (like every other
+    // client-side flag in this save), but not spoofable without actually knowing this
+    // account's real password, since it's driven by the live auth session, not a save flag.
+    const CREATOR_EMAIL = "billgaming2424@gmail.com";
+    function isCreatorAccount() {
+        return !!(game.cloudLinked && cloudUser && cloudUser.email && cloudUser.email.toLowerCase() === CREATOR_EMAIL);
+    }
+
     let supabaseClient = null;
     try {
         if (window.supabase) supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -1395,9 +1415,9 @@
             icon: "🌲",
             settlementKey: 'oakhaven',
             monsters: [
-                { name: "Wild Forest Goblin", hp: 90, dmg: 10, reward: 500 },
-                { name: "Treant Guardian", hp: 140, dmg: 18, reward: 900 },
-                { name: "Venom Spore", hp: 70, dmg: 14, reward: 400 }
+                { name: "Wild Forest Goblin", hp: 90, dmg: 10, reward: 250 },
+                { name: "Treant Guardian", hp: 140, dmg: 18, reward: 450 },
+                { name: "Venom Spore", hp: 70, dmg: 14, reward: 200 }
             ]
         },
         'desert': {
@@ -1409,9 +1429,9 @@
             music: "desert",
             settlementKey: 'duneSpire',
             monsters: [
-                { name: "Sand Scuttler", hp: 100, dmg: 15, reward: 600 },
-                { name: "Dune Bandit", hp: 130, dmg: 20, reward: 950 },
-                { name: "Mummy Entity", hp: 160, dmg: 22, reward: 1200 }
+                { name: "Sand Scuttler", hp: 100, dmg: 15, reward: 300 },
+                { name: "Dune Bandit", hp: 130, dmg: 20, reward: 475 },
+                { name: "Mummy Entity", hp: 160, dmg: 22, reward: 600 }
             ]
         },
         'volcano': {
@@ -1423,8 +1443,8 @@
             music: "volcano",
             settlementKey: 'forgePeak',
             monsters: [
-                { name: "Magma Elemental", hp: 150, dmg: 24, reward: 1300 },
-                { name: "Ash Drake", hp: 200, dmg: 30, reward: 1800 }
+                { name: "Magma Elemental", hp: 150, dmg: 24, reward: 650 },
+                { name: "Ash Drake", hp: 200, dmg: 30, reward: 900 }
             ]
         },
         'fjord': {
@@ -1435,9 +1455,9 @@
             icon: "🪓",
             settlementKey: 'viking',
             monsters: [
-                { name: "Frost-Touched Wolf", hp: 95, dmg: 12, reward: 550 },
-                { name: "Fjord Raider", hp: 120, dmg: 17, reward: 850 },
-                { name: "Ice Wraith", hp: 100, dmg: 16, reward: 700 }
+                { name: "Frost-Touched Wolf", hp: 95, dmg: 12, reward: 275 },
+                { name: "Fjord Raider", hp: 120, dmg: 17, reward: 425 },
+                { name: "Ice Wraith", hp: 100, dmg: 16, reward: 350 }
             ]
         },
         'bog': {
@@ -1448,9 +1468,9 @@
             icon: "👻",
             settlementKey: 'mistVeil',
             monsters: [
-                { name: "Bog Wretch", hp: 105, dmg: 16, reward: 650 },
-                { name: "Mire Stalker", hp: 135, dmg: 21, reward: 1000 },
-                { name: "Will-o'-Wisp", hp: 90, dmg: 19, reward: 800 }
+                { name: "Bog Wretch", hp: 105, dmg: 16, reward: 325 },
+                { name: "Mire Stalker", hp: 135, dmg: 21, reward: 500 },
+                { name: "Will-o'-Wisp", hp: 90, dmg: 19, reward: 400 }
             ]
         }
     };
@@ -1642,8 +1662,8 @@
             }
         },
         "WELCOME500": {
-            desc: "💰 +$500 Bonus Funds!",
-            apply: (g) => { g.funds += 500; }
+            desc: "💰 +$250 Bonus Funds!",
+            apply: (g) => { g.funds += 250; }
         },
         "LUCKYGEMS": {
             desc: "💎 +2 Diamonds added to your bag!",
@@ -1891,39 +1911,43 @@
     // --- PROGRESSION: lifetime stats, daily quests/streak, achievements ---
     // Single shared definition list so the HQ achievements screen and the unlock
     // check below can never drift out of sync with each other.
+    // Reward payouts across every fund source below (achievements, daily quests, story
+    // quests, wheel prizes, exploring, raids, PvP, passive income) were roughly halved in
+    // an economy-wide rebalance - money was coming in too easily. Milestone THRESHOLDS
+    // (funds >= 10000, etc.) are untouched; only the payout amounts changed.
     const ACHIEVEMENT_DEFS = [
-        { id: 'first_catch', name: 'First Recruit!', desc: 'Catch your first multiversal character.', reward: 100, check: (g, s) => Object.keys(g.pokedex || {}).length >= 1 },
-        { id: 'dex_10', name: 'Dimension Collector', desc: 'Discover 10 unique recruits in the UniDex.', reward: 300, check: (g, s) => Object.keys(g.pokedex || {}).length >= 10 },
-        { id: 'dex_50', name: 'Multiverse Cartographer', desc: 'Discover 50 unique recruits in the UniDex.', reward: 1000, check: (g, s) => Object.keys(g.pokedex || {}).length >= 50 },
-        { id: 'dex_100', name: 'Dex Completionist', desc: 'Discover 100 unique recruits in the UniDex.', reward: 2500, check: (g, s) => Object.keys(g.pokedex || {}).length >= 100 },
-        { id: 'wealthy', name: 'Tycoon Manager', desc: 'Accumulate over $10,000 in funds.', reward: 500, check: (g, s) => g.funds >= 10000 },
-        { id: 'megawealthy', name: 'Multiverse Mogul', desc: 'Accumulate over $100,000 in funds.', reward: 2000, check: (g, s) => g.funds >= 100000 },
-        { id: 'staff_squad', name: 'Elite Squad', desc: 'Recruit 5 or more staff members.', reward: 300, check: (g, s) => (g.staff || []).length >= 5 },
-        { id: 'full_roster', name: 'Full House', desc: 'Recruit 15 or more staff members.', reward: 800, check: (g, s) => (g.staff || []).length >= 15 },
-        { id: 'first_evolution', name: 'Ascension', desc: "Evolve a character into its unique form for the first time.", reward: 400, check: (g, s) => (s.totalEvolutions || 0) >= 1 },
-        { id: 'evolution_master', name: 'Evolution Master', desc: 'Evolve 5 different characters.', reward: 1500, check: (g, s) => (s.totalEvolutions || 0) >= 5 },
-        { id: 'first_reroll', name: 'Second Chances', desc: 'Use the portal reroll for the first time.', reward: 100, check: (g, s) => (s.totalRerolls || 0) >= 1 },
-        { id: 'reroll_addict', name: 'Reroll Addict', desc: 'Reroll a portal encounter 20 times.', reward: 800, check: (g, s) => (s.totalRerolls || 0) >= 20 },
-        { id: 'shiny_hunter', name: 'Shiny Hunter', desc: 'Catch your first shiny character.', reward: 600, check: (g, s) => (s.totalShinyCatches || 0) >= 1 },
-        { id: 'shiny_collector', name: 'Shiny Collector', desc: 'Catch 5 shiny characters.', reward: 2000, check: (g, s) => (s.totalShinyCatches || 0) >= 5 },
-        { id: 'raid_slayer', name: 'Raid Slayer', desc: 'Help defeat a raid boss.', reward: 400, check: (g, s) => (s.totalRaidKills || 0) >= 1 },
-        { id: 'raid_veteran', name: 'Raid Veteran', desc: 'Help defeat 10 raid bosses.', reward: 1500, check: (g, s) => (s.totalRaidKills || 0) >= 10 },
-        { id: 'market_trader', name: 'Market Trader', desc: 'List an item on the Global Market.', reward: 150, check: (g, s) => (s.totalMarketListings || 0) >= 1 },
-        { id: 'green_thumb', name: 'Green Thumb', desc: 'Harvest 10 crops.', reward: 400, check: (g, s) => (s.totalHarvests || 0) >= 10 },
-        { id: 'dedicated_trainer', name: 'Dedicated Trainer', desc: 'Complete 10 training sessions.', reward: 500, check: (g, s) => (s.totalTrainingSessions || 0) >= 10 },
-        { id: 'week_streak', name: 'Weekly Regular', desc: 'Log in 7 days in a row.', reward: 1000, check: (g, s) => (g.loginStreak || 0) >= 7 },
-        { id: 'cloud_linked', name: 'Cloud Native', desc: 'Link your save to a cloud account.', reward: 200, check: (g, s) => !!g.cloudLinked },
-        { id: 'homesteader', name: 'Homesteader', desc: "Earn your coastal Homestead from Jarl Bjargaöldum.", reward: 500, check: (g, s) => !!(g.homestead && g.homestead.unlocked) }
+        { id: 'first_catch', name: 'First Recruit!', desc: 'Catch your first multiversal character.', reward: 50, check: (g, s) => Object.keys(g.pokedex || {}).length >= 1 },
+        { id: 'dex_10', name: 'Dimension Collector', desc: 'Discover 10 unique recruits in the UniDex.', reward: 150, check: (g, s) => Object.keys(g.pokedex || {}).length >= 10 },
+        { id: 'dex_50', name: 'Multiverse Cartographer', desc: 'Discover 50 unique recruits in the UniDex.', reward: 500, check: (g, s) => Object.keys(g.pokedex || {}).length >= 50 },
+        { id: 'dex_100', name: 'Dex Completionist', desc: 'Discover 100 unique recruits in the UniDex.', reward: 1250, check: (g, s) => Object.keys(g.pokedex || {}).length >= 100 },
+        { id: 'wealthy', name: 'Tycoon Manager', desc: 'Accumulate over $10,000 in funds.', reward: 250, check: (g, s) => g.funds >= 10000 },
+        { id: 'megawealthy', name: 'Multiverse Mogul', desc: 'Accumulate over $100,000 in funds.', reward: 1000, check: (g, s) => g.funds >= 100000 },
+        { id: 'staff_squad', name: 'Elite Squad', desc: 'Recruit 5 or more staff members.', reward: 150, check: (g, s) => (g.staff || []).length >= 5 },
+        { id: 'full_roster', name: 'Full House', desc: 'Recruit 15 or more staff members.', reward: 400, check: (g, s) => (g.staff || []).length >= 15 },
+        { id: 'first_evolution', name: 'Ascension', desc: "Evolve a character into its unique form for the first time.", reward: 200, check: (g, s) => (s.totalEvolutions || 0) >= 1 },
+        { id: 'evolution_master', name: 'Evolution Master', desc: 'Evolve 5 different characters.', reward: 750, check: (g, s) => (s.totalEvolutions || 0) >= 5 },
+        { id: 'first_reroll', name: 'Second Chances', desc: 'Use the portal reroll for the first time.', reward: 50, check: (g, s) => (s.totalRerolls || 0) >= 1 },
+        { id: 'reroll_addict', name: 'Reroll Addict', desc: 'Reroll a portal encounter 20 times.', reward: 400, check: (g, s) => (s.totalRerolls || 0) >= 20 },
+        { id: 'shiny_hunter', name: 'Shiny Hunter', desc: 'Catch your first shiny character.', reward: 300, check: (g, s) => (s.totalShinyCatches || 0) >= 1 },
+        { id: 'shiny_collector', name: 'Shiny Collector', desc: 'Catch 5 shiny characters.', reward: 1000, check: (g, s) => (s.totalShinyCatches || 0) >= 5 },
+        { id: 'raid_slayer', name: 'Raid Slayer', desc: 'Help defeat a raid boss.', reward: 200, check: (g, s) => (s.totalRaidKills || 0) >= 1 },
+        { id: 'raid_veteran', name: 'Raid Veteran', desc: 'Help defeat 10 raid bosses.', reward: 750, check: (g, s) => (s.totalRaidKills || 0) >= 10 },
+        { id: 'market_trader', name: 'Market Trader', desc: 'List an item on the Global Market.', reward: 75, check: (g, s) => (s.totalMarketListings || 0) >= 1 },
+        { id: 'green_thumb', name: 'Green Thumb', desc: 'Harvest 10 crops.', reward: 200, check: (g, s) => (s.totalHarvests || 0) >= 10 },
+        { id: 'dedicated_trainer', name: 'Dedicated Trainer', desc: 'Complete 10 training sessions.', reward: 250, check: (g, s) => (s.totalTrainingSessions || 0) >= 10 },
+        { id: 'week_streak', name: 'Weekly Regular', desc: 'Log in 7 days in a row.', reward: 500, check: (g, s) => (g.loginStreak || 0) >= 7 },
+        { id: 'cloud_linked', name: 'Cloud Native', desc: 'Link your save to a cloud account.', reward: 100, check: (g, s) => !!g.cloudLinked },
+        { id: 'homesteader', name: 'Homesteader', desc: "Earn your coastal Homestead from Jarl Bjargaöldum.", reward: 250, check: (g, s) => !!(g.homestead && g.homestead.unlocked) }
     ];
 
     const DAILY_QUEST_POOL = [
-        { key: 'catches', desc: 'Catch 3 characters from any portal', target: 3, reward: 200 },
-        { key: 'rerolls', desc: 'Use the portal reroll 2 times', target: 2, reward: 150 },
-        { key: 'raidKills', desc: 'Help defeat 1 raid boss', target: 1, reward: 300 },
-        { key: 'trains', desc: 'Train a roster member 2 times', target: 2, reward: 200 },
-        { key: 'harvests', desc: 'Harvest 3 crops on the farm', target: 3, reward: 150 },
-        { key: 'marketListings', desc: 'List 1 item on the Global Market', target: 1, reward: 150 },
-        { key: 'evolutions', desc: 'Evolve a character', target: 1, reward: 400 }
+        { key: 'catches', desc: 'Catch 3 characters from any portal', target: 3, reward: 100 },
+        { key: 'rerolls', desc: 'Use the portal reroll 2 times', target: 2, reward: 75 },
+        { key: 'raidKills', desc: 'Help defeat 1 raid boss', target: 1, reward: 150 },
+        { key: 'trains', desc: 'Train a roster member 2 times', target: 2, reward: 100 },
+        { key: 'harvests', desc: 'Harvest 3 crops on the farm', target: 3, reward: 75 },
+        { key: 'marketListings', desc: 'List 1 item on the Global Market', target: 1, reward: 75 },
+        { key: 'evolutions', desc: 'Evolve a character', target: 1, reward: 200 }
     ];
 
     // Backfills every progression field this batch adds so older saves (and saves
@@ -1986,7 +2010,8 @@
         game.lastLoginDateStr = todayStr;
         game.dailyProgress = { catches: 0, rerolls: 0, raidKills: 0, trains: 0, harvests: 0, marketListings: 0, evolutions: 0 };
         game.dailyQuests = generateDailyQuests();
-        let streakBonus = Math.min(500, 50 * game.loginStreak);
+        tickLikenessDecay();
+        let streakBonus = Math.min(250, 25 * game.loginStreak);
         game.funds += streakBonus;
         saveGame();
         // The Hollow King campaign is only allowed to announce itself through a Terminal
@@ -2052,7 +2077,7 @@
             desc: "Prove your steel is worth trusting - help defeat a raid boss out in the multiverse.",
             checkComplete: (g) => (g.stats.totalRaidKills || 0) >= 1,
             onComplete: null,
-            reward: { funds: 500, reputation: { viking: 15 } },
+            reward: { funds: 250, reputation: { viking: 15 } },
             completeText: "\"Blood spilled in a fair fight. Now THAT I respect.\" Bjargaöldum claps a heavy hand on your shoulder - then frowns at the creature now standing loyally beside you, like he almost recognized something in the way it flinched when it crossed into this world."
         },
         ok_gather: {
@@ -2060,7 +2085,7 @@
             desc: "Elder Maeve asks for proof you respect the land - harvest 5 crops from your own farm.",
             checkComplete: (g) => (g.stats.totalHarvests || 0) >= 5,
             onComplete: null,
-            reward: { funds: 300, reputation: { oakhaven: 10 } },
+            reward: { funds: 150, reputation: { oakhaven: 10 } },
             completeText: "\"Good hands and good patience. The canopy remembers kindness.\" Elder Maeve smiles warmly, though it falters when she glances toward the tree line, where the leaves have gone quiet in a way that has nothing to do with the wind."
         },
         ds_trade: {
@@ -2068,7 +2093,7 @@
             desc: "Sultan Tariq wants proof you understand commerce - list 2 items on the Global Market.",
             checkComplete: (g) => (g.stats.totalMarketListings || 0) >= 2,
             onComplete: null,
-            reward: { funds: 300, reputation: { duneSpire: 10 } },
+            reward: { funds: 150, reputation: { duneSpire: 10 } },
             completeText: "\"Hah! A trader's instinct after all. Perhaps you're worth my caravans' protection, outlander.\" He turns one of your traded goods over in his hand, and for just a moment his smile tightens - it's warm to the touch, like it spent longer near a portal than it should have."
         },
         fp_forge: {
@@ -2076,7 +2101,7 @@
             desc: "High Smith Varek wants to see discipline, not luck - train a roster member 3 times.",
             checkComplete: (g) => (g.stats.totalTrainingSessions || 0) >= 3,
             onComplete: null,
-            reward: { funds: 300, reputation: { forgePeak: 10 } },
+            reward: { funds: 150, reputation: { forgePeak: 10 } },
             completeText: "\"Discipline. That's how steel is made - and how trainers are, too.\" Varek's hammer doesn't pause once - though the runes lining his anvil flare a half-shade brighter with every new face in your roster, and he's the only one who doesn't seem to notice."
         },
         mv_relic: {
@@ -2084,7 +2109,7 @@
             desc: "Lady Vespera senses something rare in your future - catch a shiny character.",
             checkComplete: (g) => (g.stats.totalShinyCatches || 0) >= 1,
             onComplete: null,
-            reward: { funds: 300, reputation: { mistVeil: 10 } },
+            reward: { funds: 150, reputation: { mistVeil: 10 } },
             completeText: "\"There. The spark I felt. The Hollow's spirits will remember your name.\" The wisps circle you once, and settle - though Vespera's blindfolded gaze lingers a moment too long on your newest catch, as if she felt it arrive from somewhere no portal should reach. She says nothing. Not yet."
         },
 
@@ -2095,7 +2120,7 @@
             desc: "Lady Vespera felt the same flicker you did - and she says it isn't the first. Help her perform a stabilizing rite before whatever's stirring gets bolder: consult the spirits with her 3 times.",
             checkComplete: (g) => (g.stats.totalSpiritConsultations || 0) >= 3,
             onComplete: () => { setStoryFlag('act1_complete'); },
-            reward: { funds: 400, reputation: { mistVeil: 15 } },
+            reward: { funds: 200, reputation: { mistVeil: 15 } },
             completeText: "The wisps around Vespera's staff pull taut, hold, then settle. \"There. Steadier, for now.\" She lowers her staff, and for once her voice carries something like relief. \"What you felt was no accident, outlander. Long ago, five wardens sealed something that should never wake - the Hollow King. My order has watched his prison since before this Hollow had a name, and I can feel the seal thinning - not just here, but everywhere it was ever set. You should hear this from Bjargaöldum too. His people were sworn to the same old promise, whether he still says the words or not. Go to the Fjord. Tell him what you told me.\""
         },
 
@@ -2106,7 +2131,7 @@
             desc: "The Ashbound have found the Fjord's ward. Bjargaöldum needs you to stand with the Shieldwall and drive off their war-leader before the ward gives. Face the Ashbound War-Leader at the Fjord.",
             checkComplete: (g) => hasStoryFlag('act2_ashbound_defeated'),
             onComplete: () => { setStoryFlag('act2_complete'); },
-            reward: { funds: 600, reputation: { viking: 20 } },
+            reward: { funds: 300, reputation: { viking: 20 } },
             completeText: () => {
                 let text = "Bjargaöldum plants his axe in the frost-hard ground, breathing hard, ash-grey blood cooling on the blade. \"I have fought raiders, beasts, and men who called themselves gods. I have never fought anything that smoked like a dying ember and still swung a blade with a man's cunning.\" He looks at you - really looks, the way he hasn't since you first proved your steel. \"The old stories, then. They were not stories. The Shieldwall stands - all of it, now, not just my hall.";
                 if (game.homestead && game.homestead.unlocked) {
@@ -2246,7 +2271,7 @@
             enemyMaxHP: scaledHP,
             enemyDmg: Math.round(28 * ENEMY_ATK_MULTIPLIER),
             enemyArmorPen: 0.18,
-            rewardCash: 1200,
+            rewardCash: 600,
             regionKey: 'fjord',
             storyFlagOnWin: 'act2_ashbound_defeated',
             party: buildCombatParty(),
@@ -2485,7 +2510,7 @@
     function haggleBazaar() {
         if ((game.stamina || 0) < 10) { log("❌ Not enough stamina to haggle!", "color-red"); return; }
         game.stamina -= 10;
-        let gained = Math.round(80 + Math.random() * 220);
+        let gained = Math.round(40 + Math.random() * 110);
         game.funds += gained;
         bumpReputation('duneSpire', 2);
         saveGame(); updateUI();
@@ -2698,7 +2723,7 @@
 
         clearConsole("center", "radial-gradient(circle at 50% 30%, #2a0a0a 0%, #080202 85%)", "#ff6666");
         if (victory) {
-            let salvage = Math.round(150 + Math.random() * 250 + palisadesLevel * 20);
+            let salvage = Math.round(75 + Math.random() * 125 + palisadesLevel * 10);
             game.funds += salvage;
             bumpReputation('viking', 8);
             saveGame(); updateUI();
@@ -3019,7 +3044,14 @@
         document.getElementById("funds-display").innerText = Math.floor(game.funds || 0);
         document.getElementById("stamina-display").innerText = game.stamina || 0;
         document.getElementById("day-display").innerText = game.day || 1;
-        document.getElementById("player-name-display").innerText = game.playerName || "Trainer";
+        let nameDisplayEl = document.getElementById("player-name-display");
+        if (nameDisplayEl) {
+            if (isCreatorAccount()) {
+                nameDisplayEl.innerHTML = `<span class="creator-glow">⚡👑 ${game.playerName || "Trainer"}</span>`;
+            } else {
+                nameDisplayEl.innerText = game.playerName || "Trainer";
+            }
+        }
         document.getElementById("manager-title-display").innerText = getManagerTitle();
         document.getElementById("loc-display").innerText = game.location || "Nexus HQ";
         
@@ -3401,7 +3433,7 @@
         let party = getActiveParty();
         if (!party.length) party = [champion];
         let ordered = [champion, ...party.filter(p => p.uid !== champion.uid)];
-        return ordered.map(p => ({ uid: p.uid, name: p.name, power: p.power || 30, hp: 100, maxHp: 100 }));
+        return ordered.map(p => ({ uid: p.uid, name: p.name, power: Math.round((p.power || 30) * (1 + getLikenessBonusPct(p) / 100)), hp: 100, maxHp: 100 }));
     }
 
     // Adds a newly recruited/traded-in character to the roster, auto-slotting them into
@@ -3821,14 +3853,14 @@
 
     // --- MULTIVERSE LUCKY WHEEL MECHANIC (weighted prize tiers) ---
     const WHEEL_PRIZES = [
-        { weight: 18, text: "💰 Jackpot! Won $500!", action: () => { game.funds += 500; } },
+        { weight: 18, text: "💰 Jackpot! Won $250!", action: () => { game.funds += 250; } },
         { weight: 16, text: "⚡ Gained +50 Bonus Stamina!", action: () => { game.stamina += 50; } },
         { weight: 16, text: "🔴 Won 2x Pokéballs!", action: () => { game.inventory.push("Pokéball", "Pokéball"); } },
-        { weight: 16, text: "🪙 Consolation prize: $50 back.", action: () => { game.funds += 50; } },
+        { weight: 16, text: "🪙 Consolation prize: $25 back.", action: () => { game.funds += 25; } },
         { weight: 12, text: "💎 Won a rare Diamond Gem!", action: () => { game.inventory.push("Diamond"); } },
         { weight: 10, text: "🔷 Won a Prism Shard!", action: () => { game.inventory.push("Prism Shard"); } },
         { weight: 6, text: "🎟️ Won a Free Spin token!", action: () => { game.freeSpins = (game.freeSpins || 0) + 1; } },
-        { weight: 4, text: "💵 Won a $1000 Bonus voucher!", action: () => { game.funds += 1000; } },
+        { weight: 4, text: "💵 Won a $500 Bonus voucher!", action: () => { game.funds += 500; } },
         { weight: 2, text: "🌟 JACKPOT! Today's exclusive companion joined your roster!", action: () => grantFeaturedWheelCompanion() }
     ];
 
@@ -4451,13 +4483,15 @@
     function staffCardHtml(s, extraButtonsHtml) {
         let isChampion = game.championUid && s.uid === game.championUid;
         let costumeDef = s.costume ? getCostumeDef(s.costume) : null;
+        let likenessTier = getLikenessTier(s.likeness);
         return `
             <div class="dex-card" style="display:flex; justify-content:space-between; align-items:center; ${isChampion ? 'border-color:#ffd700; box-shadow:0 0 8px rgba(255,215,0,0.35);' : ''}">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <img src="${getCharacterPortrait(s.name)}" style="width:34px;height:34px;object-fit:contain;border-radius:6px;border:1px solid #a020f0;" onerror="applyTypeIconFallback(this, '${escAttr(s.name)}')"/>
                     <div style="font-size:12px;">
                         <strong>${isChampion ? '👑 ' : ''}${s.name}${s.shiny ? ' ✨' : ''}${s.isEvolved ? ' 🌟' : ''}${costumeDef ? ` ${costumeDef.emoji}` : ''}</strong><br>
-                        <span style="font-size:10.5px;color:#aaa;">Origin: ${s.origin || 'Unknown'} | Power: ${s.power || 0}${costumeDef ? ` | 🎭 ${costumeDef.name}` : ''}</span>
+                        <span style="font-size:10.5px;color:#aaa;">Origin: ${s.origin || 'Unknown'} | Power: ${s.power || 0}${costumeDef ? ` | 🎭 ${costumeDef.name}` : ''}</span><br>
+                        <span style="font-size:10.5px;color:#ff88cc;">💗 ${s.likeness || 0}/100 ${likenessTier.name}${likenessTier.bonusPct ? ` (+${likenessTier.bonusPct}% pwr)` : ''}</span>
                     </div>
                 </div>
                 <div style="display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end;">
@@ -4614,9 +4648,9 @@
             entry.count = Math.max(0, (entry.count || 1) - 1);
         }
 
-        game.funds += 50;
+        game.funds += 25;
         saveGame(); updateUI();
-        showGameAlert(`👋 Released ${member.name} back into the multiverse. (+$50)`);
+        showGameAlert(`👋 Released ${member.name} back into the multiverse. (+$25)`);
         showStaffMenu();
     }
 
@@ -4628,29 +4662,107 @@
         return 100 + 75 * n * (n + 1);
     }
 
+    // --- COMPANIONSHIP & LIKENESS ---
+    // Replaces the old "gift = instant +5 power" mechanic. A 0-100 Likeness meter per
+    // companion, raised by gifts, a free daily chat, and simply fighting alongside you -
+    // and it decays if a companion's left on the bench and ignored for too long. Likeness
+    // tier grants a scaling combat power bonus (see buildCombatParty()).
+    const LIKENESS_TIERS = [
+        { min: 0, name: "Stranger", bonusPct: 0 },
+        { min: 20, name: "Acquainted", bonusPct: 5 },
+        { min: 40, name: "Friend", bonusPct: 10 },
+        { min: 60, name: "Close Friend", bonusPct: 18 },
+        { min: 80, name: "Bonded", bonusPct: 28 },
+        { min: 100, name: "Soulbound", bonusPct: 40 }
+    ];
+    const LIKENESS_GIFT_GAIN = 8;
+    const LIKENESS_CHAT_GAIN = 3;
+    const LIKENESS_BATTLE_GAIN = 1;
+    const LIKENESS_DECAY_GRACE_DAYS = 3;
+    const LIKENESS_DECAY_PER_DAY = 2;
+
+    function getLikenessTier(likeness) {
+        let val = likeness || 0;
+        let tier = LIKENESS_TIERS[0];
+        LIKENESS_TIERS.forEach(t => { if (val >= t.min) tier = t; });
+        return tier;
+    }
+
+    function getLikenessBonusPct(member) {
+        return getLikenessTier(member && member.likeness).bonusPct;
+    }
+
+    function bumpLikeness(member, amount) {
+        if (!member) return;
+        member.likeness = Math.max(0, Math.min(100, (member.likeness || 0) + amount));
+        member.lastLikenessDateStr = new Date().toISOString().slice(0, 10);
+    }
+
+    // Ticks a small Likeness gain for every roster member who actually fought alongside
+    // you - the full active party for a normal win, or just the champion for raids/PvP
+    // duels where only they take the field. Called from every "you won a fight" path.
+    function tickLikenessForFighters(uids) {
+        (uids || []).forEach(uid => {
+            let member = game.staff.find(s => s.uid === uid);
+            if (member) bumpLikeness(member, LIKENESS_BATTLE_GAIN);
+        });
+    }
+
+    // Runs once a day from checkDailyReset(): anyone who hasn't been gifted to, chatted
+    // with, or fought alongside you in LIKENESS_DECAY_GRACE_DAYS+ days slowly cools off,
+    // rather than staying maxed out forever from one early investment.
+    function tickLikenessDecay() {
+        let todayStr = new Date().toISOString().slice(0, 10);
+        (game.staff || []).forEach(s => {
+            if (!s.likeness) return;
+            if (!s.lastLikenessDateStr) { s.lastLikenessDateStr = todayStr; return; }
+            let daysSince = Math.round((new Date(todayStr + 'T00:00:00Z') - new Date(s.lastLikenessDateStr + 'T00:00:00Z')) / 86400000);
+            if (daysSince > LIKENESS_DECAY_GRACE_DAYS) {
+                let decayDays = daysSince - LIKENESS_DECAY_GRACE_DAYS;
+                s.likeness = Math.max(0, s.likeness - decayDays * LIKENESS_DECAY_PER_DAY);
+                s.lastLikenessDateStr = todayStr;
+            }
+        });
+    }
+
     function interactWithStaff(uid) {
         let member = game.staff.find(s => s.uid === uid);
         if (!member) return;
         playBGM('staff');
         clearConsole("center", "radial-gradient(circle at 50% 30%, #2b005c 0%, #0c001a 80%)", "#a020f0");
         let cost = giftCostFor(member);
+        let likeness = member.likeness || 0;
+        let tier = getLikenessTier(likeness);
+        let todayStr = new Date().toISOString().slice(0, 10);
+        let chattedToday = member.lastChatDateStr === todayStr;
         document.getElementById("console").innerHTML = `
             ${characterPortrait(member.name, 160)}
             <h3 style="color:#ff66ff; font-size:16px;">💬 Chat with ${member.name}</h3>
             <p style="color:#ffff00; font-size:12.5px; max-width:380px; line-height:1.4;">
                 "Hey trainer ${game.playerName}! Thanks for having me along across timelines in Aetheria. Let's keep pushing our limits!"
             </p>
+            <p style="color:#ff88cc; font-size:12px;">💗 Likeness: ${likeness}/100 - <strong>${tier.name}</strong> (+${tier.bonusPct}% combat power)</p>
+            <div style="width:200px; height:8px; background:#330022; border:1px solid #ff66ff; border-radius:4px; overflow:hidden; margin:2px 0 6px 0;">
+                <div style="width:${likeness}%; height:100%; background:#ff66ff;"></div>
+            </div>
             ${member.giftsGiven ? `<p style="color:#aa88ff; font-size:11px;">Gifted ${member.giftsGiven}x already - the next one costs more.</p>` : ''}
         `;
         renderButtons([
+            { text: chattedToday ? "✅ Already Chatted Today" : "💬 Chat (Free, +Likeness)", class: "btn btn-mine", action: chattedToday ? () => {} : () => {
+                bumpLikeness(member, LIKENESS_CHAT_GAIN);
+                member.lastChatDateStr = todayStr;
+                saveGame(); updateUI();
+                showGameAlert(`${member.name} appreciates you checking in! (+${LIKENESS_CHAT_GAIN} Likeness)`);
+                interactWithStaff(uid);
+            }},
             { text: `💖 Give Gift ($${cost})`, class: "btn btn-start", action: () => {
                 let liveCost = giftCostFor(member);
                 if (game.funds >= liveCost) {
                     game.funds -= liveCost;
-                    member.power = (member.power || 20) + 5;
+                    bumpLikeness(member, LIKENESS_GIFT_GAIN);
                     member.giftsGiven = (member.giftsGiven || 0) + 1;
                     saveGame(); updateUI();
-                    showGameAlert(`${member.name} smiles warmly! Power increased by +5! (Next gift: $${giftCostFor(member)})`);
+                    showGameAlert(`${member.name} smiles warmly! (+${LIKENESS_GIFT_GAIN} Likeness) (Next gift: $${giftCostFor(member)})`);
                 } else { showGameAlert(`Not enough funds - this gift costs $${liveCost}!`); }
                 showStaffMenu();
             }},
@@ -5001,7 +5113,7 @@
 
     // --- MULTIPLAYER ONLINE HUB ---
     function buildLobbyPlayerPayload() {
-        return { name: game.playerName, staff: game.staff, power: game.managerPower, isMember: !!game.casinoMembership };
+        return { name: game.playerName, staff: game.staff, power: game.managerPower, isMember: !!game.casinoMembership, isCreator: isCreatorAccount() };
     }
 
     function showOnlineLobbyGate() {
@@ -5042,12 +5154,13 @@
         `;
 
         if (!onlineRoomPlayers.length) {
-            html += `<div class="dex-card" style="font-size:12px;">👤 ${game.playerName} ${game.casinoMembership ? '<span style="color:#ff00aa;" title="VIP Casino Member">👑</span>' : ''} (You) - Host</div>`;
+            html += `<div class="dex-card" style="font-size:12px;">👤 ${isCreatorAccount() ? `<span class="creator-glow">⚡👑 ${game.playerName} GOD</span>` : game.playerName} ${!isCreatorAccount() && game.casinoMembership ? '<span style="color:#ff00aa;" title="VIP Casino Member">👑</span>' : ''} (You) - Host</div>`;
         } else {
             onlineRoomPlayers.forEach(p => {
                 let isMe = socket && p.id === socket.id;
+                let nameHtml = p.isCreator ? `<span class="creator-glow">⚡👑 ${p.name} GOD</span>` : `👤 ${p.name}`;
                 html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center; font-size:12px;">
-                    <div><strong>👤 ${p.name}</strong> ${p.isMember ? '<span style="color:#ff00aa;" title="VIP Casino Member">👑</span>' : ''} ${isMe ? '<span style="color:#ffaa00;">(You)</span>' : ''}</div>
+                    <div><strong>${nameHtml}</strong> ${!p.isCreator && p.isMember ? '<span style="color:#ff00aa;" title="VIP Casino Member">👑</span>' : ''} ${isMe ? '<span style="color:#ffaa00;">(You)</span>' : ''}</div>
                     ${!isMe ? `<button class="btn btn-combat" style="padding:2px 6px; font-size:10px; min-height:24px;" onclick="requestPvPDuel('${p.id}')">⚔️ Duel</button>` : ''}
                 </div>`;
             });
@@ -5702,6 +5815,7 @@
                 raidScreenActive = false;
                 setTimeout(() => {
                     game.funds += (data.reward || 0);
+                    tickLikenessForFighters([getChampion().uid]);
                     bumpLifetimeStat('totalRaidKills');
                     bumpDailyProgress('raidKills');
                     updateUI(); saveGame();
@@ -5831,11 +5945,11 @@
                 let won = data.winnerId === socket.id;
                 setTimeout(() => {
                     clearConsole("center", won ? "radial-gradient(circle,#003300,#000)" : "radial-gradient(circle,#330000,#000)", won ? "#00ff88" : "#ff3333");
-                    if (won) game.funds += 1500;
+                    if (won) { game.funds += 750; tickLikenessForFighters((b.myParty || []).map(p => p.uid).filter(Boolean)); }
                     saveGame(); updateUI();
                     document.getElementById("console").innerHTML = `
                         <h2 style="font-size:18px;">${won ? '🏆 DUEL WON!' : '💀 DUEL LOST'}</h2>
-                        <p style="font-size:12px;">${won ? 'Earned $1500!' : 'Better luck next time, trainer.'}</p>
+                        <p style="font-size:12px;">${won ? 'Earned $750!' : 'Better luck next time, trainer.'}</p>
                     `;
                     renderButtons([{ text: "✔ Return to Lobby", class: "btn btn-start", action: renderActiveLobbyView }]);
                     currentPvPBattle = null;
@@ -5879,7 +5993,7 @@
             let longhouseLevel = (game.homestead.structures && game.homestead.structures.longhouse) || 0;
             game.stamina = 100 + longhouseLevel * 10;
             game.day++;
-            let passive = (game.staff || []).length * 50;
+            let passive = (game.staff || []).length * 25;
             game.funds += passive;
             tickFarmDay();
             // Guard fatigue from a lost bandit raid is temporary - a night's rest clears it.
@@ -6157,10 +6271,10 @@
         setTimeout(() => {
             let foundGem = Math.random() < 0.25;
             let rewardedItem = foundGem ? "Diamond" : "Copper Ore";
-            game.funds += 250;
+            game.funds += 125;
             game.inventory.push(rewardedItem);
             updateUI(); saveGame();
-            log(`✨ Added to Inventory: 1x ${rewardedItem}! Found $250!`, "color-cyan");
+            log(`✨ Added to Inventory: 1x ${rewardedItem}! Found $125!`, "color-cyan");
             showMiningHub();
         }, 1500);
     }
@@ -6174,7 +6288,7 @@
             enemyMaxHP: scaledHP,
             enemyDmg: Math.round(12 * ENEMY_ATK_MULTIPLIER),
             enemyArmorPen: 0.15,
-            rewardCash: 1000,
+            rewardCash: 500,
             regionKey: null,
             party: buildCombatParty(),
             activeIdx: 0
@@ -6288,7 +6402,8 @@
 
     function winCombat() {
         let s = activeCombatSession;
-        game.funds += (s.rewardCash || 1000);
+        game.funds += (s.rewardCash || 500);
+        tickLikenessForFighters((s.party || []).map(p => p.uid).filter(Boolean));
         // Story boss fights (tagged with storyFlagOnWin) set their flag here and route
         // back to the leader who sent you instead of HQ/a wild encounter - everything
         // else about a normal fight's win screen is untouched.
@@ -6296,12 +6411,12 @@
         updateUI(); saveGame();
         clearConsole("center", "radial-gradient(circle,#003300,#000)", "#00ff88");
         if (s.storyFlagOnWin) {
-            document.getElementById("console").innerHTML = `<h2 style="font-size:18px;">🎉 BATTLE WON!</h2><p style="font-size:12px;">Earned $${s.rewardCash || 1000}! ${s.enemyName} crumbles to ash and drifting cinders.</p>`;
+            document.getElementById("console").innerHTML = `<h2 style="font-size:18px;">🎉 BATTLE WON!</h2><p style="font-size:12px;">Earned $${s.rewardCash || 500}! ${s.enemyName} crumbles to ash and drifting cinders.</p>`;
             let returnLabel = "⬅ Return to " + (REGIONS_DATA[s.regionKey] ? REGIONS_DATA[s.regionKey].name : "the Region");
             renderButtons([{ text: returnLabel, class: "btn btn-back", action: () => showRegionHub(s.regionKey) }]);
             return;
         }
-        document.getElementById("console").innerHTML = `<h2 style="font-size:18px;">🎉 BATTLE WON!</h2><p style="font-size:12px;">Earned $${s.rewardCash || 1000}!</p>`;
+        document.getElementById("console").innerHTML = `<h2 style="font-size:18px;">🎉 BATTLE WON!</h2><p style="font-size:12px;">Earned $${s.rewardCash || 500}!</p>`;
         if (REAL_CHARACTERS_DB.length > 0 && Math.random() < 0.5) {
             renderButtons([{ text: "👀 Something's rustling nearby...", class: "btn btn-start", action: spawnWildUniDexEncounter }]);
         } else {
