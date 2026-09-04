@@ -1870,7 +1870,8 @@
             achievements: {}, unlockedCostumes: [], freeSpins: 0,
             casinoMembership: false, lastWheelSpinDateStr: '', dailyWheelSpinsUsed: 0,
             currentDailyEvent: { name: "Calm Multiverse", desc: "A peaceful day across timelines." },
-            homeDecor: { tier: 1, name: "Standard Suite", items: [] },
+            homeDecor: { tier: 1, name: "Standard Suite", items: [], trophies: [] },
+            professorMilestonesClaimed: [], guaranteedShinyCharges: 0,
             farm: {
                 seeds: { strawberries: 2, starfruits: 1, voidberries: 0 },
                 harvested: { strawberries: 0, starfruits: 0, voidberries: 0 },
@@ -2169,6 +2170,52 @@
                 text += " Whatever comes for the Fjord's ward comes through us first. Vespera was right to send you. Go carefully, outlander - if they found us, they will find the others.\"";
                 return text;
             }
+        },
+
+        // --- MAIN STORY: "The Hollow King", Act III ---
+        // Vespera called it: the Ashbound are testing every ward "region by region."
+        // These three fire in parallel once the Fjord holds - Maeve, Tariq, and Varek
+        // were always meant to carry the story forward same as Bjargaöldum, they just
+        // didn't have a quest wired up for it yet.
+        hk_oakhaven_incursion: {
+            id: 'hk_oakhaven_incursion', giver: 'oakhaven', name: "Roots Under Siege",
+            requiresFlag: 'act2_complete',
+            desc: "The Ashbound have reached Oakhaven's canopy next, just as Vespera feared. Elder Maeve needs you to drive off whatever's testing the forest's ward before the roots give. Face the Ashbound Rootbinder in the Whispering Forest.",
+            checkComplete: (g) => hasStoryFlag('act3_oakhaven_defeated'),
+            onComplete: null,
+            reward: { funds: 300, reputation: { oakhaven: 20 } },
+            completeText: "Elder Maeve kneels and presses a palm flat against the forest floor, listening. \"The roots have gone quiet again. Steadier.\" She looks up, and for the first time there's no warmth softening her expression - just old, tired resolve. \"So it's true. Whatever tested the Fjord has come for us too. Thank you, child. Truly.\""
+        },
+        hk_dunespire_incursion: {
+            id: 'hk_dunespire_incursion', giver: 'duneSpire', name: "Sand and Cinders",
+            requiresFlag: 'act2_complete',
+            desc: "Word of the Fjord's attack has reached the Bazaar - and now the Ashbound have followed. Sultan Tariq wants his ward defended before his \"inheritance\" becomes everyone's problem. Face the Ashbound Sandreaver in the Sunscorched Desert.",
+            checkComplete: (g) => hasStoryFlag('act3_dunespire_defeated'),
+            onComplete: null,
+            reward: { funds: 300, reputation: { duneSpire: 20 } },
+            completeText: "Tariq watches the last of the cinders scatter on the wind, his usual smirk nowhere in sight. \"Gold I can replace, outlander. That...\" he gestures at the settling sand, \"...I could not have. Consider my ledgers permanently in your favor.\""
+        },
+        hk_forgepeak_incursion: {
+            id: 'hk_forgepeak_incursion', giver: 'forgePeak', name: "The Mountain's Temper",
+            requiresFlag: 'act2_complete',
+            desc: "Forge-Peak's runes have started flaring on their own. High Smith Varek wants it dealt with before the mountain's ward - and its temper - breaks loose. Face the Ashbound Cinderwalker at the Obsidian Volcano.",
+            checkComplete: (g) => hasStoryFlag('act3_forgepeak_defeated'),
+            onComplete: null,
+            reward: { funds: 300, reputation: { forgePeak: 20 } },
+            completeText: "Varek sets down his hammer - actually sets it down - and studies the cooling battlefield. \"Generations of my line fed that ward with fire and never once had to fight for it.\" He meets your eyes. \"That changes today, and I mean to be ready next time. My thanks, outlander. Steel remembers who forged it.\""
+        },
+
+        // --- MAIN STORY: "The Hollow King", Act III finale ---
+        // Unlocked once all three Act III incursion quests are turned in - see
+        // checkAct3Convergence(), called from completeQuest().
+        hk_convergence: {
+            id: 'hk_convergence', giver: 'mistVeil', name: "The Five Wardens",
+            requiresFlag: 'act3_ready',
+            desc: "Every ward has been tested now, and every ward has held - barely. Lady Vespera senses the Ashbound regrouping for something bigger. Stand with her at Mist-Veil Hollow and face whatever they send next: the Ashbound Harbinger.",
+            checkComplete: (g) => hasStoryFlag('act3_ashbound_defeated'),
+            onComplete: () => { setStoryFlag('act3_complete'); },
+            reward: { funds: 600, reputation: { viking: 10, oakhaven: 10, duneSpire: 10, forgePeak: 10, mistVeil: 15 } },
+            completeText: "The Harbinger dissolves into drifting ash, and for a long moment Vespera says nothing at all. \"Five wards, tested in turn, and five wards held.\" She finally lowers her staff. \"That was never a coincidence, outlander - it was a search pattern. Something is still out there, learning our seal one crack at a time.\" Her wisps draw close around her, uneasy. \"We bought time today. Not victory. Rest while you can - the Hollow-Watch has never needed a champion more than it does now.\""
         }
     };
 
@@ -2218,9 +2265,21 @@
         let completeText = (typeof q.completeText === 'function') ? q.completeText() : (q.completeText || '');
         showGameAlert(`✅ Quest Complete: ${q.name}\n\n${completeText}`);
         checkVikingHomesteadUnlock();
+        checkAct3Convergence();
         // NOTE: deliberately NOT checking the Hollow King campaign unlock here - that
         // event is only allowed to fire from a Nexus Terminal sync (checkDailyReset),
         // never immediately off the back of a quest turn-in. See checkHollowKingCampaignUnlock().
+    }
+
+    // The three Act III incursion quests (oakhaven/duneSpire/forgePeak) can be turned
+    // in in any order - the moment all three are done, this unlocks Vespera's
+    // convergence quest (hk_convergence, requiresFlag: 'act3_ready') so the story keeps
+    // moving no matter which leader the player visits first.
+    function checkAct3Convergence() {
+        if (hasStoryFlag('act3_ready')) return;
+        if (isQuestCompleted('hk_oakhaven_incursion') && isQuestCompleted('hk_dunespire_incursion') && isQuestCompleted('hk_forgepeak_incursion')) {
+            setStoryFlag('act3_ready');
+        }
     }
 
     function setStoryFlag(flag, value = true) { ensureWorldExpansionDefaults(); game.quests.flags[flag] = value; }
@@ -2309,6 +2368,29 @@
         renderPokemonCombatScreen();
     }
 
+    // Act III: same one-time-named-boss pattern as startAshboundEncounter() above, one
+    // per settlement whose ward the Ashbound test next. A little shared helper keeps the
+    // three of them (and the Act III finale below) from repeating the whole object.
+    function startNamedStoryBoss(enemyName, baseHP, baseDmg, armorPen, rewardCash, regionKey, storyFlagOnWin) {
+        playBGM('battle');
+        let scaledHP = Math.round(baseHP * ENEMY_HP_MULTIPLIER);
+        activeCombatSession = {
+            enemyName, enemyHP: scaledHP, enemyMaxHP: scaledHP,
+            enemyDmg: Math.round(baseDmg * ENEMY_ATK_MULTIPLIER),
+            enemyArmorPen: armorPen, rewardCash, regionKey, storyFlagOnWin,
+            party: buildCombatParty(), activeIdx: 0
+        };
+        renderPokemonCombatScreen();
+    }
+    function startOakhavenAshboundEncounter() { startNamedStoryBoss("Ashbound Rootbinder", 300, 30, 0.2, 650, 'forest', 'act3_oakhaven_defeated'); }
+    function startDuneSpireAshboundEncounter() { startNamedStoryBoss("Ashbound Sandreaver", 300, 30, 0.2, 650, 'desert', 'act3_dunespire_defeated'); }
+    function startForgePeakAshboundEncounter() { startNamedStoryBoss("Ashbound Cinderwalker", 300, 30, 0.2, 650, 'volcano', 'act3_forgepeak_defeated'); }
+
+    // Act III finale, unlocked once all three of the above are turned in (see
+    // checkAct3Convergence()). Tougher than the regional skirmishes - this is the
+    // Ashbound's actual push, not a probing test.
+    function startHollowKingHarbingerEncounter() { startNamedStoryBoss("Ashbound Harbinger", 450, 40, 0.25, 900, 'bog', 'act3_ashbound_defeated'); }
+
     // --- DIALOGUE ENGINE ---
     const NPC_LEADERS = {
         viking: {
@@ -2354,6 +2436,12 @@
             dialogue: {
                 start: {
                     text: () => {
+                        if (hasStoryFlag('act3_oakhaven_defeated')) {
+                            return "Elder Maeve's twig crown dips low as you approach, her hands still for once. \"The roots have settled again, child. Whatever came for us, you turned it back. I won't forget that.\"";
+                        }
+                        if (hasStoryFlag('act2_complete')) {
+                            return "Elder Maeve's twig crown dips low, all business for once. \"I felt the Fjord's ward hold, child - and I felt what it cost to hold it. Ours may be tested next. If you're willing, I'd have you ready for it.\"";
+                        }
                         if (hasStoryFlag('act1_complete')) {
                             return "Elder Maeve's twig crown dips low as you approach, her hands still for once. \"The Fjord sent word through the roots, child. Old promises, old wardens - I felt this coming before either of them said a word. The canopy has been listening differently, since. What do you need?\"";
                         }
@@ -2386,6 +2474,12 @@
             dialogue: {
                 start: {
                     text: () => {
+                        if (hasStoryFlag('act3_dunespire_defeated')) {
+                            return "Sultan Tariq's jeweled fingers still on the armrest as you approach. \"The Bazaar still stands, outlander, and my guards are drinking on my coin tonight. Rare, that I'm the one buying. Don't get used to it.\"";
+                        }
+                        if (hasStoryFlag('act2_complete')) {
+                            return "Sultan Tariq doesn't bother with pleasantries. \"The Fjord held. Word travels fast in a bazaar, outlander - and so does worry. If what hit them comes for my crossing next, I'd rather you were standing here when it does.\"";
+                        }
                         if (hasStoryFlag('act1_complete')) {
                             return "Sultan Tariq's jeweled fingers still on the armrest as you approach. \"An outlander who's been to the Fjord recently, hm? I can smell the sea-salt and the bad news on you both. Speak, before my guards start charging admission for the drama.\"";
                         }
@@ -2418,6 +2512,12 @@
             dialogue: {
                 start: {
                     text: () => {
+                        if (hasStoryFlag('act3_forgepeak_defeated')) {
+                            return "High Smith Varek's hammer falls in a steady, satisfied rhythm. \"The mountain's temper is back to normal, outlander. Mine, too, more or less. You did good work here.\"";
+                        }
+                        if (hasStoryFlag('act2_complete')) {
+                            return "Varek's hammer doesn't slow, but his eyes flick to you immediately. \"Bjargaöldum's ward held. Ours hasn't been tested yet - and I don't intend to find out unprepared. Speak.\"";
+                        }
                         if (hasStoryFlag('act1_complete')) {
                             return "High Smith Varek's hammer stops mid-swing - a rare thing. \"Word from the Fjord already? Hmph. Figures the old promises would come due on my watch.\" He sets the hammer down and actually looks at you. \"Say your piece, outlander. Forge-Peak keeps its oaths same as it keeps its steel.\"";
                         }
@@ -2450,6 +2550,15 @@
             dialogue: {
                 start: {
                     text: () => {
+                        if (hasStoryFlag('act3_complete')) {
+                            return "Lady Vespera turns toward you, spirit wisps settled and calm for once. \"Rest while it lasts, little spark. Five wards held. That buys us time - it doesn't buy us an answer. When I have one, you'll be the first to hear it.\"";
+                        }
+                        if (hasStoryFlag('act3_ready')) {
+                            return "Lady Vespera's wisps coil tight around her staff the moment you enter. \"All four wards, tested and held. That was never luck, little spark - it was a pattern completing. I fear what comes when the pattern finishes. Stand with me. I'd rather not face what's coming alone.\"";
+                        }
+                        if (hasStoryFlag('act2_complete')) {
+                            return "Lady Vespera turns toward you as you enter, spirit wisps curling in greeting. \"The Fjord held, little spark, but I doubt the Ashbound are finished. Maeve, Tariq, and Varek should hear what you told Bjargaöldum. Their wards may be next.\"";
+                        }
                         if (hasStoryFlag('act1_complete')) {
                             return "Lady Vespera turns toward you as you enter, spirit wisps curling in greeting. \"Back again, little spark. The Hollow rests easier since we spoke - though I still feel eyes elsewhere in the world, watching, waiting for another seal to falter. Bjargaöldum should know what we know.\"";
                         }
@@ -2577,10 +2686,34 @@
             }
             return btns;
         }
-        if (key === 'oakhaven') return [{ text: "🌿 Forage Herbs (⚡10)", class: "btn btn-farm", action: forageHerbs }];
-        if (key === 'duneSpire') return [{ text: "🏺 Haggle at the Bazaar (⚡10)", class: "btn btn-mine", action: haggleBazaar }];
-        if (key === 'forgePeak') return [{ text: "🔨 Commission a Rune ($200)", class: "btn btn-combat", action: commissionRune }];
-        if (key === 'mistVeil') return [{ text: "👻 Consult the Spirits ($150)", class: "btn btn-goth", action: consultSpirits }];
+        if (key === 'oakhaven') {
+            let btns = [{ text: "🌿 Forage Herbs (⚡10)", class: "btn btn-farm", action: forageHerbs }];
+            if (isQuestActive('hk_oakhaven_incursion') && !hasStoryFlag('act3_oakhaven_defeated')) {
+                btns.push({ text: "⚔️ Face the Ashbound Rootbinder", class: "btn btn-combat", action: startOakhavenAshboundEncounter });
+            }
+            return btns;
+        }
+        if (key === 'duneSpire') {
+            let btns = [{ text: "🏺 Haggle at the Bazaar (⚡10)", class: "btn btn-mine", action: haggleBazaar }];
+            if (isQuestActive('hk_dunespire_incursion') && !hasStoryFlag('act3_dunespire_defeated')) {
+                btns.push({ text: "⚔️ Face the Ashbound Sandreaver", class: "btn btn-combat", action: startDuneSpireAshboundEncounter });
+            }
+            return btns;
+        }
+        if (key === 'forgePeak') {
+            let btns = [{ text: "🔨 Commission a Rune ($200)", class: "btn btn-combat", action: commissionRune }];
+            if (isQuestActive('hk_forgepeak_incursion') && !hasStoryFlag('act3_forgepeak_defeated')) {
+                btns.push({ text: "⚔️ Face the Ashbound Cinderwalker", class: "btn btn-combat", action: startForgePeakAshboundEncounter });
+            }
+            return btns;
+        }
+        if (key === 'mistVeil') {
+            let btns = [{ text: "👻 Consult the Spirits ($150)", class: "btn btn-goth", action: consultSpirits }];
+            if (isQuestActive('hk_convergence') && !hasStoryFlag('act3_ashbound_defeated')) {
+                btns.push({ text: "⚔️ Face the Ashbound Harbinger", class: "btn btn-combat", action: startHollowKingHarbingerEncounter });
+            }
+            return btns;
+        }
         return [];
     }
 
@@ -4288,6 +4421,7 @@
         playBGM('hq');
         clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #173b5c 0%, #0a141e 80%)", "#33aaff", SCENE_IMAGES.home);
         let decor = game.homeDecor || defaultGameState().homeDecor;
+        if (!Array.isArray(decor.trophies)) decor.trophies = [];
         let nextTier = HOME_TIER_CATALOG[decor.tier + 1];
         let alfredQuote = ALFRED_QUOTES[Math.floor(Math.random() * ALFRED_QUOTES.length)].replace('{PLAYER}', game.playerName || 'Bruce');
         document.getElementById("console").innerHTML = `
@@ -4298,6 +4432,7 @@
             <div class="dex-card" style="display:block; font-size:12px;">
                 🏠 Current Suite: <strong style="color:#00ffff;">${decor.name} (Tier ${decor.tier})</strong><br>
                 🎨 Installed Decor (${decor.items.length}/${HOME_DECOR_CATALOG.length}): <span style="color:#ff00ff;">${decor.items.join(", ") || "None"}</span>
+                ${decor.trophies.length ? `<br>🏆 Research Trophies: <span style="color:#ffdd00;">${decor.trophies.join(", ")}</span>` : ''}
             </div>
         `;
         let btns = HOME_DECOR_CATALOG.map(def => {
@@ -4345,6 +4480,7 @@
         quote = quote.replace(/\{PLAYER\}/g, game.playerName || 'Trainer');
         let dexCaughtCount = Object.keys(game.pokedex || {}).length;
         let dexTotalCount = getAllDexEntries().length;
+        let readyCount = getUnclaimedReadyMilestoneCount();
         document.getElementById("console").innerHTML = `
             <img src="/pictures/professor.jpg" alt="Professor Bill" style="width:110px; height:110px; border-radius:50%; object-fit:cover; object-position: center 15%; margin-bottom:8px; border: 3px solid #00ffcc; box-shadow: 0 0 18px rgba(0,255,204,0.45), 0 0 0 5px rgba(0,255,255,0.15); background:#0d0d0d;" onerror="this.style.display='none';" />
             <h2 style="color: #00ffcc; font-size:18px;">🔬 PROFESSOR BILL'S LAB</h2>
@@ -4353,12 +4489,82 @@
             <div class="dex-card" style="display:block; font-size:12px;">
                 📖 UniDex Progress: <strong style="color:#ffff00;">${dexCaughtCount}/${dexTotalCount}</strong> (${dexTotalCount ? Math.round(dexCaughtCount / dexTotalCount * 100) : 0}%)
             </div>
+            ${readyCount ? `<p style="color:#ffdd00; font-size:12px;">🎁 ${readyCount} research reward${readyCount > 1 ? 's' : ''} ready to claim!</p>` : ''}
         `;
         renderButtons([
             { text: "📊 Check My UniDex Progress", class: "btn btn-dex", action: showProfessorDexReport },
+            { text: readyCount ? `🏆 Research Milestones (${readyCount} ready!)` : "🏆 Research Milestones", class: "btn btn-dlc", action: showProfessorMilestones },
             { text: "🌌 Ask About the Multiverse", class: "btn btn-sys", action: showProfessorLoreDialogue },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
+    }
+
+    // --- PROFESSOR'S RESEARCH MILESTONES: unique, non-purchasable rewards unlocked by
+    // UniDex completion percentage. Each is claimed once (tracked in
+    // game.professorMilestonesClaimed) and its effect fires immediately on claim rather
+    // than sitting in the backpack as another do-nothing item - see the Energy Core fix
+    // for why that pattern is worth avoiding.
+    function addUniqueHomeTrophy(name) {
+        if (!game.homeDecor) game.homeDecor = defaultGameState().homeDecor;
+        if (!Array.isArray(game.homeDecor.trophies)) game.homeDecor.trophies = [];
+        if (!game.homeDecor.trophies.includes(name)) game.homeDecor.trophies.push(name);
+    }
+    const PROFESSOR_DEX_MILESTONES = [
+        { pct: 10, id: 'dex10', name: "Junior Researcher Charter", desc: "A framed charter naming you an official field researcher. Alfred will find room for it.", grant: () => addUniqueHomeTrophy("Junior Researcher Charter") },
+        { pct: 25, id: 'dex25', name: "Professor's Care Package", desc: "A full stamina refill, on the house.", grant: () => { game.stamina = getMaxStamina(); } },
+        { pct: 50, id: 'dex50', name: "Multiversal Research Grant", desc: "$1,000 in grant funding, no strings attached.", grant: () => { game.funds += 1000; } },
+        { pct: 75, id: 'dex75', name: "Rift Stabilizer", desc: "Guarantees your very next portal or wild encounter is Shiny.", grant: () => { game.guaranteedShinyCharges = (game.guaranteedShinyCharges || 0) + 1; } },
+        { pct: 100, id: 'dex100', name: "Founder's Trophy", desc: "A trophy honoring the trainer who completed the entire UniDex. There's only one.", grant: () => addUniqueHomeTrophy("Founder's Trophy") }
+    ];
+
+    function getDexCompletionPct() {
+        let dexCaughtCount = Object.keys(game.pokedex || {}).length;
+        let dexTotalCount = getAllDexEntries().length;
+        return dexTotalCount ? (dexCaughtCount / dexTotalCount * 100) : 0;
+    }
+
+    function getUnclaimedReadyMilestoneCount() {
+        if (!Array.isArray(game.professorMilestonesClaimed)) game.professorMilestonesClaimed = [];
+        let pct = getDexCompletionPct();
+        return PROFESSOR_DEX_MILESTONES.filter(m => pct >= m.pct && !game.professorMilestonesClaimed.includes(m.id)).length;
+    }
+
+    function showProfessorMilestones() {
+        if (!Array.isArray(game.professorMilestonesClaimed)) game.professorMilestonesClaimed = [];
+        let pct = getDexCompletionPct();
+        let rows = PROFESSOR_DEX_MILESTONES.map(m => {
+            let claimed = game.professorMilestonesClaimed.includes(m.id);
+            let unlocked = pct >= m.pct;
+            let statusHtml = claimed
+                ? `<span style="color:#00ff88;">✅ Claimed</span>`
+                : unlocked
+                    ? `<button class="btn btn-dlc" style="padding:3px 8px; font-size:10.5px; margin:4px 0 0 0; min-height:26px;" onclick="claimProfessorMilestone('${m.id}')">🎁 Claim</button>`
+                    : `<span style="color:#666;">🔒 ${m.pct}% UniDex needed</span>`;
+            return `<div class="dex-card" style="display:block; font-size:11.5px;">
+                <strong style="color:#00ffcc;">${m.pct}% - ${m.name}</strong><br>
+                <span style="color:#aaa;">${m.desc}</span><br>
+                ${statusHtml}
+            </div>`;
+        }).join('');
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#00ffcc; font-size:18px;">🏆 RESEARCH MILESTONES</h2>
+            <p style="color:#ccc; font-size:12px; max-width:380px; font-style:italic;">"The more you fill in the UniDex, the more I can justify to the department. Keep going, ${game.playerName || 'Trainer'}."</p>
+            <p style="color:#ffff00; font-size:11.5px;">Current Completion: ${Math.round(pct)}%</p>
+            <div style="width:100%; max-width:380px;">${rows}</div>
+        `;
+        renderButtons([{ text: "⬅ Back to the Lab", class: "btn btn-back", action: showProfessorLab }]);
+    }
+
+    function claimProfessorMilestone(id) {
+        if (!Array.isArray(game.professorMilestonesClaimed)) game.professorMilestonesClaimed = [];
+        if (game.professorMilestonesClaimed.includes(id)) { showProfessorMilestones(); return; }
+        let m = PROFESSOR_DEX_MILESTONES.find(x => x.id === id);
+        if (!m || getDexCompletionPct() < m.pct) { showProfessorMilestones(); return; }
+        m.grant();
+        game.professorMilestonesClaimed.push(id);
+        saveGame(); updateUI();
+        showGameAlert(`🎁 Milestone Claimed: ${m.name}\n\n${m.desc}`);
+        showProfessorMilestones();
     }
 
     // A proper Pokémon-professor-style progress report: overall completion plus a
@@ -5110,14 +5316,19 @@
     // Shared random-pick logic used for a fresh encounter AND for rerolling one, so a
     // reroll always redraws from the exact same source (portal pool or the wild UniDex).
     function drawEncounterFromSource(poolKey, isWild) {
+        // Professor's Rift Stabilizer milestone reward (see claimProfessorMilestone()):
+        // one charge forces the very next encounter drawn (fresh or reroll, whichever
+        // comes first) to be Shiny, then consumes itself.
+        let forceShiny = (game.guaranteedShinyCharges || 0) > 0;
+        if (forceShiny) { game.guaranteedShinyCharges--; saveGame(); }
         if (isWild) {
             if (!REAL_CHARACTERS_DB || REAL_CHARACTERS_DB.length === 0) return null;
             let chosen = REAL_CHARACTERS_DB[Math.floor(Math.random() * REAL_CHARACTERS_DB.length)];
-            return { name: chosen.name, origin: chosen.origin, power: rollEncounterPower(), dexId: chosen.id, baseChance: 0.50, isShiny: Math.random() < SHINY_CHANCE, poolKey: null, isWild: true };
+            return { name: chosen.name, origin: chosen.origin, power: rollEncounterPower(), dexId: chosen.id, baseChance: 0.50, isShiny: forceShiny || Math.random() < SHINY_CHANCE, poolKey: null, isWild: true };
         }
         let pool = PORTAL_CHAR_POOLS[poolKey] || PORTAL_CHAR_POOLS.standard;
         let chosen = pool[Math.floor(Math.random() * pool.length)];
-        return { name: chosen.name, origin: chosen.origin, power: rollEncounterPower(), dexId: chosen.id, baseChance: 0.50, isShiny: Math.random() < SHINY_CHANCE, poolKey: poolKey, isWild: false };
+        return { name: chosen.name, origin: chosen.origin, power: rollEncounterPower(), dexId: chosen.id, baseChance: 0.50, isShiny: forceShiny || Math.random() < SHINY_CHANCE, poolKey: poolKey, isWild: false };
     }
 
     function triggerPortalTheme(poolKey, musicKey) {
