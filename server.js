@@ -39,7 +39,11 @@ function normalizePvpParty(rawParty) {
 // before this pass, so there was no prior ATK value to scale up from.
 let raidBosses = {
     titan: { name: "Void Titan Chronos", hp: 7000, maxHp: 7000, level: 50, reward: 1250, baseAtk: 45, armorPen: 0.2 },
-    dragon: { name: "Shadow Dragon Netherfang", hp: 17000, maxHp: 17000, level: 90, reward: 4000, baseAtk: 90, armorPen: 0.3 }
+    dragon: { name: "Shadow Dragon Netherfang", hp: 17000, maxHp: 17000, level: 90, reward: 4000, baseAtk: 90, armorPen: 0.3 },
+    // The final raid boss - only offered to players client-side once every Guardian's
+    // quest line is finished and the Frozen Death has unlocked (see the client's
+    // 'frozen_death_unlocked' story flag), but selectable here like any other tier.
+    hollowKing: { name: "The Hollow King", hp: 35000, maxHp: 35000, level: 150, reward: 9000, baseAtk: 140, armorPen: 0.4 }
 };
 let activeRaidKey = "titan";
 

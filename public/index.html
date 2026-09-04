@@ -1473,6 +1473,24 @@
                 { name: "Mire Stalker", hp: 135, dmg: 21, reward: 500 },
                 { name: "Will-o'-Wisp", hp: 90, dmg: 19, reward: 400 }
             ]
+        },
+        // The hardest region in the game - only reachable once every Guardian's quest
+        // line is finished (see checkFrozenDeathUnlock()). No settlementKey: there's no
+        // leader here to talk to, just the Hollow King's raid encounter (see
+        // showRegionHub()'s frozenDeath special-case and selectRaidBossTier('hollowKing')).
+        'frozenDeath': {
+            name: "The Frozen Death",
+            bg: "radial-gradient(circle at 50% 30%, #001428 0%, #000004 85%)",
+            color: "#66eeff",
+            animClass: "",
+            icon: "💀",
+            music: "villain",
+            settlementKey: null,
+            monsters: [
+                { name: "Frozen Revenant", hp: 280, dmg: 34, reward: 1000, armorPen: 0.25 },
+                { name: "Hollow Wraith", hp: 320, dmg: 38, reward: 1250, armorPen: 0.3 },
+                { name: "Rimebound Colossus", hp: 400, dmg: 46, reward: 1600, armorPen: 0.3 }
+            ]
         }
     };
 
@@ -2110,6 +2128,41 @@
             reward: { funds: 250, reputation: { viking: 15 } },
             completeText: "\"Blood spilled in a fair fight. Now THAT I respect.\" Bjargaöldum claps a heavy hand on your shoulder - then frowns at the creature now standing loyally beside you, like he almost recognized something in the way it flinched when it crossed into this world."
         },
+
+        // --- Jarl Bjargaöldum's regional quest line (Fjord) ---
+        vk_ward_patrol: {
+            id: 'vk_ward_patrol', giver: 'viking', name: "The Ward-Patrol",
+            desc: "Bjargaöldum wants you walking the Fjord's edges the way his own warriors do, not just passing through. Put down 3 threats prowling near the ward.",
+            checkComplete: (g) => ((g.stats.regionKills && g.stats.regionKills['fjord']) || 0) >= 3,
+            onComplete: null,
+            reward: { funds: 120, reputation: { viking: 8 } },
+            completeText: "\"Good. A ward means nothing if no one's walking it.\" Bjargaöldum nods once, the closest thing to praise he hands out freely."
+        },
+        vk_iron_debt: {
+            id: 'vk_iron_debt', giver: 'viking', name: "A Debt in Iron",
+            desc: "The Shieldwall's gear wants for good ore. Bring Bjargaöldum 3 Copper Ore from the mines.",
+            checkComplete: (g) => (g.inventory.filter(i => i === 'Copper Ore').length) >= 3,
+            onComplete: (g) => { let n = 3; g.inventory = g.inventory.filter(i => { if (n > 0 && i === 'Copper Ore') { n--; return false; } return true; }); },
+            reward: { funds: 150, reputation: { viking: 10 } },
+            completeText: "Bjargaöldum turns the ore over in his palm, weighing it like he weighs everything. \"Honest work, honestly paid for. The forge will remember this.\""
+        },
+        vk_roster_muster: {
+            id: 'vk_roster_muster', giver: 'viking', name: "Muster the Line",
+            desc: "A shield-line is only as strong as the hands holding it. Bjargaöldum wants to see your roster actually growing - bring it to 5 members.",
+            checkComplete: (g) => (g.staff || []).length >= 5,
+            onComplete: null,
+            reward: { funds: 100, reputation: { viking: 12 } },
+            completeText: "\"Five now. A line, not just a stray or two.\" Bjargaöldum eyes each of your creatures in turn, sizing them up like recruits."
+        },
+        vk_blood_oath: {
+            id: 'vk_blood_oath', giver: 'viking', name: "Blood Oath",
+            desc: "Bjargaöldum wants your steel proven past the first test. Defeat a total of 3 raid bosses out in the multiverse.",
+            checkComplete: (g) => (g.stats.totalRaidKills || 0) >= 3,
+            onComplete: null,
+            reward: { funds: 200, reputation: { viking: 15 } },
+            completeText: "\"Three now, not one.\" Bjargaöldum sets a heavy hand on your shoulder, and for once his gaze drifts back to the sea without the usual unease - just watchfulness. \"Whatever's coming, outlander, I'd sooner it find us ready.\""
+        },
+
         ok_gather: {
             id: 'ok_gather', giver: 'oakhaven', name: "A Gesture of Goodwill",
             desc: "Elder Maeve asks for proof you respect the land - harvest 5 crops from your own farm.",
@@ -2118,6 +2171,41 @@
             reward: { funds: 150, reputation: { oakhaven: 10 } },
             completeText: "\"Good hands and good patience. The canopy remembers kindness.\" Elder Maeve smiles warmly, though it falters when she glances toward the tree line, where the leaves have gone quiet in a way that has nothing to do with the wind."
         },
+
+        // --- Elder Maeve's regional quest line (Whispering Forest) ---
+        ok_canopy_watch: {
+            id: 'ok_canopy_watch', giver: 'oakhaven', name: "Canopy Watch",
+            desc: "Something's been unsettling the forest floor. Elder Maeve asks you to clear 3 threats from beneath the canopy.",
+            checkComplete: (g) => ((g.stats.regionKills && g.stats.regionKills['forest']) || 0) >= 3,
+            onComplete: null,
+            reward: { funds: 120, reputation: { oakhaven: 8 } },
+            completeText: "\"The leaves settle easier already.\" Elder Maeve presses a palm to the nearest trunk, listening to something you can't hear."
+        },
+        ok_herb_delivery: {
+            id: 'ok_herb_delivery', giver: 'oakhaven', name: "A Fuller Basket",
+            desc: "Elder Maeve's stores are running thin. Forage and bring her 4 herbs from the forest floor.",
+            checkComplete: (g) => (g.inventory.filter(i => ['Moonleaf Sprig', 'Silverroot', 'Dew Blossom', 'Bitter Fen Moss'].includes(i)).length) >= 4,
+            onComplete: (g) => { let n = 4; g.inventory = g.inventory.filter(i => { if (n > 0 && ['Moonleaf Sprig', 'Silverroot', 'Dew Blossom', 'Bitter Fen Moss'].includes(i)) { n--; return false; } return true; }); },
+            reward: { funds: 100, reputation: { oakhaven: 10 } },
+            completeText: "Elder Maeve sorts the herbs by feel alone, humming approval at each one. \"You've a gentle enough hand for this work, child.\""
+        },
+        ok_greenhouse_bond: {
+            id: 'ok_greenhouse_bond', giver: 'oakhaven', name: "Roots and Rootstock",
+            desc: "Elder Maeve wants to see your own greenhouse thriving, not just visited once. Harvest a total of 15 crops.",
+            checkComplete: (g) => (g.stats.totalHarvests || 0) >= 15,
+            onComplete: null,
+            reward: { funds: 150, reputation: { oakhaven: 12 } },
+            completeText: "\"Patient hands, patient soil. You're learning to listen to it.\" Her twig crown dips in something close to real approval."
+        },
+        ok_old_bloodlines: {
+            id: 'ok_old_bloodlines', giver: 'oakhaven', name: "What the Roots Remember",
+            desc: "Elder Maeve trusts you enough now to speak plainly about the old bloodlines watching the forest. Earn her people's trust - reach 40 reputation with Oakhaven.",
+            checkComplete: (g) => (g.reputation.oakhaven || 0) >= 40,
+            onComplete: null,
+            reward: { funds: 200, reputation: { oakhaven: 15 } },
+            completeText: "\"You've more than earned the telling, child.\" For a moment Elder Maeve's easy warmth gives way to something older and wearier. \"The roots have kept a promise longer than anyone living. I only hope it holds a while longer yet.\""
+        },
+
         ds_trade: {
             id: 'ds_trade', giver: 'duneSpire', name: "A Trader's Word",
             desc: "Sultan Tariq wants proof you understand commerce - list 2 items on the Global Market.",
@@ -2126,6 +2214,41 @@
             reward: { funds: 150, reputation: { duneSpire: 10 } },
             completeText: "\"Hah! A trader's instinct after all. Perhaps you're worth my caravans' protection, outlander.\" He turns one of your traded goods over in his hand, and for just a moment his smile tightens - it's warm to the touch, like it spent longer near a portal than it should have."
         },
+
+        // --- Sultan Tariq's regional quest line (Sunscorched Desert) ---
+        ds_caravan_guard: {
+            id: 'ds_caravan_guard', giver: 'duneSpire', name: "Caravan Guard",
+            desc: "Tariq's caravans have been losing time to trouble on the dunes. Clear 3 threats from the desert roads.",
+            checkComplete: (g) => ((g.stats.regionKills && g.stats.regionKills['desert']) || 0) >= 3,
+            onComplete: null,
+            reward: { funds: 120, reputation: { duneSpire: 8 } },
+            completeText: "\"My caravans move faster with fewer things trying to eat them. I approve.\" Tariq doesn't look up from his ledger, but he's smiling."
+        },
+        ds_market_expansion: {
+            id: 'ds_market_expansion', giver: 'duneSpire', name: "Expand the Ledger",
+            desc: "Sultan Tariq wants to see your trading habit wasn't a one-time trick. List 3 more items on the Global Market (5 total).",
+            checkComplete: (g) => (g.stats.totalMarketListings || 0) >= 5,
+            onComplete: null,
+            reward: { funds: 150, reputation: { duneSpire: 10 } },
+            completeText: "\"Now THAT is a ledger I can respect.\" Tariq taps the numbers with something almost like pride, as if they were partly his own doing."
+        },
+        ds_bazaar_favor: {
+            id: 'ds_bazaar_favor', giver: 'duneSpire', name: "A Bazaar's Favor",
+            desc: "Tariq's people talk, and lately they're talking about you. Earn his trust properly - reach 30 reputation with Dune-Spire.",
+            checkComplete: (g) => (g.reputation.duneSpire || 0) >= 30,
+            onComplete: null,
+            reward: { funds: 100, reputation: { duneSpire: 12 } },
+            completeText: "\"My people don't warm to outlanders easily. You've managed it anyway.\" Tariq inclines his head - a real gesture, not the showman's flourish he usually gives."
+        },
+        ds_golden_ledger: {
+            id: 'ds_golden_ledger', giver: 'duneSpire', name: "The Golden Ledger",
+            desc: "Tariq wants proof you can hold onto wealth, not just move it. Have $5,000 in hand at once.",
+            checkComplete: (g) => g.funds >= 5000,
+            onComplete: null,
+            reward: { funds: 250, reputation: { duneSpire: 15 } },
+            completeText: "\"Five thousand, held and not spent. That's discipline, outlander - rarer than gold itself out here.\" For once, Tariq's smirk looks almost sincere."
+        },
+
         fp_forge: {
             id: 'fp_forge', giver: 'forgePeak', name: "Tempered Discipline",
             desc: "High Smith Varek wants to see discipline, not luck - train a roster member 3 times.",
@@ -2134,6 +2257,41 @@
             reward: { funds: 150, reputation: { forgePeak: 10 } },
             completeText: "\"Discipline. That's how steel is made - and how trainers are, too.\" Varek's hammer doesn't pause once - though the runes lining his anvil flare a half-shade brighter with every new face in your roster, and he's the only one who doesn't seem to notice."
         },
+
+        // --- High Smith Varek's regional quest line (Obsidian Volcano) ---
+        fp_ember_watch: {
+            id: 'fp_ember_watch', giver: 'forgePeak', name: "Ember Watch",
+            desc: "The volcano's slopes have grown restless. Varek wants 3 threats cleared before they reach the forge.",
+            checkComplete: (g) => ((g.stats.regionKills && g.stats.regionKills['volcano']) || 0) >= 3,
+            onComplete: null,
+            reward: { funds: 120, reputation: { forgePeak: 8 } },
+            completeText: "\"Fewer things clawing at my walls. Good.\" Varek doesn't break stride at his anvil, but he says it like he means it."
+        },
+        fp_rune_commission: {
+            id: 'fp_rune_commission', giver: 'forgePeak', name: "A Second Commission",
+            desc: "Varek trusts steady custom more than a single job. Earn his confidence properly - reach 25 reputation with Forge-Peak.",
+            checkComplete: (g) => (g.reputation.forgePeak || 0) >= 25,
+            onComplete: null,
+            reward: { funds: 150, reputation: { forgePeak: 10 } },
+            completeText: "\"Steady hands, steady custom. That's how you earn a smith's trust.\" Varek finally sets his hammer down long enough to look at you properly."
+        },
+        fp_deep_ore: {
+            id: 'fp_deep_ore', giver: 'forgePeak', name: "Ore From the Deep",
+            desc: "The forge is hungry. Bring Varek 5 Copper Ore from the mines.",
+            checkComplete: (g) => (g.inventory.filter(i => i === 'Copper Ore').length) >= 5,
+            onComplete: (g) => { let n = 5; g.inventory = g.inventory.filter(i => { if (n > 0 && i === 'Copper Ore') { n--; return false; } return true; }); },
+            reward: { funds: 150, reputation: { forgePeak: 12 } },
+            completeText: "Varek weighs the ore in one hand, already sorting it by feel. \"Honest ore, honestly earned. The forge sings a little truer with this.\""
+        },
+        fp_tempered_line: {
+            id: 'fp_tempered_line', giver: 'forgePeak', name: "A Tempered Line",
+            desc: "Varek wants your whole roster forge-ready, not just one favorite. Train your roster a total of 9 times.",
+            checkComplete: (g) => (g.stats.totalTrainingSessions || 0) >= 9,
+            onComplete: null,
+            reward: { funds: 200, reputation: { forgePeak: 15 } },
+            completeText: "\"Now that's a line I'd trust my own name to.\" Varek studies your roster like a smith studies a finished blade - checking for the one flaw that isn't there."
+        },
+
         mv_relic: {
             id: 'mv_relic', giver: 'mistVeil', name: "A Kindred Spark",
             desc: "Lady Vespera senses something rare in your future - catch a shiny character.",
@@ -2152,6 +2310,35 @@
             onComplete: () => { setStoryFlag('act1_complete'); },
             reward: { funds: 200, reputation: { mistVeil: 15 } },
             completeText: "The wisps around Vespera's staff pull taut, hold, then settle. \"There. Steadier, for now.\" She lowers her staff, and for once her voice carries something like relief. \"What you felt was no accident, outlander. Long ago, five wardens sealed something that should never wake - the Hollow King. My order has watched his prison since before this Hollow had a name, and I can feel the seal thinning - not just here, but everywhere it was ever set. You should hear this from Bjargaöldum too. His people were sworn to the same old promise, whether he still says the words or not. Go to the Fjord. Tell him what you told me.\""
+        },
+
+        // --- Lady Vespera's regional quest line (Mist-Veil Hollow), between Act I and the Act III convergence ---
+        mv_wisp_ward: {
+            id: 'mv_wisp_ward', giver: 'mistVeil', name: "Wisps at the Wayside",
+            requiresFlag: 'act1_complete',
+            desc: "The Hollow's wisps have grown skittish since the seal-warning. Vespera asks you to clear 3 threats from the bog.",
+            checkComplete: (g) => ((g.stats.regionKills && g.stats.regionKills['bog']) || 0) >= 3,
+            onComplete: null,
+            reward: { funds: 120, reputation: { mistVeil: 8 } },
+            completeText: "\"The wisps settle when the Hollow feels safer. Small mercies.\" Vespera's blindfolded gaze turns toward you all the same, as if she felt exactly where each threat fell."
+        },
+        mv_second_sight: {
+            id: 'mv_second_sight', giver: 'mistVeil', name: "A Deeper Rite",
+            requiresFlag: 'act1_complete',
+            desc: "One rite steadied the seal. Vespera wants it steadier still - consult the spirits with her 3 more times (6 total).",
+            checkComplete: (g) => (g.stats.totalSpiritConsultations || 0) >= 6,
+            onComplete: null,
+            reward: { funds: 150, reputation: { mistVeil: 12 } },
+            completeText: "The wisps circle tighter this time, longer, before settling. \"Deeper than before. Good.\" Vespera exhales like she's been holding her breath since the last rite."
+        },
+        mv_shiny_omen: {
+            id: 'mv_shiny_omen', giver: 'mistVeil', name: "An Omen in the Wisps",
+            requiresFlag: 'act1_complete',
+            desc: "Vespera senses more sparks like the first one gathering close to you. Catch 2 more shiny characters (3 total).",
+            checkComplete: (g) => (g.stats.totalShinyCatches || 0) >= 3,
+            onComplete: null,
+            reward: { funds: 200, reputation: { mistVeil: 15 } },
+            completeText: "\"Three now. That's no longer coincidence, outlander.\" Vespera's wisps draw unusually close around you, restless. \"Something is drawn to you the way it's drawn to the seal. I don't yet know if that's fortunate or very much the opposite.\""
         },
 
         // --- MAIN STORY: "The Hollow King", Act II ---
@@ -2266,6 +2453,7 @@
         showGameAlert(`✅ Quest Complete: ${q.name}\n\n${completeText}`);
         checkVikingHomesteadUnlock();
         checkAct3Convergence();
+        checkFrozenDeathUnlock();
         // NOTE: deliberately NOT checking the Hollow King campaign unlock here - that
         // event is only allowed to fire from a Nexus Terminal sync (checkDailyReset),
         // never immediately off the back of a quest turn-in. See checkHollowKingCampaignUnlock().
@@ -2279,6 +2467,25 @@
         if (hasStoryFlag('act3_ready')) return;
         if (isQuestCompleted('hk_oakhaven_incursion') && isQuestCompleted('hk_dunespire_incursion') && isQuestCompleted('hk_forgepeak_incursion')) {
             setStoryFlag('act3_ready');
+        }
+    }
+
+    // Every non-starter quest across all 5 Guardians - 5 per leader, 25 total. Once every
+    // one of these is turned in, the Frozen Death unlocks: the hardest region in the
+    // game, and the only place the Hollow King himself can be challenged as a raid boss.
+    const GUARDIAN_STORY_QUEST_IDS = [
+        'vk_ward_patrol', 'vk_iron_debt', 'vk_roster_muster', 'vk_blood_oath', 'hk_fjord_incursion',
+        'ok_canopy_watch', 'ok_herb_delivery', 'ok_greenhouse_bond', 'ok_old_bloodlines', 'hk_oakhaven_incursion',
+        'ds_caravan_guard', 'ds_market_expansion', 'ds_bazaar_favor', 'ds_golden_ledger', 'hk_dunespire_incursion',
+        'fp_ember_watch', 'fp_rune_commission', 'fp_deep_ore', 'fp_tempered_line', 'hk_forgepeak_incursion',
+        'mv_wisp_ward', 'mv_second_sight', 'mv_shiny_omen', 'hk_vespera_warning', 'hk_convergence'
+    ];
+    function checkFrozenDeathUnlock() {
+        if (hasStoryFlag('frozen_death_unlocked')) return;
+        if (GUARDIAN_STORY_QUEST_IDS.every(id => isQuestCompleted(id))) {
+            setStoryFlag('frozen_death_unlocked');
+            saveGame(); updateUI();
+            showGameAlert("🥶 THE SEALS ARE SILENT\n\nAll five Guardians stand secure - every ward held, every debt repaid. And yet, in the meeting room, the old maps have started showing something none of you charted: a bleeding-cold expanse at the edge of every settlement's reckoning, a place the Sealstones themselves seem to fear.\n\nThe Frozen Death has opened on the World Map. Whatever the Ashbound were testing you for, this is where it was always leading. The Hollow King is waiting.");
         }
     }
 
@@ -3403,7 +3610,11 @@
             showMainMenu();
         } else {
             game = defaultGameState();
-            showHollowKingTrailer();
+            // The Hollow King cinematic used to cold-open every new save, before the
+            // player had even met the Professor or picked a starter. It's a mid-game
+            // reveal now - it plays the first time the Meeting Room unlocks instead
+            // (see showMeetingRoom() / finishHollowKingTrailer()).
+            showProfessorDialogue1();
         }
     }
 
@@ -3692,6 +3903,7 @@
             { text: "🎒 Inventory & Gear", class: "btn btn-gear", action: showInventoryMenu },
             { text: "🏠 Home & Decor", class: "btn btn-sys", action: showHomeDecorMenu },
             { text: "🔬 Professor's Lab", class: "btn btn-sys", action: showProfessorLab },
+            ...(hasStoryFlag('act1_complete') ? [{ text: "🏛️ Meeting Room", class: "btn btn-villain", action: showMeetingRoom }] : []),
             { text: "🌱 Greenhouse Farm", class: "btn btn-farm", action: showFarmMenu },
             { text: "💪 Training Grounds", class: "btn btn-combat", action: showTrainingGroundsMenu },
             { text: "⚔️ Staff Roster", class: "btn btn-maid", action: showStaffMenu },
@@ -6137,6 +6349,7 @@
         renderButtons([
             { text: "🐉 Void Titan Chronos (Lv. 50)", class: "btn btn-raid", action: () => selectRaidBossTier('titan') },
             { text: "🐲 Shadow Dragon Netherfang (Lv. 90)", class: "btn btn-raid", action: () => selectRaidBossTier('dragon') },
+            ...(hasStoryFlag('frozen_death_unlocked') ? [{ text: "👑 The Hollow King (Lv. 150)", class: "btn btn-raid", action: () => selectRaidBossTier('hollowKing') }] : []),
             { text: "⬅ Back to Lobby", class: "btn btn-back", action: renderActiveLobbyView }
         ]);
     }
@@ -6574,6 +6787,7 @@
             { text: "🌋 Obsidian Volcano", class: "btn btn-combat", action: () => selectRegion('volcano') },
             { text: "🪓 Nordic Fjord", class: "btn btn-sys", action: () => selectRegion('fjord') },
             { text: "👻 Mist-Veil Hollow", class: "btn btn-goth", action: () => selectRegion('bog') },
+            ...(hasStoryFlag('frozen_death_unlocked') ? [{ text: "💀 The Frozen Death", class: "btn btn-villain", action: () => selectRegion('frozenDeath') }] : []),
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
@@ -6624,6 +6838,9 @@
         if (npc) {
             btns.push({ text: `💬 Talk to ${npc.name.split(' ').slice(-1)[0]}`, class: "btn btn-maid", action: () => openDialogue(reg.settlementKey) });
             btns = btns.concat(getSettlementActionButtons(reg.settlementKey));
+        }
+        if (regionKey === 'frozenDeath') {
+            btns.push({ text: "👑 Face the Hollow King (Co-Op Raid)", class: "btn btn-raid", action: () => selectRaidBossTier('hollowKing') });
         }
         btns.push({ text: "⚔️ Hunt Regional Monster", class: "btn btn-combat", action: () => startRegionalMonsterEncounter(regionKey) });
         btns.push({ text: "🗺️ Switch Region", class: "btn btn-map", action: showWorldMap });
@@ -6825,6 +7042,15 @@
         let s = activeCombatSession;
         game.funds += (s.rewardCash || 500);
         tickLikenessForFighters((s.party || []).map(p => p.uid).filter(Boolean));
+        // Per-region kill tally - powers the Guardians' regional "hunt N threats" quest
+        // steps (see QUEST_DEFS) without needing a bespoke counter wired into every
+        // combat entry point individually. Covers both regular regional monsters and
+        // named story bosses fought in that region, which is fine - either way it only
+        // helps a quest along.
+        if (s.regionKey) {
+            if (!game.stats.regionKills) game.stats.regionKills = {};
+            game.stats.regionKills[s.regionKey] = (game.stats.regionKills[s.regionKey] || 0) + 1;
+        }
         // Story boss fights (tagged with storyFlagOnWin) set their flag here and route
         // back to the leader who sent you instead of HQ/a wild encounter - everything
         // else about a normal fight's win screen is untouched.
@@ -6974,6 +7200,10 @@
     // never see this - it's a "previously on..." style cold open for a fresh story,
     // not a splash screen that gets in the way every session.
     let hollowKingTrailerResolved = true;
+    // Where the trailer hands off once it finishes - 'meetingRoom' is the only mode that
+    // actually fires it anymore (see showMeetingRoom()); 'intro' is kept only as a safe
+    // fallback in case something still calls showHollowKingTrailer() directly.
+    let hollowKingTrailerMode = 'meetingRoom';
 
     function hollowKingTrailerKeyHandler(e) {
         if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter') finishHollowKingTrailer();
@@ -6998,7 +7228,54 @@
                 if (vid) { vid.currentTime = 0; }
             }, 700);
         }
-        showProfessorDialogue1();
+        if (hollowKingTrailerMode === 'intro') {
+            showProfessorDialogue1();
+        } else {
+            renderMeetingRoomScreen();
+        }
+    }
+
+    // --- THE MEETING ROOM ---
+    // Unlocked the moment Act I completes (Vespera's seal-warning quest, hk_vespera_warning,
+    // sets act1_complete) - a shared table where all 5 Guardians' rapport with the player
+    // converges. First entry plays the Hollow King cinematic (previously a cold-open before
+    // the player had even picked a starter); every entry after that goes straight to the
+    // room itself. Once every Guardian quest line is finished, this is also where the
+    // Frozen Death's location is revealed (see checkFrozenDeathUnlock()).
+    function showMeetingRoom() {
+        if (!hasStoryFlag('act1_complete')) { showMainMenu(); return; }
+        if (!hasStoryFlag('hollow_king_trailer_seen')) {
+            setStoryFlag('hollow_king_trailer_seen');
+            saveGame();
+            hollowKingTrailerMode = 'meetingRoom';
+            showHollowKingTrailer();
+            return;
+        }
+        renderMeetingRoomScreen();
+    }
+
+    function renderMeetingRoomScreen() {
+        playBGM('villain');
+        clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #1a1508 0%, #05040a 85%)", "#ffd700");
+        let doneCount = GUARDIAN_STORY_QUEST_IDS.filter(id => isQuestCompleted(id)).length;
+        let totalCount = GUARDIAN_STORY_QUEST_IDS.length;
+        let unlocked = hasStoryFlag('frozen_death_unlocked');
+        let rows = REGIONAL_HUB_KEYS.map(k => {
+            let npc = NPC_LEADERS[k];
+            let rep = (game.reputation && game.reputation[k]) || 0;
+            return `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:12px; color:${npc.accentColor};">${npc.name}</span>
+                <span style="font-size:11px; color:#ffd700;">⭐ ${rep}</span>
+            </div>`;
+        }).join('');
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#ffd700; font-size:18px;">🏛️ THE MEETING ROOM</h2>
+            <p style="color:#aaa; font-size:12px; max-width:380px;">A long table sits at the center of neutral ground, one seat marked for each Guardian - and one left conspicuously empty, no one quite willing to say for whom. Every ward's fate has led here.</p>
+            <p style="color:#fff; font-size:12px; margin-top:6px;">📜 Guardian quest lines complete: <strong style="color:#ffd700;">${doneCount} / ${totalCount}</strong></p>
+            <div style="width:98%; max-width:380px; margin:8px 0;">${rows}</div>
+            ${unlocked ? `<p style="color:#66eeff; font-size:12px; max-width:380px;">🥶 The Frozen Death has opened on the World Map. The Hollow King is waiting there.</p>` : `<p style="color:#666; font-size:11.5px; max-width:380px;">Finish every Guardian's quest line to learn what waits beyond the wards.</p>`}
+        `;
+        renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
     }
 
     function showHollowKingTrailer() {
