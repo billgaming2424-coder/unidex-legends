@@ -1642,8 +1642,9 @@
         // 'legendary' above); the ONLY way to get one is the Lucky Wheel's guaranteed daily
         // jackpot via getFeaturedWheelCharacter(), which rotates which one is "featured"
         // once per real day. Still show up (locked) in the UniDex like any other entry.
+        // (Alfred Pennyworth is NOT in this pool - he's not a catchable companion, he's the
+        // talkable butler NPC running the Home Decor/Suite screen, see showHomeDecorMenu().)
         'wheelExclusive': [
-            { name: "Alfred Pennyworth", origin: "Wayne Manor, Gotham City", type: "Steel", id: 10601 },
             { name: "Lady Fortuna", origin: "The Wheel Between Worlds", type: "Fairy", id: 10602 },
             { name: "Jackpot Jax", origin: "The Multiverse Casino", type: "Electric", id: 10603 }
         ]
@@ -4178,13 +4179,29 @@
         { tier: 5, name: "Chase Studios Founder's Estate", upgradeCost: 50000 }
     ];
 
+    // Alfred Pennyworth - not a catchable companion, just the talkable butler NPC who
+    // runs the player's estate, same pattern as Doug/Don's shopkeeper dialogue below.
+    // {PLAYER} is swapped for the current game.playerName at render time (not baked in
+    // here as a const, since the player's name isn't chosen yet when this array loads).
+    const ALFRED_QUOTES = [
+        `"Good to see you again, Master {PLAYER}. The estate is, as ever, in need of your attention - and your funds."`,
+        `*Straightens a cufflink* "One does try to keep the place presentable across however many timelines you've dragged it through this week, sir."`,
+        `"I've taken the liberty of dusting. The multiverse is many things - tidy is rarely one of them."`,
+        `*Raises an eyebrow* "Another upgrade, sir? At this rate we shall need a butler for the butler."`,
+        `"Might I suggest the Founder's Statue? Every respectable manor needs at least one likeness of its owner staring back at them."`
+    ];
+
     function showHomeDecorMenu() {
         playBGM('hq');
         clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #173b5c 0%, #0a141e 80%)", "#33aaff", SCENE_IMAGES.home);
         let decor = game.homeDecor || defaultGameState().homeDecor;
         let nextTier = HOME_TIER_CATALOG[decor.tier + 1];
+        let alfredQuote = ALFRED_QUOTES[Math.floor(Math.random() * ALFRED_QUOTES.length)].replace('{PLAYER}', game.playerName || 'Bruce');
         document.getElementById("console").innerHTML = `
+            ${portrait("/pictures/alfred.jpg", "Alfred Pennyworth", 120)}
             <h2 style="color: #33aaff; font-size:18px;">🏠 HOME DECOR & SUITE UPGRADE</h2>
+            <p style="color:#aaa; font-size:11.5px;">🎩 <strong style="color:#33aaff;">Alfred Pennyworth</strong>, your ever-patient butler</p>
+            <p style="color: #ccc; font-size:12px; max-width:380px; font-style:italic;">${alfredQuote}</p>
             <div class="dex-card" style="display:block; font-size:12px;">
                 🏠 Current Suite: <strong style="color:#00ffff;">${decor.name} (Tier ${decor.tier})</strong><br>
                 🎨 Installed Decor (${decor.items.length}/${HOME_DECOR_CATALOG.length}): <span style="color:#ff00ff;">${decor.items.join(", ") || "None"}</span>
