@@ -13,6 +13,9 @@ app.use(express.json());
 
 const onlineUsers = new Map();
 const rooms = new Map();
+// roomId -> { membersOnly: boolean } - set once, at room creation, from the creator's
+// VIP-toggle choice; never changes for that room's lifetime. Cleared when the room empties.
+const roomMeta = new Map();
 const globalChatHistory = [];
 const pvpBattles = new Map();
 const pendingPvpChallenges = new Map(); // key `${challengerId}_${targetId}` -> { challengerName, party }
@@ -425,8 +428,10 @@ function removeFromRoom(socketId, roomId) {
         rooms.set(roomId, roomList);
     } else {
         rooms.delete(roomId);
+        roomMeta.delete(roomId);
     }
-    io.to(roomId).emit('roomUpdate', { roomId, players: roomList });
+    const meta = roomMeta.get(roomId) || { membersOnly: false };
+    io.to(roomId).emit('roomUpdate', { roomId, players: roomList, membersOnly: meta.membersOnly });
 }
 
 io.on('connection', (socket) => {
@@ -493,6 +498,10 @@ io.on('connection', (socket) => {
     socket.on('joinRandomRoom', ({ player }) => {
         let selectedRoom = null;
         for (const [rId, pList] of rooms.entries()) {
+            // Never route random matchmaking into a VIP Members-Only room - those are only
+            // reachable by a member typing the exact room code.
+            const meta = roomMeta.get(rId) || { membersOnly: false };
+            if (meta.membersOnly) continue;
             if (pList.length > 0 && pList.length < 4 && rId !== socket.currentRoom) {
                 selectedRoom = rId;
                 break;
@@ -504,7 +513,19 @@ io.on('connection', (socket) => {
         socket.emit('assignedRandomRoom', selectedRoom);
     });
 
-    socket.on('joinRoom', ({ roomId, player }) => {
+    socket.on('joinRoom', ({ roomId, player, membersOnly }) => {
+        // A brand-new room gets its privacy locked in from the creator's toggle; an
+        // already-existing room keeps whatever it was created with regardless of what a
+        // later joiner's client happens to send.
+        const isNewRoom = !rooms.has(roomId);
+        if (isNewRoom) roomMeta.set(roomId, { membersOnly: !!membersOnly });
+        const meta = roomMeta.get(roomId) || { membersOnly: false };
+
+        if (meta.membersOnly && !(player && player.isMember)) {
+            socket.emit('roomJoinDenied', "🔒 That room is VIP Members-Only - grab a Casino Membership to join.");
+            return;
+        }
+
         if (socket.currentRoom && socket.currentRoom !== roomId) {
             socket.leave(socket.currentRoom);
             removeFromRoom(socket.id, socket.currentRoom);
@@ -520,7 +541,7 @@ io.on('connection', (socket) => {
         if (existingIdx !== -1) roomList[existingIdx] = playerData;
         else roomList.push(playerData);
 
-        io.to(roomId).emit('roomUpdate', { roomId, players: roomList });
+        io.to(roomId).emit('roomUpdate', { roomId, players: roomList, membersOnly: meta.membersOnly });
         broadcastAdminStats();
     });
 

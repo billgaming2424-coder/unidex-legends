@@ -1253,6 +1253,7 @@
     </svg>`;
     let currentRoomId = null;
     let onlineRoomPlayers = [];
+    let currentRoomMembersOnly = false;
     let globalActiveTrainers = [];
     let currentTradePartners = [];
     let currentIncomingChoiceList = [];
@@ -1615,6 +1616,16 @@
         // in the UniDex list like any other entry.
         'legendary': [
             { name: "Nullex, the Beta Wyrm", origin: "Unfinished Timeline", type: "Dragon", id: 9900, power: 88 }
+        ],
+        // Wheel-exclusive characters - GTA Online "podium vehicle" style. Never appear in
+        // wild encounters or portal pulls (excluded in getWheelCompanionPool() same as
+        // 'legendary' above); the ONLY way to get one is the Lucky Wheel's guaranteed daily
+        // jackpot via getFeaturedWheelCharacter(), which rotates which one is "featured"
+        // once per real day. Still show up (locked) in the UniDex like any other entry.
+        'wheelExclusive': [
+            { name: "Alfred Pennyworth", origin: "Wayne Manor, Gotham City", type: "Steel", id: 10601 },
+            { name: "Lady Fortuna", origin: "The Wheel Between Worlds", type: "Fairy", id: 10602 },
+            { name: "Jackpot Jax", origin: "The Multiverse Casino", type: "Electric", id: 10603 }
         ]
     };
 
@@ -1835,6 +1846,7 @@
             inventory: ["Pokéball", "Pokéball", "Pokéball", "Copper Ore", "Diamond"],
             staff: [], partyUids: [], championUid: null, pokedex: {}, specialDex: {}, dlcUnlocked: false, redeemedCodes: [],
             achievements: {}, unlockedCostumes: [], freeSpins: 0,
+            casinoMembership: false, lastWheelSpinDateStr: '', dailyWheelSpinsUsed: 0,
             currentDailyEvent: { name: "Calm Multiverse", desc: "A peaceful day across timelines." },
             homeDecor: { tier: 1, name: "Standard Suite", items: [] },
             farm: {
@@ -1922,6 +1934,9 @@
         if (!Array.isArray(game.dailyQuests)) game.dailyQuests = [];
         if (typeof game.loginStreak !== 'number') game.loginStreak = 1;
         if (typeof game.lastLoginDateStr !== 'string') game.lastLoginDateStr = '';
+        if (typeof game.casinoMembership !== 'boolean') game.casinoMembership = false;
+        if (typeof game.lastWheelSpinDateStr !== 'string') game.lastWheelSpinDateStr = '';
+        if (typeof game.dailyWheelSpinsUsed !== 'number') game.dailyWheelSpinsUsed = 0;
     }
 
     function bumpLifetimeStat(key, amount = 1) {
@@ -2877,6 +2892,9 @@
         if (cleanName.includes('don')) {
             return `/pictures/don.png`;
         }
+        if (cleanName.includes('alfred') || cleanName.includes('pennyworth')) {
+            return `/pictures/alfred.png`;
+        }
         return `/pictures/${cleanName}.jpg`;
     }
 
@@ -3526,30 +3544,78 @@
 
     // --- CASINO & MINI-GAME DISTRICT ---
     const CASINO_BET_TIERS = [50, 100, 250, 500];
+    // Unlocked at every bet screen once game.casinoMembership is true - the "VIP casino
+    // room with higher bet tiers" membership perk.
+    const CASINO_VIP_BET_TIERS = [1000, 2500];
+    const CASINO_MEMBERSHIP_PRICE = 10000; // one-time, permanent
 
     function showCasinoMenu() {
         playBGM('casino');
+        ensureProgressionDefaults();
         clearConsole("center", "radial-gradient(circle at 50% 30%, #330022 0%, #0a000a 85%)", "#ff00aa", SCENE_IMAGES.casino);
         document.getElementById("console").innerHTML = `
             <div style="font-size:50px; margin-bottom:8px;">🎰</div>
             <h2 style="color:#ff00aa; font-size:18px;">CASINO & MINI-GAME DISTRICT</h2>
             <p style="color:#aaa; font-size:12px; max-width:360px;">Try your luck, trainer! Cash bet responsibly - the house doesn't lose forever.</p>
             <p style="color:#ffd700; font-size:12px;">💰 Funds: $${Math.floor(game.funds)}</p>
+            ${game.casinoMembership ? `<p style="color:#ff00aa; font-size:12px;">👑 VIP Casino Member</p>` : ''}
         `;
         renderButtons([
             { text: "🪙 Multiverse Coin Flip", class: "btn btn-spin", action: () => showCoinFlipScreen() },
             { text: "🃏 Aetheria Blackjack", class: "btn btn-spin", action: () => showBlackjackScreen() },
             { text: "🎡 Lucky Wheel", class: "btn btn-spin", action: showLuckyWheelScreen },
+            { text: game.casinoMembership ? "👑 VIP Membership" : "👑 Casino Membership", class: "btn btn-start", action: () => showCasinoMembershipScreen() },
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
 
     function casinoBetButtons(startFn) {
-        let buttons = CASINO_BET_TIERS.map(amt => ({
-            text: `Bet $${amt}`, class: "btn btn-combat", action: () => startFn(amt)
+        let tiers = CASINO_BET_TIERS.concat(game.casinoMembership ? CASINO_VIP_BET_TIERS : []);
+        let buttons = tiers.map(amt => ({
+            text: `Bet $${amt}${amt >= 1000 ? ' 👑' : ''}`, class: "btn btn-combat", action: () => startFn(amt)
         }));
         buttons.push({ text: "🎲 All In", class: "btn btn-combat", action: () => startFn(Math.floor(game.funds)) });
         return buttons;
+    }
+
+    // --- CASINO MEMBERSHIP (one-time, permanent VIP unlock) ---
+    function showCasinoMembershipScreen(message = "") {
+        playBGM('shop');
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #330022 0%, #0a000a 85%)", "#ff00aa", SCENE_IMAGES.casino);
+        document.getElementById("console").innerHTML = `
+            <div style="font-size:50px; margin-bottom:8px;">👑</div>
+            <h2 style="color:#ff00aa; font-size:18px;">CASINO MEMBERSHIP</h2>
+            <p style="color:#aaa; font-size:12px; max-width:360px;">A one-time, permanent VIP membership to the Multiverse Casino. Unlocks for good:</p>
+            <ul style="text-align:left; color:#00ffff; font-size:12px; max-width:340px; margin:6px auto;">
+                <li>💵 VIP high-roller bet tiers ($1000 / $2500)</li>
+                <li>🎡 A bonus extra free daily Lucky Wheel spin</li>
+                <li>👑 A VIP badge next to your name in online rooms</li>
+                <li>🔒 The ability to open private, Members-Only rooms</li>
+            </ul>
+            <p style="color:#ffd700; font-size:13px;">💰 Funds: $${Math.floor(game.funds)}</p>
+            <p style="color:#ff66cc; font-size:13px;">Price: $${CASINO_MEMBERSHIP_PRICE} - one-time, permanent</p>
+            ${message ? `<p style="font-size:12px; margin-top:6px;">${message}</p>` : ''}
+        `;
+        let buttons = [];
+        if (game.casinoMembership) {
+            buttons.push({ text: "✅ You're already a VIP Member!", class: "btn btn-spin", action: () => {} });
+        } else {
+            buttons.push({ text: `👑 Purchase Membership ($${CASINO_MEMBERSHIP_PRICE})`, class: "btn btn-start", action: purchaseCasinoMembership });
+        }
+        buttons.push({ text: "⬅ Back to Casino", class: "btn btn-back", action: showCasinoMenu });
+        renderButtons(buttons);
+    }
+
+    function purchaseCasinoMembership() {
+        if (game.casinoMembership) { showCasinoMembershipScreen(); return; }
+        if (game.funds < CASINO_MEMBERSHIP_PRICE) {
+            showCasinoMembershipScreen(`<span style="color:#ff6666;">❌ Not enough funds! You need $${CASINO_MEMBERSHIP_PRICE}.</span>`);
+            return;
+        }
+        game.funds -= CASINO_MEMBERSHIP_PRICE;
+        game.casinoMembership = true;
+        updateUI(); saveGame();
+        showCasinoMembershipScreen(`<span style="color:#55ff99;">✔ Membership activated! Welcome to the VIP floor.</span>`);
     }
 
     // --- MULTIVERSE COIN FLIP (double-or-nothing) ---
@@ -3763,7 +3829,7 @@
         { weight: 10, text: "🔷 Won a Prism Shard!", action: () => { game.inventory.push("Prism Shard"); } },
         { weight: 6, text: "🎟️ Won a Free Spin token!", action: () => { game.freeSpins = (game.freeSpins || 0) + 1; } },
         { weight: 4, text: "💵 Won a $1000 Bonus voucher!", action: () => { game.funds += 1000; } },
-        { weight: 2, text: "🌟 JACKPOT COMPANION! A new ally joined your roster!", action: () => grantRandomWheelCompanion() }
+        { weight: 2, text: "🌟 JACKPOT! Today's exclusive companion joined your roster!", action: () => grantFeaturedWheelCompanion() }
     ];
 
     function pickWeightedWheelPrize() {
@@ -3776,56 +3842,108 @@
         return WHEEL_PRIZES[0];
     }
 
-    // Pool for wheel "companion" jackpot pulls - every portal pool except the Mystery-Gift-only legendary one.
+    // Pool for wheel "companion" jackpot pulls - every portal pool except the Mystery-Gift-only
+    // legendary one AND the wheel-exclusive one (that pool is ONLY reachable through
+    // grantFeaturedWheelCompanion() below, guaranteed rather than randomly rolled).
     function getWheelCompanionPool() {
         let pool = [];
         Object.keys(PORTAL_CHAR_POOLS).forEach(key => {
-            if (key === 'legendary') return;
+            if (key === 'legendary' || key === 'wheelExclusive') return;
             pool = pool.concat(PORTAL_CHAR_POOLS[key]);
         });
         return pool;
     }
 
-    function grantRandomWheelCompanion() {
-        let pool = getWheelCompanionPool();
-        if (!pool.length) return "";
-        let chosen = pool[Math.floor(Math.random() * pool.length)];
+    // Deterministic pick of today's featured Lucky Wheel jackpot character - same
+    // hash-into-pool-index pattern as getEvolvedName(), keyed off the UTC calendar day so
+    // every player sees the same featured character today, and it rotates to a different
+    // one tomorrow (GTA Online "podium vehicle" style).
+    function getFeaturedWheelCharacter() {
+        let pool = PORTAL_CHAR_POOLS.wheelExclusive;
+        if (!pool || !pool.length) return null;
+        let todayStr = new Date().toISOString().slice(0, 10);
+        let hash = 0;
+        for (let i = 0; i < todayStr.length; i++) hash = (hash * 31 + todayStr.charCodeAt(i)) >>> 0;
+        return pool[hash % pool.length];
+    }
+
+    function grantFeaturedWheelCompanion() {
+        let chosen = getFeaturedWheelCharacter();
+        if (!chosen) return "";
         addStaffMember({ name: chosen.name, power: chosen.power || rollEncounterPower(), origin: chosen.origin, dexId: chosen.id });
         recordDex(chosen.id, false);
         return chosen.name;
     }
 
+    // --- Daily wheel-spin allowance: 1/day normally, 2/day for VIP Casino Members.
+    // game.freeSpins (won-from-the-wheel bonus tokens) stacks on TOP of this and never expires.
+    function getDailyWheelSpinsAllowed() {
+        return game.casinoMembership ? 2 : 1;
+    }
+
+    function getDailyWheelSpinsRemaining() {
+        ensureProgressionDefaults();
+        let todayStr = new Date().toISOString().slice(0, 10);
+        let usedToday = (game.lastWheelSpinDateStr === todayStr) ? (game.dailyWheelSpinsUsed || 0) : 0;
+        return Math.max(0, getDailyWheelSpinsAllowed() - usedToday);
+    }
+
+    function useDailyWheelSpin() {
+        let todayStr = new Date().toISOString().slice(0, 10);
+        if (game.lastWheelSpinDateStr !== todayStr) {
+            game.lastWheelSpinDateStr = todayStr;
+            game.dailyWheelSpinsUsed = 0;
+        }
+        game.dailyWheelSpinsUsed = (game.dailyWheelSpinsUsed || 0) + 1;
+    }
+
     function showLuckyWheelScreen() {
         playBGM('shop');
+        ensureProgressionDefaults();
         clearConsole("center", "radial-gradient(circle at 50% 30%, #333300 0%, #080800 85%)", "#ffff00");
-        let freeSpins = game.freeSpins || 0;
+        let dailyRemaining = getDailyWheelSpinsRemaining();
+        let bonusSpins = game.freeSpins || 0;
+        let featured = getFeaturedWheelCharacter();
         document.getElementById("console").innerHTML = `
             <div id="wheel-icon" style="font-size: 50px; margin-bottom: 8px;">🎡</div>
             <h2 style="color: #ffff00; font-size:18px;">🎰 MULTIVERSE LUCKY WHEEL</h2>
-            <p style="color: #aaa; font-size:12px; max-width: 360px;">Spin the wheel for a chance at cash, gems, shards, bonuses, or even a brand new companion! (Cost: $100)</p>
-            ${freeSpins > 0 ? `<p style="color:#00ff99; font-size:12px;">🎟️ Free Spins available: ${freeSpins}</p>` : ''}
+            <p style="color: #aaa; font-size:12px; max-width: 360px;">One free spin every real day for a shot at cash, gems, shards, bonuses - or today's exclusive jackpot companion!</p>
+            ${featured ? `<p style="color:#ffd700; font-size:12.5px;">🌟 Today's Exclusive Jackpot: <strong>${featured.name}</strong> <span style="color:#aaa;">(${featured.origin})</span></p>` : ''}
+            <p style="color:#00ff99; font-size:12px;">🗓️ Free Spins Left Today: ${dailyRemaining}/${getDailyWheelSpinsAllowed()}${game.casinoMembership ? ' <span style="color:#ff00aa;">(VIP)</span>' : ''}</p>
+            ${bonusSpins > 0 ? `<p style="color:#00ff99; font-size:12px;">🎟️ Bonus Spin Tokens: ${bonusSpins}</p>` : ''}
             <p id="wheel-result" style="color: #00ffff; font-size: 13px;"></p>
         `;
-        renderButtons([
-            { text: freeSpins > 0 ? "🔄 Spin the Wheel (Free Spin!)" : "🔄 Spin the Wheel ($100)", class: "btn btn-spin", action: triggerWheelSpin },
-            { text: "⬅ Back to Casino", class: "btn btn-back", action: showCasinoMenu }
-        ]);
+        let buttons = [];
+        if (dailyRemaining > 0) {
+            buttons.push({ text: "🔄 Spin the Wheel (Free!)", class: "btn btn-spin", action: triggerWheelSpin });
+        } else if (bonusSpins > 0) {
+            buttons.push({ text: "🔄 Spin the Wheel (Bonus Token)", class: "btn btn-spin", action: triggerWheelSpin });
+        } else {
+            buttons.push({ text: "⏳ Come back tomorrow!", class: "btn btn-spin", action: () => {} });
+        }
+        if (!game.casinoMembership) {
+            buttons.push({ text: `👑 Get Casino Membership ($${CASINO_MEMBERSHIP_PRICE})`, class: "btn btn-start", action: () => showCasinoMembershipScreen() });
+        }
+        buttons.push({ text: "⬅ Back to Casino", class: "btn btn-back", action: showCasinoMenu });
+        renderButtons(buttons);
     }
 
     function triggerWheelSpin() {
-        let usingFreeSpin = (game.freeSpins || 0) > 0;
-        if (!usingFreeSpin && game.funds < 100) {
-            log("❌ You need at least $100 to spin!", "color-red");
+        let dailyRemaining = getDailyWheelSpinsRemaining();
+        let usingDailyFree = dailyRemaining > 0;
+        let usingBonusToken = !usingDailyFree && (game.freeSpins || 0) > 0;
+        if (!usingDailyFree && !usingBonusToken) {
+            log("❌ No spins left today - come back tomorrow, or use a Bonus Spin Token!", "color-red");
             return;
         }
-        if (usingFreeSpin) { game.freeSpins -= 1; } else { game.funds -= 100; }
+        if (usingDailyFree) { useDailyWheelSpin(); } else { game.freeSpins -= 1; }
         updateUI(); saveGame();
 
         renderButtons([]);
         const iconBefore = document.getElementById("wheel-icon");
         const resTextBefore = document.getElementById("wheel-result");
         if (iconBefore) iconBefore.className = "wheel-spinning";
-        if (resTextBefore) resTextBefore.innerHTML = usingFreeSpin ? "Spinning the multiversal wheel (Free Spin)..." : "Spinning the multiversal wheel...";
+        if (resTextBefore) resTextBefore.innerHTML = "Spinning the multiversal wheel...";
 
         setTimeout(() => {
             let roll = pickWeightedWheelPrize();
@@ -3840,11 +3958,19 @@
             if (iconNow) iconNow.className = "";
             const resTextNow = document.getElementById("wheel-result");
             if (resTextNow) resTextNow.innerHTML = `<strong style="color: #00ff66;">🎉 ${displayText}</strong>`;
-            let freeSpinsNow = game.freeSpins || 0;
-            renderButtons([
-                { text: freeSpinsNow > 0 ? "🔄 Spin Again (Free Spin!)" : "🔄 Spin Again ($100)", class: "btn btn-spin", action: triggerWheelSpin },
-                { text: "⬅ Back to Casino", class: "btn btn-back", action: showCasinoMenu }
-            ]);
+
+            let dailyRemainingNow = getDailyWheelSpinsRemaining();
+            let bonusSpinsNow = game.freeSpins || 0;
+            let buttons = [];
+            if (dailyRemainingNow > 0) {
+                buttons.push({ text: "🔄 Spin Again (Free!)", class: "btn btn-spin", action: triggerWheelSpin });
+            } else if (bonusSpinsNow > 0) {
+                buttons.push({ text: "🔄 Spin Again (Bonus Token)", class: "btn btn-spin", action: triggerWheelSpin });
+            } else {
+                buttons.push({ text: "⏳ Come back tomorrow!", class: "btn btn-spin", action: () => {} });
+            }
+            buttons.push({ text: "⬅ Back to Casino", class: "btn btn-back", action: showCasinoMenu });
+            renderButtons(buttons);
         }, 2200);
     }
 
@@ -4874,6 +5000,10 @@
     }
 
     // --- MULTIPLAYER ONLINE HUB ---
+    function buildLobbyPlayerPayload() {
+        return { name: game.playerName, staff: game.staff, power: game.managerPower, isMember: !!game.casinoMembership };
+    }
+
     function showOnlineLobbyGate() {
         playBGM('trade');
         clearConsole("center", "radial-gradient(circle at 50% 30%, #003366 0%, #000c14 85%)", "#00aaff", SCENE_IMAGES.onlineHub);
@@ -4881,17 +5011,23 @@
             <h2 style="color:#00ffff; font-size:18px;">🌐 ONLINE MULTIPLAYER HUB</h2>
             <p style="color:#aaa; max-width:380px; font-size:12px;">Join a shared timeline room with your friends to view rosters, trade, fight PvP duels, or tackle Co-Op Raid Bosses!</p>
             <input type="text" id="room-code-input" value="${currentRoomId || 'AETHERIA'}" style="background:#111;color:#0ff;border:1px solid #0ff;padding:8px;font-family:'Courier New';font-size:13px;border-radius:4px;width:70%;max-width:180px;text-align:center;margin-top:6px;" />
+            ${game.casinoMembership ? `
+            <label style="display:flex; align-items:center; justify-content:center; gap:6px; color:#ff00aa; font-size:11.5px; margin-top:8px;">
+                <input type="checkbox" id="vip-room-toggle" /> 🔒 Make this a VIP Members-Only Room
+            </label>` : ''}
         `;
         renderButtons([
             { text: "Connect to Room", class: "btn btn-sys", action: () => {
                 currentRoomId = document.getElementById("room-code-input").value.trim().toUpperCase() || "AETHERIA";
-                if (socket) socket.emit('joinRoom', { roomId: currentRoomId, player: { name: game.playerName, staff: game.staff, power: game.managerPower } });
+                let vipToggle = document.getElementById("vip-room-toggle");
+                let membersOnly = !!(vipToggle && vipToggle.checked);
+                if (socket) socket.emit('joinRoom', { roomId: currentRoomId, player: buildLobbyPlayerPayload(), membersOnly });
                 roomChatLog = [];
                 renderActiveLobbyView();
             }},
             { text: "🎲 Join Random Room", class: "btn btn-mine", action: () => {
                 if (!socket) return;
-                socket.emit('joinRandomRoom', { player: { name: game.playerName, staff: game.staff, power: game.managerPower } });
+                socket.emit('joinRandomRoom', { player: buildLobbyPlayerPayload() });
             }},
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
@@ -4900,18 +5036,18 @@
     function renderActiveLobbyView() {
         clearConsole("flex-start", "radial-gradient(circle at 50% 30%, #002244 0%, #000814 85%)", "#00aaff");
         let html = `
-            <h2 style="color:#00ffff; margin-bottom:2px; font-size:16px;">📡 ROOM: ${currentRoomId}</h2>
+            <h2 style="color:#00ffff; margin-bottom:2px; font-size:16px;">📡 ROOM: ${currentRoomId}${currentRoomMembersOnly ? ' <span style="color:#ff00aa;" title="VIP Members-Only Room">🔒👑</span>' : ''}</h2>
             <p style="color:#aaa; font-size:11.5px; margin-top:2px;">Active Trainers Connected: ${onlineRoomPlayers.length || 1}</p>
             <div style="width:100%; max-width:380px; max-height:140px; overflow-y:auto; margin-bottom:6px;">
         `;
 
         if (!onlineRoomPlayers.length) {
-            html += `<div class="dex-card" style="font-size:12px;">👤 ${game.playerName} (You) - Host</div>`;
+            html += `<div class="dex-card" style="font-size:12px;">👤 ${game.playerName} ${game.casinoMembership ? '<span style="color:#ff00aa;" title="VIP Casino Member">👑</span>' : ''} (You) - Host</div>`;
         } else {
             onlineRoomPlayers.forEach(p => {
                 let isMe = socket && p.id === socket.id;
                 html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center; font-size:12px;">
-                    <div><strong>👤 ${p.name}</strong> ${isMe ? '<span style="color:#ffaa00;">(You)</span>' : ''}</div>
+                    <div><strong>👤 ${p.name}</strong> ${p.isMember ? '<span style="color:#ff00aa;" title="VIP Casino Member">👑</span>' : ''} ${isMe ? '<span style="color:#ffaa00;">(You)</span>' : ''}</div>
                     ${!isMe ? `<button class="btn btn-combat" style="padding:2px 6px; font-size:10px; min-height:24px;" onclick="requestPvPDuel('${p.id}')">⚔️ Duel</button>` : ''}
                 </div>`;
             });
@@ -4927,6 +5063,7 @@
             { text: "⬅ Leave Room", class: "btn btn-back", action: () => {
                 if (socket) socket.emit('leaveRoom');
                 onlineRoomPlayers = [];
+                currentRoomMembersOnly = false;
                 showMainMenu();
             }}
         ]);
@@ -5524,12 +5661,17 @@
     }
 
     if (socket) {
-        socket.on('roomUpdate', ({ roomId, players }) => { onlineRoomPlayers = players; if (currentRoomId === roomId && !chatScreenActive) renderActiveLobbyView(); });
+        socket.on('roomUpdate', ({ roomId, players, membersOnly }) => { onlineRoomPlayers = players; currentRoomMembersOnly = !!membersOnly; if (currentRoomId === roomId && !chatScreenActive) renderActiveLobbyView(); });
+
+        socket.on('roomJoinDenied', (msg) => {
+            showGameAlert(msg || "🔒 That room is VIP Members-Only - grab a Casino Membership to join.");
+            showOnlineLobbyGate();
+        });
 
         socket.on('assignedRandomRoom', (roomId) => {
             if (!roomId) return;
             currentRoomId = roomId;
-            socket.emit('joinRoom', { roomId: currentRoomId, player: { name: game.playerName, staff: game.staff, power: game.managerPower } });
+            socket.emit('joinRoom', { roomId: currentRoomId, player: buildLobbyPlayerPayload() });
             roomChatLog = [];
             renderActiveLobbyView();
         });
