@@ -59,6 +59,35 @@
     .raid-bar-fill { background: linear-gradient(90deg, #ff3333, #ff8800); height: 100%; transition: width 0.4s ease; }
 
     footer { text-align: center; color: #444; font-size: 10.5px; margin-top: 20px; }
+
+    .mini-btn {
+        background: #0a0a14; color: #00ffff; border: 1px solid #333350;
+        padding: 4px 7px; font-family: 'Courier New', monospace; font-size: 12px;
+        border-radius: 4px; cursor: pointer; margin: 1px;
+    }
+    .mini-btn:hover { background: #00ffff22; }
+    .mini-btn.danger { border-color: #ff3333; color: #ff6666; }
+    .mini-btn.danger:hover { background: #ff333322; }
+
+    #action-toast {
+        position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px);
+        background: #08080f; border: 1px solid #333350; border-radius: 8px;
+        padding: 10px 18px; font-size: 12px; max-width: 90vw; text-align: center;
+        opacity: 0; pointer-events: none; transition: opacity 0.25s ease, transform 0.25s ease;
+        z-index: 999; box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+    }
+    #action-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #action-toast.toast-success { border-color: #00ff66; color: #00ff66; }
+    #action-toast.toast-error { border-color: #ff3333; color: #ff6666; }
+
+    .modal-overlay {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+        display: none; align-items: center; justify-content: center; z-index: 998; padding: 16px;
+    }
+    .modal-box {
+        background: #08080f; border: 1px solid #222238; border-radius: 8px;
+        padding: 16px; width: 100%; max-width: 700px; box-shadow: 0 4px 20px rgba(0,0,0,0.7);
+    }
 </style>
 </head>
 <body>
@@ -135,10 +164,10 @@
             <div style="overflow-x:auto;">
             <table>
                 <thead>
-                    <tr><th>Email</th><th>Trainer</th><th>Signed Up</th><th>Welcome Bundle</th><th>Cloud Save</th><th>Day</th><th>Funds</th><th>Last Synced</th></tr>
+                    <tr><th>Email</th><th>Trainer</th><th>Signed Up</th><th>Welcome Bundle</th><th>Cloud Save</th><th>Day</th><th>Funds</th><th>Last Synced</th><th>Actions</th></tr>
                 </thead>
                 <tbody id="registered-players-body">
-                    <tr class="empty-row"><td colspan="8">Loading...</td></tr>
+                    <tr class="empty-row"><td colspan="9">Loading...</td></tr>
                 </tbody>
             </table>
             </div>
@@ -173,6 +202,18 @@
         </div>
 
         <footer>Live data pushes automatically over a private admin channel — no page reloads needed.</footer>
+    </div>
+
+    <div id="action-toast"></div>
+
+    <div id="raw-save-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h3 id="raw-save-title" style="color:#00ffff; margin:0; font-size:13px;">Raw Save Data</h3>
+                <button class="logout-btn" id="raw-save-close" style="padding:4px 10px; font-size:11px;">✕ Close</button>
+            </div>
+            <pre id="raw-save-content" style="white-space:pre-wrap; word-break:break-word; max-height:60vh; overflow-y:auto; font-size:11px; color:#0f0; background:#000; padding:10px; border-radius:6px; border:1px solid #222238; margin:0;"></pre>
+        </div>
     </div>
 
 <script>
@@ -221,6 +262,8 @@
 
         socket.on('statsUpdate', renderStats);
         socket.on('registeredPlayersResult', renderRegisteredPlayers);
+        socket.on('adminActionResult', showActionToast);
+        socket.on('adminRawSaveResult', showRawSaveModal);
     }
 
     function setConnStatus(isOnline) {
@@ -296,15 +339,19 @@
             note.innerHTML = (result && result.error)
                 ? `⚠️ ${escapeHtml(result.error)}`
                 : `⚠️ Not configured yet. Set <code>SUPABASE_SERVICE_ROLE_KEY</code> in the server's environment (Supabase dashboard → Project Settings → API → service_role secret), run <code>npm install</code>, and restart the server to see every registered account here.`;
-            body.innerHTML = '<tr class="empty-row"><td colspan="8">Unavailable.</td></tr>';
+            body.innerHTML = '<tr class="empty-row"><td colspan="9">Unavailable.</td></tr>';
             return;
         }
         note.innerText = `${result.total} registered account${result.total === 1 ? '' : 's'}.`;
         if (!result.players.length) {
-            body.innerHTML = '<tr class="empty-row"><td colspan="8">No registered accounts yet.</td></tr>';
+            body.innerHTML = '<tr class="empty-row"><td colspan="9">No registered accounts yet.</td></tr>';
             return;
         }
-        body.innerHTML = result.players.map(p => `<tr>
+        body.innerHTML = result.players.map(p => {
+            let name = escapeHtml(p.playerName || p.email || 'this account');
+            let nameArg = name.replace(/'/g, "\\'");
+            let emailArg = escapeHtml(p.email || '').replace(/'/g, "\\'");
+            return `<tr>
             <td>${escapeHtml(p.email || '—')}</td>
             <td>${escapeHtml(p.playerName || '—')}</td>
             <td>${p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '—'}</td>
@@ -313,7 +360,80 @@
             <td>${p.day != null ? p.day : '—'}</td>
             <td>${p.funds != null ? '$' + p.funds : '—'}</td>
             <td>${p.lastSynced ? new Date(p.lastSynced).toLocaleString() : '—'}</td>
-        </tr>`).join('');
+            <td style="white-space:nowrap;">
+                <button class="mini-btn" title="Re-grant Welcome Bundle (Nova)" onclick="regrantBundle('${p.id}', '${nameArg}')">🎁</button>
+                <button class="mini-btn" title="Adjust funds" onclick="adjustFundsPrompt('${p.id}', '${nameArg}')" ${p.hasCloudSave ? '' : 'disabled'}>💰</button>
+                <button class="mini-btn" title="View raw save data" onclick="viewRawSave('${p.id}', '${nameArg}')">👁️</button>
+                <button class="mini-btn danger" title="Wipe cloud save" onclick="wipeCloudSave('${p.id}', '${nameArg}')" ${p.hasCloudSave ? '' : 'disabled'}>🗑️</button>
+                <button class="mini-btn" title="Send password reset email" onclick="sendPasswordReset('${emailArg}')">🔑</button>
+            </td>
+        </tr>`;
+        }).join('');
+    }
+
+    function regrantBundle(userId, name) {
+        if (!socket || !socket.connected || !authenticated) return;
+        if (!confirm(`Grant the Welcome Bundle (Nova, the Cloudlink Sentinel) to ${name}?\n\nThis adds it directly to their cloud save, regardless of whether they've already claimed it before.`)) return;
+        socket.emit('adminRegrantWelcomeBundle', userId);
+    }
+
+    function adjustFundsPrompt(userId, name) {
+        if (!socket || !socket.connected || !authenticated) return;
+        let raw = prompt(`Adjust funds for ${name}.\n\nEnter an amount to ADD (e.g. 500 or -200), or prefix with "=" to SET funds to exactly that value (e.g. =1000):`);
+        if (raw === null) return;
+        raw = raw.trim();
+        if (!raw) return;
+        let mode = 'add', amount;
+        if (raw.startsWith('=')) { mode = 'set'; amount = Number(raw.slice(1)); }
+        else { amount = Number(raw); }
+        if (!Number.isFinite(amount)) { alert('Please enter a valid number.'); return; }
+        socket.emit('adminAdjustFunds', { userId, amount, mode });
+    }
+
+    function viewRawSave(userId, name) {
+        if (!socket || !socket.connected || !authenticated) return;
+        pendingRawSaveName = name;
+        document.getElementById('raw-save-title').innerText = `Raw Save Data — ${name}`;
+        document.getElementById('raw-save-content').textContent = 'Loading...';
+        document.getElementById('raw-save-modal').style.display = 'flex';
+        socket.emit('adminGetRawSave', userId);
+    }
+
+    function wipeCloudSave(userId, name) {
+        if (!socket || !socket.connected || !authenticated) return;
+        if (!confirm(`⚠️ PERMANENTLY delete ${name}'s cloud save?\n\nThey'll be able to link a fresh save next time, but this cannot be undone.`)) return;
+        socket.emit('adminWipeCloudSave', userId);
+    }
+
+    function sendPasswordReset(email) {
+        if (!socket || !socket.connected || !authenticated) return;
+        if (!email) return;
+        if (!confirm(`Send a password reset email to ${email}?`)) return;
+        socket.emit('adminSendPasswordReset', email);
+    }
+
+    let toastTimer = null;
+    function showActionToast(res) {
+        let el = document.getElementById('action-toast');
+        if (!el) return;
+        el.textContent = res.success ? `✅ ${res.message || 'Done.'}` : `❌ ${res.error || 'Action failed.'}`;
+        el.className = res.success ? 'toast-success show' : 'toast-error show';
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => { el.className = el.className.replace(' show', ''); }, 4500);
+    }
+
+    let pendingRawSaveName = null;
+    function showRawSaveModal(res) {
+        let content = document.getElementById('raw-save-content');
+        if (!content) return;
+        if (!res.success) {
+            content.textContent = `Error: ${res.error || 'Could not load save.'}`;
+        } else if (!res.saveData) {
+            content.textContent = 'No cloud save exists for this account.';
+        } else {
+            content.textContent = JSON.stringify(res.saveData, null, 2)
+                + (res.updatedAt ? `\n\n// last synced: ${new Date(res.updatedAt).toLocaleString()}` : '');
+        }
     }
 
     function kickPlayer(socketId, name) {
@@ -370,6 +490,12 @@
         document.getElementById('dashboard').style.display = 'none';
         document.getElementById('login-screen').style.display = 'flex';
         document.getElementById('password-input').value = '';
+    });
+    document.getElementById('raw-save-close').addEventListener('click', () => {
+        document.getElementById('raw-save-modal').style.display = 'none';
+    });
+    document.getElementById('raw-save-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'raw-save-modal') document.getElementById('raw-save-modal').style.display = 'none';
     });
 
     connect();

@@ -182,6 +182,41 @@ async function fetchRegisteredPlayers() {
     }
 }
 
+// Mirrors CLOUD_WELCOME_BUNDLE.apply() + addStaffMember()/recordDex() from
+// public/index.html so the admin panel can grant the exact same reward
+// (Nova, the Cloudlink Sentinel, dexId 9901) directly into a stored cloud
+// save - used when a player's account already has welcome_bundle_claimed
+// set true (so the client's own one-time grant won't fire again) but their
+// actual save data is missing it, e.g. after relinking and overwriting the
+// cloud copy with an older/fresh local save.
+function adminGenerateSaveUid() {
+    return 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+const WELCOME_BUNDLE_DEX_ID = 9901;
+function grantWelcomeBundleToSaveData(sd) {
+    sd = sd && typeof sd === 'object' ? sd : {};
+    if (!Array.isArray(sd.staff)) sd.staff = [];
+    if (!Array.isArray(sd.partyUids)) sd.partyUids = [];
+    const alreadyHasNova = sd.staff.some(s => s && s.dexId === WELCOME_BUNDLE_DEX_ID);
+    if (!alreadyHasNova) {
+        const member = {
+            uid: adminGenerateSaveUid(),
+            name: "Nova, the Cloudlink Sentinel",
+            power: 85,
+            origin: "Chase Studios Network",
+            dexId: WELCOME_BUNDLE_DEX_ID,
+            legendary: true
+        };
+        sd.staff.push(member);
+        if (sd.partyUids.length < 6) sd.partyUids.push(member.uid);
+        if (!sd.championUid) sd.championUid = member.uid;
+    }
+    if (!sd.pokedex || typeof sd.pokedex !== 'object') sd.pokedex = {};
+    const key = String(WELCOME_BUNDLE_DEX_ID);
+    if (!sd.pokedex[key]) sd.pokedex[key] = { discovered: true, shiny: false, count: 1 };
+    return sd;
+}
+
 adminIo.on('connection', (socket) => {
     socket.emit('needAuth');
 
@@ -244,6 +279,136 @@ adminIo.on('connection', (socket) => {
         if (!target) return;
         target.emit('kickedByAdmin', { reason: "Disconnected by an administrator." });
         setTimeout(() => target.disconnect(true), 250);
+    });
+
+    // ---- Registered-account support tools (all require the service-role client) ----
+    // Every handler below emits a single shared 'adminActionResult' event tagged with
+    // an `action` name so the panel can show one generic success/error toast instead
+    // of needing a bespoke result event per button.
+    function requireAdminDb(action) {
+        if (!authenticatedAdminIds.has(socket.id)) return false;
+        if (!supabaseAdmin) {
+            socket.emit('adminActionResult', { action, success: false, error: "SUPABASE_SERVICE_ROLE_KEY isn't configured on the server." });
+            return false;
+        }
+        return true;
+    }
+
+    // Directly injects the welcome bundle (Nova) into a player's stored cloud save,
+    // regardless of their profiles.welcome_bundle_claimed flag - for accounts that
+    // already "claimed" it once but lost it by relinking over their cloud save with
+    // a local save that never had it. Also (re)stamps the claimed flag true so the
+    // client's own grant-on-link logic doesn't try to double-grant it later.
+    socket.on('adminRegrantWelcomeBundle', async (userId) => {
+        const action = 'regrantWelcomeBundle';
+        if (!requireAdminDb(action) || typeof userId !== 'string') return;
+        try {
+            const { data: existing, error: fetchErr } = await supabaseAdmin
+                .from('player_saves').select('save_data').eq('user_id', userId).maybeSingle();
+            if (fetchErr) throw fetchErr;
+            if (!existing) {
+                socket.emit('adminActionResult', { action, success: false, error: "That account has no cloud save yet - nothing to grant it into." });
+                return;
+            }
+            const newSaveData = grantWelcomeBundleToSaveData(existing.save_data);
+            const { error: updateErr } = await supabaseAdmin
+                .from('player_saves').update({ save_data: newSaveData }).eq('user_id', userId);
+            if (updateErr) throw updateErr;
+            await supabaseAdmin.from('profiles').update({ welcome_bundle_claimed: true }).eq('id', userId);
+            socket.emit('adminActionResult', { action, success: true, message: "Welcome bundle granted - Nova is in their roster." });
+            socket.emit('registeredPlayersResult', await fetchRegisteredPlayers());
+        } catch (e) {
+            socket.emit('adminActionResult', { action, success: false, error: "Failed to grant bundle: " + (e.message || 'unknown error') });
+        }
+    });
+
+    // amount: number. mode: 'add' (default) adds/subtracts from current funds,
+    // 'set' pins funds to exactly `amount`. Result is clamped to >= 0.
+    socket.on('adminAdjustFunds', async ({ userId, amount, mode } = {}) => {
+        const action = 'adjustFunds';
+        if (!requireAdminDb(action)) return;
+        amount = Number(amount);
+        if (typeof userId !== 'string' || !Number.isFinite(amount)) {
+            socket.emit('adminActionResult', { action, success: false, error: "Invalid amount." });
+            return;
+        }
+        try {
+            const { data: existing, error: fetchErr } = await supabaseAdmin
+                .from('player_saves').select('save_data').eq('user_id', userId).maybeSingle();
+            if (fetchErr) throw fetchErr;
+            if (!existing) {
+                socket.emit('adminActionResult', { action, success: false, error: "That account has no cloud save yet." });
+                return;
+            }
+            let sd = existing.save_data && typeof existing.save_data === 'object' ? existing.save_data : {};
+            let current = Number(sd.funds) || 0;
+            let next = mode === 'set' ? amount : current + amount;
+            next = Math.max(0, Math.round(next));
+            sd.funds = next;
+            const { error: updateErr } = await supabaseAdmin
+                .from('player_saves').update({ save_data: sd }).eq('user_id', userId);
+            if (updateErr) throw updateErr;
+            socket.emit('adminActionResult', { action, success: true, message: `Funds updated - now $${next}.` });
+            socket.emit('registeredPlayersResult', await fetchRegisteredPlayers());
+        } catch (e) {
+            socket.emit('adminActionResult', { action, success: false, error: "Failed to adjust funds: " + (e.message || 'unknown error') });
+        }
+    });
+
+    // Read-only dump of a player's full save_data blob for debugging support cases.
+    socket.on('adminGetRawSave', async (userId) => {
+        if (!authenticatedAdminIds.has(socket.id)) return;
+        if (!supabaseAdmin) {
+            socket.emit('adminRawSaveResult', { userId, success: false, error: "SUPABASE_SERVICE_ROLE_KEY isn't configured on the server." });
+            return;
+        }
+        if (typeof userId !== 'string') return;
+        try {
+            const { data, error } = await supabaseAdmin
+                .from('player_saves').select('save_data, updated_at').eq('user_id', userId).maybeSingle();
+            if (error) throw error;
+            socket.emit('adminRawSaveResult', {
+                userId, success: true,
+                saveData: data ? data.save_data : null,
+                updatedAt: data ? data.updated_at : null
+            });
+        } catch (e) {
+            socket.emit('adminRawSaveResult', { userId, success: false, error: e.message || 'unknown error' });
+        }
+    });
+
+    // Deletes a player's cloud save row entirely so they can do a clean fresh link
+    // next time - for a save that's gotten into a broken/unrecoverable state. Does
+    // NOT touch their profiles row (email/login), only the save data.
+    socket.on('adminWipeCloudSave', async (userId) => {
+        const action = 'wipeCloudSave';
+        if (!requireAdminDb(action) || typeof userId !== 'string') return;
+        try {
+            const { error } = await supabaseAdmin.from('player_saves').delete().eq('user_id', userId);
+            if (error) throw error;
+            socket.emit('adminActionResult', { action, success: true, message: "Cloud save deleted - they can link a fresh save next time." });
+            socket.emit('registeredPlayersResult', await fetchRegisteredPlayers());
+        } catch (e) {
+            socket.emit('adminActionResult', { action, success: false, error: "Failed to wipe save: " + (e.message || 'unknown error') });
+        }
+    });
+
+    // Triggers Supabase's own password-reset email for a given account - same flow
+    // as the "Forgot password" link would, just kicked off from the admin panel for
+    // support requests instead of needing the Supabase dashboard.
+    socket.on('adminSendPasswordReset', async (email) => {
+        const action = 'sendPasswordReset';
+        if (!requireAdminDb(action) || typeof email !== 'string' || !email.includes('@')) {
+            socket.emit('adminActionResult', { action, success: false, error: "Invalid email." });
+            return;
+        }
+        try {
+            const { error } = await supabaseAdmin.auth.resetPasswordForEmail(email, { redirectTo: 'https://www.chase-studios.org' });
+            if (error) throw error;
+            socket.emit('adminActionResult', { action, success: true, message: `Password reset email sent to ${email}.` });
+        } catch (e) {
+            socket.emit('adminActionResult', { action, success: false, error: "Failed to send reset email: " + (e.message || 'unknown error') });
+        }
     });
 
     socket.on('disconnect', () => {
