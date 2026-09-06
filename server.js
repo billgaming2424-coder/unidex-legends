@@ -38,14 +38,44 @@ function normalizePvpParty(rawParty) {
 // baseAtk/armorPen are new - the raid boss never retaliated against players at all
 // before this pass, so there was no prior ATK value to scale up from.
 let raidBosses = {
-    titan: { name: "Void Titan Chronos", hp: 7000, maxHp: 7000, level: 50, reward: 1250, baseAtk: 45, armorPen: 0.2 },
-    dragon: { name: "Shadow Dragon Netherfang", hp: 17000, maxHp: 17000, level: 90, reward: 4000, baseAtk: 90, armorPen: 0.3 },
+    titan: { name: "Void Titan Chronos", hp: 7000, maxHp: 7000, level: 50, reward: 1250, baseAtk: 45, armorPen: 0.2, dexId: 90001 },
+    dragon: { name: "Shadow Dragon Netherfang", hp: 17000, maxHp: 17000, level: 90, reward: 4000, baseAtk: 90, armorPen: 0.3, dexId: 90002 },
     // The final raid boss - only offered to players client-side once every Guardian's
     // quest line is finished and the Frozen Death has unlocked (see the client's
     // 'frozen_death_unlocked' story flag), but selectable here like any other tier.
-    hollowKing: { name: "The Hollow King", hp: 35000, maxHp: 35000, level: 150, reward: 9000, baseAtk: 140, armorPen: 0.4 }
+    hollowKing: { name: "The Hollow King", hp: 35000, maxHp: 35000, level: 150, reward: 9000, baseAtk: 140, armorPen: 0.4, dexId: 90003 },
+    // Act 3's endgame boss - same pattern as hollowKing above, gated client-side on the
+    // 'drowned_armada_unlocked' story flag (set once pl_finale_armada is turned in).
+    pirateLord: { name: "The Pirate Lord", hp: 45000, maxHp: 45000, level: 170, reward: 11000, baseAtk: 155, armorPen: 0.4, dexId: 90004 }
 };
 let activeRaidKey = "titan";
+
+// --- PUBLIC RAID BOSS (separate shared track from the "private" raidBosses above) ---
+// Same roster of bosses, but every HP/reward figure is 3x its private-track counterpart
+// and the ATK is scaled up more modestly (1.6x) so a full-lobby fight is a real event
+// without being an unwinnable damage-race. Built programmatically off raidBosses so the
+// two tracks can never drift out of sync when a tier's private-side numbers get retuned.
+let publicRaidBosses = {};
+Object.keys(raidBosses).forEach(key => {
+    const src = raidBosses[key];
+    publicRaidBosses[key] = {
+        name: src.name, hp: src.hp * 3, maxHp: src.maxHp * 3, level: src.level,
+        reward: src.reward * 3, baseAtk: Math.round(src.baseAtk * 1.6), armorPen: src.armorPen, dexId: src.dexId
+    };
+});
+let activePublicRaidKey = "titan";
+
+// Raid boss "shuffling": every time either track's boss dies and respawns, the tier
+// re-rolls to a random pick from this pool rather than always coming back as itself.
+// The Hollow King AND the Pirate Lord are deliberately excluded - both are client-side
+// story-gated endgame bosses ('frozen_death_unlocked' / 'drowned_armada_unlocked'), and
+// auto-shuffling into either server-side could hand a player a live fight against one
+// before they've unlocked it in the story, or yank the tier selectRaidTier's mid-fight
+// guard would otherwise hold in place.
+const RAID_SHUFFLE_POOL = ["titan", "dragon"];
+function pickShuffledRaidTier() {
+    return RAID_SHUFFLE_POOL[Math.floor(Math.random() * RAID_SHUFFLE_POOL.length)];
+}
 
 // ---- Combat balance (raid boss retaliation) ----
 // Mirrors the client-side constants/formula in public/index.html
@@ -455,6 +485,7 @@ io.on('connection', (socket) => {
 
     socket.emit('chatHistory', globalChatHistory);
     socket.emit('raidBossUpdate', raidBosses[activeRaidKey]);
+    socket.emit('publicRaidBossUpdate', publicRaidBosses[activePublicRaidKey]);
 
     socket.on('registerTrainerPresence', (data) => {
         const existing = onlineUsers.get(socket.id);
@@ -588,13 +619,19 @@ io.on('connection', (socket) => {
             log: logMsg,
             isDefeated: currentBoss.hp <= 0,
             slayer: trainerName,
-            reward: currentBoss.reward
+            reward: currentBoss.reward,
+            dexId: currentBoss.dexId,
+            bossName: currentBoss.name
         });
 
         if (currentBoss.hp <= 0) {
             setTimeout(() => {
-                currentBoss.hp = currentBoss.maxHp;
-                io.emit('raidBossUpdate', currentBoss);
+                // Raid boss shuffling: the tier re-rolls on respawn instead of always
+                // coming back as itself (Hollow King excluded - see RAID_SHUFFLE_POOL).
+                activeRaidKey = pickShuffledRaidTier();
+                const respawned = raidBosses[activeRaidKey];
+                respawned.hp = respawned.maxHp;
+                io.emit('raidBossUpdate', respawned);
                 broadcastAdminStats();
             }, 25000);
         } else {
@@ -607,6 +644,58 @@ io.on('connection', (socket) => {
             const rawRetaliation = atk * (isCrit ? RAID_BOSS_CRIT_MULTIPLIER : 1);
             const retaliation = computeMitigatedDamage(rawRetaliation, defense, currentBoss.armorPen || 0.15);
             socket.emit('raidBossRetaliate', { damage: retaliation, isCrit, enraged, bossName: currentBoss.name });
+        }
+        broadcastAdminStats();
+    });
+
+    // --- PUBLIC RAID BOSS (separate shared track, 3x the private boss's HP/reward -
+    // see publicRaidBosses above). Mirrors the private-track handlers exactly, just
+    // reading/writing the public state instead. ---
+    socket.on('selectPublicRaidTier', (tierKey) => {
+        if (!publicRaidBosses[tierKey]) return;
+        const current = publicRaidBosses[activePublicRaidKey];
+        if (tierKey !== activePublicRaidKey && current.hp > 0 && current.hp < current.maxHp) {
+            socket.emit('publicRaidBossUpdate', current);
+            return;
+        }
+        activePublicRaidKey = tierKey;
+        io.emit('publicRaidBossUpdate', publicRaidBosses[activePublicRaidKey]);
+        broadcastAdminStats();
+    });
+
+    socket.on('attackPublicRaidBoss', ({ damage, trainerName, championName, defense }) => {
+        const currentBoss = publicRaidBosses[activePublicRaidKey];
+        if (currentBoss.hp <= 0) return;
+        currentBoss.hp = Math.max(0, currentBoss.hp - damage);
+        const logMsg = `💥 ${trainerName}'s ${championName} struck ${currentBoss.name} for ${damage} DMG!`;
+
+        io.emit('publicRaidBossHit', {
+            bossHp: currentBoss.hp,
+            bossMaxHp: currentBoss.maxHp,
+            log: logMsg,
+            isDefeated: currentBoss.hp <= 0,
+            slayer: trainerName,
+            reward: currentBoss.reward,
+            dexId: currentBoss.dexId,
+            bossName: currentBoss.name
+        });
+
+        if (currentBoss.hp <= 0) {
+            setTimeout(() => {
+                activePublicRaidKey = pickShuffledRaidTier();
+                const respawned = publicRaidBosses[activePublicRaidKey];
+                respawned.hp = respawned.maxHp;
+                io.emit('publicRaidBossUpdate', respawned);
+                broadcastAdminStats();
+            }, 25000);
+        } else {
+            const enraged = currentBoss.hp <= currentBoss.maxHp * RAID_ENRAGE_HP_PCT;
+            const baseAtk = currentBoss.baseAtk || 40;
+            const atk = enraged ? Math.round(baseAtk * RAID_ENRAGE_ATK_MULT) : baseAtk;
+            const isCrit = Math.random() < RAID_BOSS_CRIT_CHANCE;
+            const rawRetaliation = atk * (isCrit ? RAID_BOSS_CRIT_MULTIPLIER : 1);
+            const retaliation = computeMitigatedDamage(rawRetaliation, defense, currentBoss.armorPen || 0.15);
+            socket.emit('publicRaidBossRetaliate', { damage: retaliation, isCrit, enraged, bossName: currentBoss.name });
         }
         broadcastAdminStats();
     });
