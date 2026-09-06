@@ -147,6 +147,16 @@
         }
         .volcano-scene { animation: volcanoEruption 2s ease-in-out infinite; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; z-index: 3; width: 100%; height: 100%; }
 
+        /* Act 3: The Pirate Lord - Saltmere Cove / Sunken Reef / Shipwreck Strait / The
+           Drowned Armada all share this gentle wave-bob + light-glint loop instead of a
+           painted background, same lightweight-CSS-scene approach as desert/volcano above. */
+        @keyframes harborSwell {
+            0% { transform: translateY(0px); filter: brightness(1) hue-rotate(0deg); }
+            50% { transform: translateY(-3px); filter: brightness(1.1) hue-rotate(5deg); }
+            100% { transform: translateY(0px); filter: brightness(1) hue-rotate(0deg); }
+        }
+        .harbor-scene { animation: harborSwell 3.2s ease-in-out infinite; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; z-index: 3; width: 100%; height: 100%; }
+
         @keyframes mineRumble {
             0% { transform: translate(0, 0); filter: brightness(0.9); }
             20% { transform: translate(-4px, 3px); filter: brightness(1.2) hue-rotate(15deg); }
@@ -1281,7 +1291,11 @@
     let pendingOutgoingTrade = null; // { targetId, targetName, kind: 'item'|'character'|'cash', item?, character?, staffUid?, cash? }
     let incomingTradeOffer = null;   // { senderId, senderName, kind: 'item'|'character'|'cash', item?, character?, cash? }
     let currentRaidBossState = null; // synced from the server: { name, hp, maxHp, level, reward, key }
+    let currentPublicRaidBossState = null; // same shape, synced from the server-wide public track
     let raidScreenActive = false;
+    let raidTrack = 'private'; // which track the raid screen is currently showing: 'private' | 'public'
+    let raidParty = null;      // full active party snapshot for the current raid session (see buildCombatParty)
+    let raidActiveIdx = 0;     // index into raidParty of the fighter currently taking retaliation hits
     let roomChatLog = [];
     let chatScreenActive = false;
     let globalMarketListings = [];
@@ -1472,6 +1486,67 @@
                 { name: "Bog Wretch", hp: 105, dmg: 16, reward: 325 },
                 { name: "Mire Stalker", hp: 135, dmg: 21, reward: 500 },
                 { name: "Will-o'-Wisp", hp: 90, dmg: 19, reward: 400 }
+            ]
+        },
+        'crystalHighlands': {
+            name: "Crystal Highlands",
+            bg: "radial-gradient(circle at 50% 30%, #1a0033 0%, #05000c 85%)",
+            color: "#cc88ff",
+            animClass: "",
+            icon: "💎",
+            settlementKey: null,
+            monsters: [
+                { name: "Prism Sentinel", hp: 170, dmg: 26, reward: 700 },
+                { name: "Geode Golem", hp: 220, dmg: 28, reward: 800 },
+                { name: "Shard Wisp", hp: 130, dmg: 23, reward: 550 }
+            ]
+        },
+        'reef': {
+            name: "Sunken Reef",
+            bg: "radial-gradient(circle at 50% 30%, #002233 0%, #00060a 85%)",
+            color: "#33ddff",
+            animClass: "harbor-scene",
+            icon: "🐚",
+            // Act 3: The Pirate Lord - Sunken Reef is Saltmere Cove's own hunting grounds,
+            // the same way Fjord/Forest/Desert/Volcano/Bog each belong to a Guardian.
+            settlementKey: 'saltmere',
+            monsters: [
+                { name: "Riptide Serpent", hp: 160, dmg: 24, reward: 650 },
+                { name: "Coral Guardian", hp: 190, dmg: 27, reward: 750 },
+                { name: "Abyssal Lurker", hp: 210, dmg: 32, reward: 850 }
+            ]
+        },
+        // Act 3, Part II onward: the Brine-Bound blockade. Only reachable once
+        // pl1_complete is set (see showWorldMap's gating) - Vane won't send anyone out
+        // here until they've proven they can hold a wheel in Part I.
+        'shipwreckStrait': {
+            name: "Shipwreck Strait",
+            bg: "radial-gradient(circle at 50% 30%, #001a2e 0%, #00040a 85%)",
+            color: "#ffd23f",
+            animClass: "harbor-scene",
+            icon: "🏴‍☠️",
+            settlementKey: null,
+            monsters: [
+                { name: "Brine-Bound Deckhand", hp: 180, dmg: 22, reward: 700 },
+                { name: "Drowned Gunner", hp: 220, dmg: 29, reward: 850 },
+                { name: "Barnacled Revenant", hp: 250, dmg: 33, reward: 1000 }
+            ]
+        },
+        // The Pirate Lord's endgame waters - same pattern as 'frozenDeath': no settlement,
+        // unreachable until pl5_complete (see showWorldMap), home only to the finale raid
+        // (see showRegionHub()'s drownedArmada special-case and selectRaidBossTier('pirateLord')).
+        'drownedArmada': {
+            name: "The Drowned Armada",
+            bg: "radial-gradient(circle at 50% 30%, #001420 0%, #000206 85%)",
+            color: "#ffd23f",
+            animClass: "harbor-scene",
+            icon: "☠️",
+            music: "villain",
+            settlementKey: null,
+            monsters: [
+                { name: "Brine-Bound Boarding Party", hp: 300, dmg: 36, reward: 1100, armorPen: 0.25 },
+                { name: "Cursed Hullbreaker", hp: 340, dmg: 40, reward: 1350, armorPen: 0.3 },
+                { name: "Drowned Man-o'-War", hp: 420, dmg: 48, reward: 1700, armorPen: 0.3 }
             ]
         },
         // The hardest region in the game - only reachable once every Guardian's quest
@@ -2040,6 +2115,8 @@
         // way; only the modal shown to the player differs, once, the run this first fires.
         if (checkHollowKingCampaignUnlock()) {
             triggerAct0Glitch();
+        } else if (checkPirateLordCampaignUnlock()) {
+            triggerPirateLordOmen();
         } else {
             showGameAlert(`📅 Day streak: ${game.loginStreak}! New daily quests are up. +$${streakBonus} login bonus!`);
         }
@@ -2070,12 +2147,32 @@
         if (!Array.isArray(game.quests.active)) game.quests.active = [];
         if (!Array.isArray(game.quests.completed)) game.quests.completed = [];
         if (!game.quests.flags) game.quests.flags = {};
-        if (!game.reputation) game.reputation = { viking: 0, oakhaven: 0, duneSpire: 0, forgePeak: 0, mistVeil: 0 };
+        if (!game.reputation) game.reputation = { viking: 0, oakhaven: 0, duneSpire: 0, forgePeak: 0, mistVeil: 0, saltmere: 0 };
+        if (typeof game.reputation.saltmere !== 'number') game.reputation.saltmere = 0;
         if (!game.resources) game.resources = { wood: 0 };
         if (typeof game.resources.wood !== 'number') game.resources.wood = 0;
         if (!game.homestead) game.homestead = { unlocked: false, structures: { longhouse: 0, watchtower: 0, palisades: 0, barracks: 0 }, guards: [] };
         if (!game.homestead.structures) game.homestead.structures = { longhouse: 0, watchtower: 0, palisades: 0, barracks: 0 };
         if (!Array.isArray(game.homestead.guards)) game.homestead.guards = [];
+        // --- Act 3: The Pirate Lord - the player's ship, Saltmere Cove's naval combat system.
+        // Not granted until Part I (pl_saltmere_intro) completes; `unlocked` gates every
+        // naval-facing button so a fresh save never sees Shipyard/naval UI before the story
+        // hands it to them. crewFreed tracks Act III's choice outcome for later callbacks.
+        if (!game.ship) game.ship = { unlocked: false, hull: 100, maxHull: 100, cannons: 18, speed: 5, crewFreed: false, ram: false, mortar: false, fireBarrels: 0, chainShot: 0, crewRoster: [] };
+        if (typeof game.ship.unlocked !== 'boolean') game.ship.unlocked = false;
+        if (typeof game.ship.maxHull !== 'number') game.ship.maxHull = 100;
+        if (typeof game.ship.hull !== 'number') game.ship.hull = game.ship.maxHull;
+        if (typeof game.ship.cannons !== 'number') game.ship.cannons = 18;
+        if (typeof game.ship.speed !== 'number') game.ship.speed = 5;
+        if (typeof game.ship.crewFreed !== 'boolean') game.ship.crewFreed = false;
+        // Black Flag-inspired additions: a one-time ram and mortar (booleans - fitted or
+        // not), consumable fire barrel/chain shot charges crafted at the Shipyard from
+        // harpooned/dove materials, and a flavor roster of plundered crew names.
+        if (typeof game.ship.ram !== 'boolean') game.ship.ram = false;
+        if (typeof game.ship.mortar !== 'boolean') game.ship.mortar = false;
+        if (typeof game.ship.fireBarrels !== 'number') game.ship.fireBarrels = 0;
+        if (typeof game.ship.chainShot !== 'number') game.ship.chainShot = 0;
+        if (!Array.isArray(game.ship.crewRoster)) game.ship.crewRoster = [];
     }
 
     function bumpReputation(key, amount) {
@@ -2403,6 +2500,67 @@
             onComplete: () => { setStoryFlag('act3_complete'); },
             reward: { funds: 600, reputation: { viking: 10, oakhaven: 10, duneSpire: 10, forgePeak: 10, mistVeil: 15 } },
             completeText: "The Harbinger dissolves into drifting ash, and for a long moment Vespera says nothing at all. \"Five wards, tested in turn, and five wards held.\" She finally lowers her staff. \"That was never a coincidence, outlander - it was a search pattern. Something is still out there, learning our seal one crack at a time.\" Her wisps draw close around her, uneasy. \"We bought time today. Not victory. Rest while you can - the Hollow-Watch has never needed a champion more than it does now.\""
+        },
+
+        // --- MAIN STORY: "The Pirate Lord" (Act 3) ---
+        // Same shape as every Hollow King quest above. Naval fights set their own
+        // pl*_defeated flag via winNavalCombat() (storyFlagOnWin), exactly like the
+        // Ashbound named bosses do through winCombat().
+        pl_saltmere_intro: {
+            id: 'pl_saltmere_intro', giver: 'saltmere', name: "The Harbormaster's Warning",
+            requiresFlag: 'pl0_omen_seen',
+            desc: "Captain Vane won't hand a stranger a ship without seeing them hold a wheel under fire first. Take the helm against a Brine-Bound scout at Sunken Reef.",
+            checkComplete: (g) => hasStoryFlag('pl1_scout_defeated'),
+            onComplete: () => { setStoryFlag('pl1_complete'); },
+            reward: { funds: 200, reputation: { saltmere: 15 } },
+            completeText: "Vane watches the scout ship break apart from the harbor wall, arms crossed. \"Not bad, for a first time at a wheel.\" She almost smiles. \"Shipwreck Strait's next - the Brine-Bound have it blockaded tight, and I want to know why. Your ship's yours now, outlander. Try not to sink it.\""
+        },
+        pl_shipwreck_hunt: {
+            id: 'pl_shipwreck_hunt', giver: 'saltmere', name: "Blood in the Shallows",
+            requiresFlag: 'pl1_complete',
+            desc: "The Brine-Bound Quartermaster is holding Shipwreck Strait's blockade personally. Break it, and break their hold on these waters.",
+            checkComplete: (g) => hasStoryFlag('pl2_quartermaster_defeated'),
+            onComplete: () => { setStoryFlag('pl2_complete'); },
+            reward: { funds: 350, reputation: { saltmere: 20 } },
+            completeText: "The Quartermaster's ship goes down slow, taking on water in the dark. Vane doesn't celebrate. \"That's the first hull we've taken back in years.\" She's already looking past you, toward the wreck. \"Board it before it's fully gone. I want to know who was crewing that thing - and I don't think you're going to like the answer.\""
+        },
+        pl_mercy_choice: {
+            id: 'pl_mercy_choice', giver: 'saltmere', name: "The Captain's Mercy",
+            requiresFlag: 'pl2_complete',
+            desc: "The Quartermaster's crew weren't willing - they're drowned sailors bound against their will, and one of them might still be reachable. Board the wreck and decide its fate.",
+            checkComplete: (g) => hasStoryFlag('pl3_choice_made'),
+            onComplete: () => { setStoryFlag('pl3_complete'); },
+            reward: { funds: 300, reputation: { saltmere: 15 } },
+            completeText: () => game.ship.crewFreed
+                ? "Vane watches the freed sailor - Rin, they finally say their name is - take an unsteady first breath of open air in who knows how long. \"Didn't think that curse could be broken. Didn't think I'd get to watch it happen, either.\" For once she doesn't hide how much that means to her. \"You didn't just win a fight out there, outlander. You proved Thorne's binding isn't absolute. That matters more than another sunk hull.\""
+                : "Vane says nothing for a long moment after the wreck finally goes under. \"Sometimes the mercy is quick, not merciful.\" Her voice is rough. \"Thorne's the one who bound those souls to begin with. Remember whose fault this was, next time it sits wrong in you.\""
+        },
+        pl_tariq_ledger: {
+            id: 'pl_tariq_ledger', giver: 'saltmere', name: "Charted in Blood",
+            requiresFlag: 'pl3_complete',
+            desc: "Cursed cargo has been moving through the Sunscorched Desert's own trade lanes. Work with Sultan Tariq at Dune-Spire Bazaar to trace the route and shut it down.",
+            checkComplete: (g) => hasStoryFlag('pl4_route_traced'),
+            onComplete: () => { setStoryFlag('pl4_complete'); },
+            reward: { funds: 350, reputation: { saltmere: 15, duneSpire: 10 } },
+            completeText: "Tariq won't quite meet your eyes at first. \"Twice, now, my own routes have carried something I never asked enough questions about.\" He exhales, sharp. \"No more. Every caravan out of the Bazaar sails - or rides - with Saltmere's colors from now on, free of charge, until Thorne's dealt with. Call it an apology I can actually afford.\""
+        },
+        pl_deep_racing: {
+            id: 'pl_deep_racing', giver: 'saltmere', name: "The Kraken's Bargain",
+            requiresFlag: 'pl4_complete',
+            desc: "Thorne isn't just rebuilding a crew - he's calling in the bargain that brought him back at all. Stop his Boarding Captain before the ritual finishes.",
+            checkComplete: (g) => hasStoryFlag('pl5_boardingcaptain_defeated'),
+            onComplete: () => { setStoryFlag('pl5_complete'); },
+            reward: { funds: 500, reputation: { saltmere: 20 } },
+            completeText: "The Boarding Captain's ship breaks apart just short of wherever it was sailing to. Vane's relief doesn't last long. \"We stopped it. This time.\" She stares out at the horizon, toward waters even she won't chart. \"Whatever's waiting for Thorne down there, it's real, and it's patient. The Armada's massing at the edge of the charts. Next time we sail, we sail for everything.\""
+        },
+        pl_finale_armada: {
+            id: 'pl_finale_armada', giver: 'saltmere', name: "The Drowned Armada",
+            requiresFlag: 'pl5_complete',
+            desc: "Every ward this coast has left is committed now. Stand with Captain Vane and face Malachi Thorne's flagship directly, before the Armada finishes forming.",
+            checkComplete: (g) => hasStoryFlag('pl_flagship_defeated'),
+            onComplete: () => { setStoryFlag('pl_complete'); setStoryFlag('drowned_armada_unlocked'); },
+            reward: { funds: 1000, reputation: { saltmere: 25 } },
+            completeText: "Thorne's flagship, the Revenant's Due, limps off into deep water rather than finish sinking in front of you - dragging what's left of the ritual with it. Vane lowers her cutlass, breathing hard. \"He's not gone. Wounded, maybe, but a bargain like his doesn't just end because we won one fight.\" She looks at you steadily. \"The Drowned Armada's charted now, for the first time in anyone's memory. If Thorne wants a war of attrition, Saltmere - and everyone who'll stand with it - is done running from one.\""
         }
     };
 
@@ -2550,6 +2708,24 @@
         playAct0GlitchOverlay(() => {
             showGameAlert("👴 [Professor Bill]:\n\n\"Show me the log - no, don't bother, there isn't one, is there.\" He rubs his temples. \"That's not a rendering glitch and it isn't corrupted data, I've seen both. Whatever came through that feed, it wasn't ours.\"\n\nHe's quiet for a moment, then reaches for something in his desk drawer he clearly wasn't planning to bring up today. \"There's someone I should have introduced you to a long time ago. A seer, out past the settlements - Mist-Veil Hollow. Off the record, understand - this isn't in any research charter. But if anyone can tell you what just spoke through my equipment, it's her. Go carefully.\"");
         });
+    }
+
+    // --- MAIN STORY: "The Pirate Lord" (Act 3) ---
+    // Deliberately a sequel arc, not a parallel one: gated on the Hollow King campaign
+    // already being fully finished (frozen_death_unlocked), same Nexus Terminal sync
+    // pattern as Act 0 above. No corrupted-readout cinematic for this one - that overlay
+    // is Hollow King-specific runic-corruption flavor; the hook here is simpler and just
+    // as effective as flavor text through the same showGameAlert every other beat uses.
+    function checkPirateLordCampaignUnlock() {
+        ensureWorldExpansionDefaults();
+        if (hasStoryFlag('pl0_omen_seen')) return false;
+        return hasStoryFlag('frozen_death_unlocked');
+    }
+
+    function triggerPirateLordOmen() {
+        setStoryFlag('pl0_omen_seen');
+        saveGame(); updateUI();
+        showGameAlert("👴 [Professor Bill]:\n\n\"...that's not one of our channels.\" He's staring at the terminal like it just bit him. Underneath the usual telemetry hum: a ship's bell, gulls that have no business anywhere near a research terminal, and a woman's voice steadily reading off coordinates that don't exist on any chart we have.\n\nHe's quiet a moment, then reaches for an old contact he clearly wasn't planning to bring up today. \"There's a harbor town on the coast - Saltmere Cove. Never had reason to visit, but I've heard its harbormaster deals with things the settlements don't talk about. If anything's out there answering to that voice, she'd know before we would. Go carefully - and go by sea, this time.\"");
     }
 
     // Act II: a one-time named boss fight rather than a repeatable regional monster -
@@ -2796,6 +2972,61 @@
                     options: [{ label: "Back", next: 'start' }]
                 }
             }
+        },
+        // --- Act 3: The Pirate Lord ---
+        saltmere: {
+            key: 'saltmere', name: "Captain Isadora Vane", title: "Harbormaster of Saltmere Cove",
+            portrait: "/pictures/Isadora_Vane.png", fallbackEmoji: "⚓", accentColor: "#33ddff",
+            dialogue: {
+                start: {
+                    text: () => {
+                        if (hasStoryFlag('pl_complete')) {
+                            return "Captain Vane leans on the harbor rail, watching the Armada's wreckage still washing ashore. \"Thorne's gone back to whatever deep he crawled out of. The Cove's mine again - ours, I should say. Saltmere doesn't forget who stood the line with it.\"";
+                        }
+                        if (hasStoryFlag('pl5_complete')) {
+                            return "Vane's knuckles are white on the rail. \"The Drowned Armada's massed at the edge of the charts. Whatever Thorne's finishing down there, he's finishing it now. This is the fight, outlander - the only one that'll matter.\"";
+                        }
+                        if (hasStoryFlag('pl4_complete')) {
+                            return "Vane looks up from a chart weighted down with a cracked ship's-wheel spoke. \"Tariq's ships are turning back Brine-Bound cargo at three ports now. Bought us time. Not much - Thorne's still out there calling in whatever bargain keeps him standing - but time.\"";
+                        }
+                        if (hasStoryFlag('pl3_complete')) {
+                            return game.ship.crewFreed
+                                ? "Vane nods toward the deck, where a gaunt, salt-scarred sailor is coiling rope like they've done it a thousand lives. \"Rin still flinches at seawater. Give it time. You didn't just win a fight out there - you proved the curse can be broken. That's worth more to this crew than another sunk hull.\""
+                                : "Vane's jaw is tight. \"Burned the ship. Sometimes that's the mercy, whatever it costs to watch. Don't let it sit wrong in you, outlander - Thorne's the one who bound those souls in the first place.\"";
+                        }
+                        if (hasStoryFlag('pl2_complete')) {
+                            return "Vane taps the chart where Shipwreck Strait's blockade used to be. \"You broke it. First good news out of that Strait in a year. But the Quartermaster was never the one giving orders - just the one Thorne trusted to give them for him.\"";
+                        }
+                        if (hasStoryFlag('pl1_complete')) {
+                            return "Vane looks up from the helm log, something like respect in it. \"You held that wheel better than most who've sailed for me a decade. Shipwreck Strait's next - the Brine-Bound have it blockaded, and I need to know why.\"";
+                        }
+                        if (hasStoryFlag('pl0_omen_seen')) {
+                            return "Captain Vane's eyes narrow the second she sees you. \"You're the one the old scholar sent. Word travels fast on the water.\" She glances out past the breakwater, toward open sea. \"If you heard even half of what came through his machine, you already know more than most people in this Cove want to. Come inside. This isn't a conversation for the docks.\"";
+                        }
+                        return "A woman with salt-cracked hands and a harbormaster's coat looks you over without much interest. \"Saltmere Cove. Last free port on this stretch of coast, for now. If you're not here to trade or crew a ship, outlander, I've got a harbor to run.\"";
+                    },
+                    options: () => {
+                        let opts = [];
+                        if (hasStoryFlag('pl0_omen_seen')) opts.push({ label: "Tell me about the Pirate Lord.", next: 'pirate_lord' });
+                        opts.push({ label: "Tell me about Saltmere Cove.", next: 'lore' });
+                        opts.push({ label: "What do you make of me, honestly?", next: 'assessment' });
+                        opts.push({ label: "Farewell.", action: 'close' });
+                        return opts;
+                    }
+                },
+                lore: {
+                    text: "\"Saltmere's held on longer than any port has a right to, this close to open water the Guardians never bothered charting. No Sealstone here, no old warden's bloodline - just people who refused to stop fishing these waters when everyone smarter told them to. I inherited this coat from my mother. She inherited it from a woman who wasn't kin at all, just the last harbormaster standing. That's how it works here. You hold the line until someone else can.\"",
+                    options: [{ label: "Back", next: 'start' }]
+                },
+                pirate_lord: {
+                    text: "Vane's voice drops, like the words cost her something. \"Malachi Thorne. Captain, once, of a ship his own crew put a knife in - for good reason, or so the story goes, though nobody alive remembers which. He didn't stay dead. Struck some bargain in the deep to come back, and his crew came back with him - drowned, bound, calling themselves nothing anymore. We call them the Brine-Bound. Every ship he takes, he doesn't sink it. He crews it. The Armada's grown every year I've held this coat, and I've had my fill of pretending it'll stop on its own.\"",
+                    options: [{ label: "Back", next: 'start' }]
+                },
+                assessment: {
+                    text: "Vane looks you over the way she'd size up a hull before putting to sea in it. \"Green, when you first walked these docks. You're not, anymore - I've watched you hold a wheel under fire, and that's not something I can teach in an afternoon. I don't hand my trust out easy, outlander. Fewer people left to give it to than there used to be. But you've earned more of it than you probably know.\"",
+                    options: [{ label: "Back", next: 'start' }]
+                }
+            }
         }
     };
 
@@ -2905,6 +3136,36 @@
             if (isQuestActive('hk_dunespire_incursion') && !hasStoryFlag('act3_dunespire_defeated')) {
                 btns.push({ text: "⚔️ Face the Ashbound Sandreaver", class: "btn btn-combat", action: startDuneSpireAshboundEncounter });
             }
+            if (isQuestActive('pl_tariq_ledger') && !hasStoryFlag('pl4_route_traced')) {
+                btns.push({ text: "🗺️ Trace the Smuggling Route", class: "btn btn-mine", action: traceSmugglingRoute });
+            }
+            return btns;
+        }
+        if (key === 'saltmere') {
+            let btns = [];
+            if (game.ship.unlocked) {
+                btns.push({ text: "⚓ Shipyard", class: "btn btn-sys", action: showShipyardMenu });
+                btns.push({ text: "🔱 Harpoon the Depths", class: "btn btn-mine", action: harpoonDepths });
+                btns.push({ text: "🤿 Dive a Shipwreck", class: "btn btn-mine", action: diveShipwreck });
+                if (hasStoryFlag('pl1_complete')) {
+                    btns.push({ text: "☠️ Legendary Ship Hunts", class: "btn btn-villain", action: showLegendaryShipsMenu });
+                }
+            }
+            if (isQuestActive('pl_saltmere_intro') && !hasStoryFlag('pl1_scout_defeated')) {
+                btns.push({ text: "🏴‍☠️ Take the Wheel (Brine-Bound Scout)", class: "btn btn-combat", action: startPirateLordTutorialEncounter });
+            }
+            if (isQuestActive('pl_shipwreck_hunt') && !hasStoryFlag('pl2_quartermaster_defeated')) {
+                btns.push({ text: "⚔️ Face the Brine-Bound Quartermaster", class: "btn btn-combat", action: startQuartermasterEncounter });
+            }
+            if (isQuestActive('pl_mercy_choice') && !hasStoryFlag('pl3_choice_made')) {
+                btns.push({ text: "🚢 Board the Wreck", class: "btn btn-goth", action: showMercyChoiceScreen });
+            }
+            if (isQuestActive('pl_deep_racing') && !hasStoryFlag('pl5_boardingcaptain_defeated')) {
+                btns.push({ text: "⚔️ Face the Boarding Captain", class: "btn btn-combat", action: startBoardingCaptainEncounter });
+            }
+            if (isQuestActive('pl_finale_armada') && !hasStoryFlag('pl_flagship_defeated')) {
+                btns.push({ text: "☠️ Face Thorne's Flagship", class: "btn btn-raid", action: startFlagshipEncounter });
+            }
             return btns;
         }
         if (key === 'forgePeak') {
@@ -2946,6 +3207,41 @@
         saveGame(); updateUI();
         log(`🏺 You strike a shrewd bargain in the Bazaar and pocket $${gained}.`, "color-cyan");
         showRegionHub('desert');
+    }
+
+    // Black Flag-style gathering at Saltmere Cove - same stamina-cost/random-drop shape
+    // as forageHerbs()/haggleBazaar() above, just feeding the naval crafting materials.
+    function harpoonDepths() {
+        if (!game.ship.unlocked) { log("❌ You need a ship before you can harpoon the depths!", "color-red"); return; }
+        if ((game.stamina || 0) < 15) { log("❌ Not enough stamina to harpoon the depths!", "color-red"); return; }
+        game.stamina -= 15;
+        let catches = ["Whale Oil", "Whale Oil", "Shark Hide", "Coral Shard"];
+        let found = catches[Math.floor(Math.random() * catches.length)];
+        game.inventory.push(found);
+        bumpReputation('saltmere', 2);
+        saveGame(); updateUI();
+        log(`🔱 You harpoon the depths and haul up: ${found}!`, "color-cyan");
+        showRegionHub('reef');
+    }
+
+    function diveShipwreck() {
+        if (!game.ship.unlocked) { log("❌ You need a ship before you can dive the wrecks!", "color-red"); return; }
+        if ((game.stamina || 0) < 15) { log("❌ Not enough stamina to dive!", "color-red"); return; }
+        game.stamina -= 15;
+        let finds = ["Salvaged Metal", "Salvaged Metal", "Ship Timber", "Sunken Coin Pouch"];
+        let found = finds[Math.floor(Math.random() * finds.length)];
+        bumpReputation('saltmere', 2);
+        if (found === "Sunken Coin Pouch") {
+            let gained = Math.round(30 + Math.random() * 70);
+            game.funds += gained;
+            saveGame(); updateUI();
+            log(`🤿 You dive down and crack open a Sunken Coin Pouch worth $${gained}!`, "color-cyan");
+        } else {
+            game.inventory.push(found);
+            saveGame(); updateUI();
+            log(`🤿 You dive into the wreck and recover: ${found}!`, "color-cyan");
+        }
+        showRegionHub('reef');
     }
 
     function commissionRune() {
@@ -3861,13 +4157,17 @@
     }
 
     // Snapshot of the active party for one battle: champion fights first, everyone
-    // starts at full HP for this encounter.
+    // starts at full HP for this encounter. maxHp comes from each member's own
+    // trained stat (see trainStaffMember) rather than a flat 100 for every fighter.
     function buildCombatParty() {
         let champion = getChampion();
         let party = getActiveParty();
         if (!party.length) party = [champion];
         let ordered = [champion, ...party.filter(p => p.uid !== champion.uid)];
-        return ordered.map(p => ({ uid: p.uid, name: p.name, power: Math.round((p.power || 30) * (1 + getLikenessBonusPct(p) / 100)), hp: 100, maxHp: 100 }));
+        return ordered.map(p => {
+            let maxHp = p.maxHp || 100;
+            return { uid: p.uid, name: p.name, power: Math.round((p.power || 30) * (1 + getLikenessBonusPct(p) / 100)), hp: maxHp, maxHp: maxHp };
+        });
     }
 
     // Adds a newly recruited/traded-in character to the roster, auto-slotting them into
@@ -3922,13 +4222,13 @@
         ]);
     }
 
-    // --- TRAINING GROUNDS: power progression outside of catching/evolving ---
+    // --- TRAINING GROUNDS: power AND max HP progression outside of catching/evolving ---
     function showTrainingGroundsMenu() {
         playBGM('staff');
         clearConsole("flex-start", "radial-gradient(circle at 50% 20%, #1a0800 0%, #080300 85%)", "#ff8800", SCENE_IMAGES.training);
         let html = `
             <h2 style="color:#ff8800; font-size:18px;">💪 TRAINING GROUNDS</h2>
-            <p style="color:#aaa; font-size:12px; max-width:340px;">Spend stamina and cash to push a roster member's power higher. The cost climbs the stronger they already are.</p>
+            <p style="color:#aaa; font-size:12px; max-width:340px;">Spend stamina and cash to push a roster member's power or max HP higher. The cost climbs the stronger they already are.</p>
             <p style="color:#ffd700; font-size:12px;">⚡ Stamina: ${game.stamina || 0} | 💰 Funds: $${Math.floor(game.funds)}</p>
             <div style="width:100%;">
         `;
@@ -3936,10 +4236,14 @@
             html += `<p style="color:#666; font-size:12px;">You have no roster members to train yet.</p>`;
         } else {
             game.staff.forEach(s => {
-                let cost = Math.round(50 + (s.power || 30) * 2);
-                html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-size:12px;">${s.name}${s.isEvolved ? ' 🌟' : ''} (Pwr ${s.power || 0})</span>
-                    <button class="btn btn-farm" style="padding:4px 8px; font-size:11px; min-height:28px;" onclick="trainStaffMember('${s.uid}')">💪 Train (⚡10, $${cost})</button>
+                let pwrCost = Math.round(50 + (s.power || 30) * 2);
+                let hpCost = Math.round(50 + ((s.maxHp || 100) - 100) * 1.2);
+                html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
+                    <span style="font-size:12px;">${s.name}${s.isEvolved ? ' 🌟' : ''} (Pwr ${s.power || 0}, HP ${s.maxHp || 100})</span>
+                    <span>
+                        <button class="btn btn-farm" style="padding:4px 8px; font-size:11px; min-height:28px;" onclick="trainStaffMember('${s.uid}', 'power')">💪 Power (⚡10, $${pwrCost})</button>
+                        <button class="btn btn-mine" style="padding:4px 8px; font-size:11px; min-height:28px;" onclick="trainStaffMember('${s.uid}', 'hp')">❤️ Max HP (⚡10, $${hpCost})</button>
+                    </span>
                 </div>`;
             });
         }
@@ -3948,19 +4252,30 @@
         renderButtons([{ text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }]);
     }
 
-    function trainStaffMember(uid) {
+    function trainStaffMember(uid, stat) {
+        stat = stat === 'hp' ? 'hp' : 'power';
         let member = game.staff.find(s => s.uid === uid);
         if (!member) { showTrainingGroundsMenu(); return; }
         let staminaCost = 10;
-        let cashCost = Math.round(50 + (member.power || 30) * 2);
+        let cashCost = stat === 'hp'
+            ? Math.round(50 + ((member.maxHp || 100) - 100) * 1.2)
+            : Math.round(50 + (member.power || 30) * 2);
         if ((game.stamina || 0) < staminaCost) { log("❌ Not enough stamina to train!", "color-red"); showTrainingGroundsMenu(); return; }
         if (game.funds < cashCost) { log("❌ Not enough funds to train!", "color-red"); showTrainingGroundsMenu(); return; }
         game.stamina -= staminaCost;
         game.funds -= cashCost;
-        let gain = Math.floor(3 + Math.random() * 6); // +3 to +8
-        member.power = (member.power || 30) + gain;
         bumpLifetimeStat('totalTrainingSessions');
         bumpDailyProgress('trains');
+        if (stat === 'hp') {
+            let gain = Math.floor(8 + Math.random() * 13); // +8 to +20
+            member.maxHp = (member.maxHp || 100) + gain;
+            saveGame(); updateUI();
+            log(`❤️ ${member.name} toughened up! Max HP +${gain} (now ${member.maxHp}).`, "color-cyan");
+            showTrainingGroundsMenu();
+            return;
+        }
+        let gain = Math.floor(3 + Math.random() * 6); // +3 to +8
+        member.power = (member.power || 30) + gain;
         saveGame(); updateUI();
         log(`💪 ${member.name} trained hard! Power +${gain} (now ${member.power}).`, "color-cyan");
         showTrainingGroundsMenu();
@@ -5503,6 +5818,30 @@
     }
 
     // --- PORTALS & EXCLUSIVE HOLIDAY THEMES ---
+    // Holiday portals used to be open year-round; now each only opens in a window around
+    // its real-world date. Outside the window the button stays visible (so players know
+    // it exists and when to come back) but is locked instead of opening the portal.
+    const HOLIDAY_PORTAL_WINDOWS = {
+        halloween:   { label: "Oct 1 - Nov 2",   check: (m, d) => (m === 10) || (m === 11 && d <= 2) },
+        christmas:   { label: "Dec 1 - Jan 6",   check: (m, d) => (m === 12) || (m === 1 && d <= 6) },
+        valentine:   { label: "Feb 7 - Feb 21",  check: (m, d) => m === 2 && d >= 7 && d <= 21 },
+        saintPaddys: { label: "Mar 10 - Mar 20", check: (m, d) => m === 3 && d >= 10 && d <= 20 },
+        summer:      { label: "Jun 1 - Aug 31",  check: (m, d) => m >= 6 && m <= 8 }
+    };
+    function isHolidayPortalOpen(holidayKey) {
+        let win = HOLIDAY_PORTAL_WINDOWS[holidayKey];
+        if (!win) return true;
+        let now = new Date();
+        return win.check(now.getMonth() + 1, now.getDate());
+    }
+    function holidayPortalButton(holidayKey, text, cls, poolKey, themeKey) {
+        if (isHolidayPortalOpen(holidayKey)) {
+            return { text, class: cls, action: () => triggerPortalTheme(poolKey, themeKey) };
+        }
+        let win = HOLIDAY_PORTAL_WINDOWS[holidayKey];
+        return { text: `🔒 ${text} (opens ${win.label})`, class: cls, action: () => showGameAlert(`This portal only opens ${win.label}. Come back then!`) };
+    }
+
     function showFreePortalsMenu() {
         playBGM('dlcHub');
         clearConsole("center", "radial-gradient(circle at 50% 50%, #4d004d 0%, #1a001a 80%)", "#ff00ff", SCENE_IMAGES.portals);
@@ -5510,11 +5849,11 @@
             { text: "🌌 Standard Multiverse", class: "btn btn-sys", action: () => triggerPortalTheme("standard", 'standard') },
             { text: "🦉 Femboy Hooters", class: "btn btn-hooters", action: () => triggerPortalTheme("femboyHooters", 'femboyHooters') },
             { text: "🍍 Bikini Bottom", class: "btn btn-bikini", action: () => triggerPortalTheme("bikiniBottom", 'bikiniBottom') },
-            { text: "🎃 Halloween Portal", class: "btn btn-halloween", action: () => triggerPortalTheme("halloween", 'halloween') },
-            { text: "🎄 Christmas Realm", class: "btn btn-farm", action: () => triggerPortalTheme("christmasPortal", 'christmas') },
-            { text: "💖 Valentine Portal", class: "btn btn-maid", action: () => triggerPortalTheme("valentinePortal", 'love') },
-            { text: "☘️ Saint Paddy's Realm", class: "btn btn-mine", action: () => triggerPortalTheme("paddysPortal", 'saintPaddys') },
-            { text: "☀️ Summer Beach Rift", class: "btn btn-cyber", action: () => triggerPortalTheme("summerPortal", 'summer') },
+            holidayPortalButton("halloween", "🎃 Halloween Portal", "btn btn-halloween", "halloween", 'halloween'),
+            holidayPortalButton("christmas", "🎄 Christmas Realm", "btn btn-farm", "christmasPortal", 'christmas'),
+            holidayPortalButton("valentine", "💖 Valentine Portal", "btn btn-maid", "valentinePortal", 'love'),
+            holidayPortalButton("saintPaddys", "☘️ Saint Paddy's Realm", "btn btn-mine", "paddysPortal", 'saintPaddys'),
+            holidayPortalButton("summer", "☀️ Summer Beach Rift", "btn btn-cyber", "summerPortal", 'summer'),
             { text: "🥋 Anime Arena", class: "btn btn-combat", action: () => triggerPortalTheme("animeArena", 'animeArena') },
             { text: "🦸 Superhero Multiverse", class: "btn btn-raid", action: () => triggerPortalTheme("superheroMultiverse", 'superheroMultiverse') },
             { text: "🐉 Fantasy Quest", class: "btn btn-goth", action: () => triggerPortalTheme("fantasyQuest", 'fantasyQuest') },
@@ -5803,7 +6142,7 @@
         document.getElementById("console").innerHTML = html;
 
         renderButtons([
-            { text: "🐲 Start Co-Op Raid Boss", class: "btn btn-raid", action: showRaidTierSelect },
+            { text: "🐲 Start Co-Op Raid Boss", class: "btn btn-raid", action: showRaidHub },
             { text: "🤝 Trade Partner", class: "btn btn-dex", action: showMultiplayerTradeScreen },
             { text: "🏪 Player Market", class: "btn btn-sys", action: showGlobalMarketScreen },
             { text: "💬 Room Chat", class: "btn btn-maid", action: showRoomChatScreen },
@@ -6336,76 +6675,147 @@
     }
 
     // --- LIVE CO-OP RAID BOSS ---
-    // The raid boss is genuinely shared server-wide: every currently-connected
-    // player is hitting the exact same HP pool in real time, and everyone who's
-    // watching the fight when it dies gets credited the reward.
-    function showRaidTierSelect() {
+    // Two parallel shared tracks, both genuinely server-wide (every connected player hits
+    // the exact same HP pool in real time): "private" is the original single shared boss,
+    // "public" is a 3x-HP/reward version meant for the whole server to dogpile at once.
+    // Both tracks now fight with your FULL active party (not one lightweight fighter) and,
+    // once a boss goes down, a Master Ball (and only a Master Ball) can catch it.
+    function showRaidHub() {
         playBGM('villain');
         clearConsole("center", "radial-gradient(circle at 50% 30%, #3a0000 0%, #0a0002 85%)", "#ff0055");
         document.getElementById("console").innerHTML = `
-            <h2 style="color:#ff0055; text-shadow: 0 0 10px #ff0055; font-size:18px;">🐲 CHOOSE YOUR RAID BOSS</h2>
-            <p style="color:#aaa; font-size:12px; max-width:360px;">Every trainer online right now fights the SAME boss - team up and strike together in real time!</p>
+            <h2 style="color:#ff0055; text-shadow: 0 0 10px #ff0055; font-size:18px;">🐲 CO-OP RAID BOSS</h2>
+            <p style="color:#aaa; font-size:12px; max-width:360px;">Both tracks are shared with every trainer online right now. Public bosses hit 3x harder to fight but pay out 3x more.</p>
         `;
         renderButtons([
-            { text: "🐉 Void Titan Chronos (Lv. 50)", class: "btn btn-raid", action: () => selectRaidBossTier('titan') },
-            { text: "🐲 Shadow Dragon Netherfang (Lv. 90)", class: "btn btn-raid", action: () => selectRaidBossTier('dragon') },
-            ...(hasStoryFlag('frozen_death_unlocked') ? [{ text: "👑 The Hollow King (Lv. 150)", class: "btn btn-raid", action: () => selectRaidBossTier('hollowKing') }] : []),
+            { text: "⚔️ Private Track (shared boss)", class: "btn btn-raid", action: () => showRaidTierSelect('private') },
+            { text: "🌐 Public Track (server-wide, 3x HP/reward)", class: "btn btn-raid", action: () => showRaidTierSelect('public') },
             { text: "⬅ Back to Lobby", class: "btn btn-back", action: renderActiveLobbyView }
         ]);
     }
 
-    function selectRaidBossTier(tierKey) {
-        if (socket) socket.emit('selectRaidTier', tierKey);
+    function showRaidTierSelect(track) {
+        playBGM('villain');
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #3a0000 0%, #0a0002 85%)", "#ff0055");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#ff0055; text-shadow: 0 0 10px #ff0055; font-size:18px;">🐲 CHOOSE YOUR RAID BOSS</h2>
+            <p style="color:#aaa; font-size:12px; max-width:360px;">${track === 'public' ? "Every trainer on the server fights the SAME server-wide boss - 3x the HP, 3x the reward." : "Every trainer online right now fights the SAME boss - team up and strike together in real time!"}</p>
+        `;
+        renderButtons([
+            { text: "🐉 Void Titan Chronos (Lv. 50)", class: "btn btn-raid", action: () => selectRaidBossTier('titan', track) },
+            { text: "🐲 Shadow Dragon Netherfang (Lv. 90)", class: "btn btn-raid", action: () => selectRaidBossTier('dragon', track) },
+            ...(track !== 'public' && hasStoryFlag('frozen_death_unlocked') ? [{ text: "👑 The Hollow King (Lv. 150)", class: "btn btn-raid", action: () => selectRaidBossTier('hollowKing', track) }] : []),
+            ...(track !== 'public' && hasStoryFlag('drowned_armada_unlocked') ? [{ text: "🏴‍☠️ The Pirate Lord (Lv. 170)", class: "btn btn-raid", action: () => selectRaidBossTier('pirateLord', track) }] : []),
+            { text: "⬅ Back", class: "btn btn-back", action: showRaidHub }
+        ]);
+    }
+
+    // track defaults to 'private' so the direct Hollow King shortcut button (which never
+    // passes a track) keeps working exactly as it did before the public track existed.
+    function selectRaidBossTier(tierKey, track) {
+        raidTrack = track === 'public' ? 'public' : 'private';
+        if (socket) socket.emit(raidTrack === 'public' ? 'selectPublicRaidTier' : 'selectRaidTier', tierKey);
         startCoopRaidSession();
     }
 
-    // The raid boss previously never damaged players at all - striking it only ever
-    // reduced its shared HP pool server-side. raidPlayerFighter is a lightweight local
-    // combatant (not the persistent roster entry) that takes the boss's retaliation hits.
-    let raidPlayerFighter = null;
-
     function startCoopRaidSession() {
         raidScreenActive = true;
-        let champ = getChampion();
-        raidPlayerFighter = {
-            name: champ.name,
-            power: champ.power || 30,
-            maxHp: 100,
-            hp: 100,
-            defense: getFighterDefense(champ)
-        };
+        raidParty = buildCombatParty();
+        raidActiveIdx = 0;
         renderRaidBossScreen();
+    }
+
+    function activeRaidBossState() {
+        return raidTrack === 'public' ? currentPublicRaidBossState : currentRaidBossState;
     }
 
     function renderRaidBossScreen() {
         playBGM('villain');
-        let boss = currentRaidBossState || { name: "Contacting raid server...", hp: 0, maxHp: 1, level: 1, reward: 0 };
-        let pf = raidPlayerFighter || { name: "Fighter", hp: 100, maxHp: 100 };
+        let boss = activeRaidBossState() || { name: "Contacting raid server...", hp: 0, maxHp: 1, level: 1, reward: 0 };
+        let party = raidParty || [];
+        let pf = party[raidActiveIdx] || { name: "Fighter", hp: 100, maxHp: 100 };
+        let anyoneElseUp = party.some((p, i) => i !== raidActiveIdx && p.hp > 0);
         clearConsole("center", "radial-gradient(circle at 50% 30%, #3a0000 0%, #0a0002 85%)", "#ff0055");
         document.getElementById("console").innerHTML = `
-            <h2 style="color:#ff0055; text-shadow: 0 0 10px #ff0055; font-size:18px;">🐲 CO-OP RAID BOSS</h2>
+            <h2 style="color:#ff0055; text-shadow: 0 0 10px #ff0055; font-size:18px;">🐲 ${raidTrack === 'public' ? 'SERVER-WIDE ' : ''}CO-OP RAID BOSS</h2>
             <div class="dex-card" style="display:block; text-align:center; font-size:12px;">
                 <strong style="color:#ff3333; font-size:16px;">${boss.name}</strong> (Lv. ${boss.level})<br>
                 ❤️ Raid HP: <span style="color:#ff3333;" id="raid-boss-hp">${boss.hp} / ${boss.maxHp}</span>
             </div>
             <div class="dex-card" style="display:block; text-align:center; font-size:12px; margin-top:6px;">
-                <strong style="color:#00ffff;">${pf.name}</strong><br>
+                <strong style="color:#00ffff;">${pf.name}</strong> <span style="color:#888;">(${raidActiveIdx + 1}/${party.length} in party)</span><br>
                 ❤️ Your HP: <span style="color:#33ff33;" id="raid-player-hp">${pf.hp} / ${pf.maxHp}</span>
             </div>
             <p id="raid-combat-log" style="color:#ffff00; font-size:12px;">Every trainer online can strike this SAME boss right now - your hits (and theirs) land live! It strikes back, and enrages under 30% HP.</p>
         `;
         renderButtons([
-            { text: pf.hp > 0 ? "💥 Strike the Boss!" : "💤 Fighter Down - Leave to Heal", class: "btn btn-raid", action: executeRaidStrike },
+            { text: pf.hp > 0 ? "💥 Strike the Boss!" : "💤 Fighter Down - Swap or Leave", class: "btn btn-raid", action: executeRaidStrike },
+            ...(anyoneElseUp ? [{ text: "🔄 Swap Fighter", class: "btn btn-mine", action: () => showRaidSwapPicker(pf.hp <= 0) }] : []),
             { text: "🏃 Leave Raid", class: "btn btn-back", action: () => { raidScreenActive = false; renderActiveLobbyView(); } }
         ]);
     }
 
+    function showRaidSwapPicker(forced) {
+        let party = raidParty || [];
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #33000a 0%, #080002 85%)", "#ff0044");
+        let html = `<h2 style="font-size:16px; color:#ff0055;">🔄 ${forced ? 'Choose Your Next Fighter' : 'Swap Active Fighter'}</h2><div style="width:100%; max-width:380px;">`;
+        party.forEach((p, i) => {
+            let faint = p.hp <= 0;
+            let isActive = i === raidActiveIdx;
+            html += `<div class="dex-card" style="display:flex; justify-content:space-between; align-items:center; opacity:${faint ? 0.45 : 1};">
+                <span>${faint ? '💀' : '⚔️'} ${p.name} (${p.hp}/${p.maxHp} HP)${isActive && !forced ? ' <span style="color:#ffaa00;">(Active)</span>' : ''}</span>
+                ${(!faint && !isActive) ? `<button class="btn btn-mine" style="padding:3px 8px; font-size:11px; min-height:28px;" onclick="confirmRaidSwap(${i})">Send Out</button>` : ''}
+            </div>`;
+        });
+        html += `</div>`;
+        document.getElementById("console").innerHTML = html;
+        renderButtons(forced ? [] : [{ text: "⬅ Cancel", class: "btn btn-back", action: renderRaidBossScreen }]);
+    }
+
+    function confirmRaidSwap(idx) {
+        raidActiveIdx = idx;
+        renderRaidBossScreen();
+    }
+
     function executeRaidStrike() {
         if (!socket || !socket.connected) { showGameAlert("Not connected to the server - can't reach the raid boss right now."); return; }
-        if (!raidPlayerFighter || raidPlayerFighter.hp <= 0) { showGameAlert("Your fighter is down! Retreat and heal before striking again."); return; }
-        let lead = getChampion();
-        let dmg = (lead.power || 35) + Math.floor(Math.random() * 20);
-        socket.emit('attackRaidBoss', { damage: dmg, trainerName: game.playerName, championName: lead.name, defense: raidPlayerFighter.defense });
+        let pf = raidParty ? raidParty[raidActiveIdx] : null;
+        if (!pf || pf.hp <= 0) { showGameAlert("Your fighter is down! Swap to someone else before striking again."); return; }
+        let dmg = (pf.power || 35) + Math.floor(Math.random() * 20);
+        socket.emit(raidTrack === 'public' ? 'attackPublicRaidBoss' : 'attackRaidBoss', { damage: dmg, trainerName: game.playerName, championName: pf.name, defense: getFighterDefense(pf) });
+    }
+
+    // Post-victory catch attempt: raid bosses can ONLY be caught here, during a raid,
+    // and ONLY with a Master Ball - reuses the same guaranteed-catch logic a Master Ball
+    // already gets on a normal wild encounter (see processPortalCatch).
+    function showRaidCatchOffer(dexId, bossName) {
+        let hasMasterBall = countOwnedBalls("Master Ball") > 0;
+        document.getElementById("console").innerHTML += `
+            <div class="dex-card" style="display:block; text-align:center; font-size:12px; margin-top:8px;">
+                ${hasMasterBall
+                    ? `<p style="color:#dd88ff;">You have a 🟣 Master Ball - the only thing that can catch a raid boss!</p>`
+                    : `<p style="color:#aaa;">You'd need a 🟣 Master Ball to catch ${bossName} - none in your bag right now.</p>`}
+            </div>
+        `;
+        renderButtons([
+            ...(hasMasterBall ? [{ text: "🟣 Throw Master Ball!", class: "btn btn-raid", action: () => processRaidCatch(dexId, bossName) }] : []),
+            { text: "✔ Return to Lobby", class: "btn btn-start", action: renderActiveLobbyView }
+        ]);
+    }
+
+    function processRaidCatch(dexId, bossName) {
+        consumeBall("Master Ball");
+        updateUI(); saveGame();
+        let dex = getAllDexEntries().find(d => d.id === dexId);
+        addStaffMember({ name: bossName, power: dex ? dex.power : 60, origin: dex ? dex.origin : "Raid Boss", dexId: dexId, shiny: false });
+        recordDex(dexId, false);
+        saveGame(); updateUI();
+        clearConsole("center", "radial-gradient(circle, #2b0033, #000)", "#dd88ff");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#dd88ff; font-size:18px;">🟣 CAUGHT!</h2>
+            <p style="color:#fff; font-size:12px;">${bossName} joins your roster!</p>
+        `;
+        renderButtons([{ text: "✔ Return to Lobby", class: "btn btn-start", action: renderActiveLobbyView }]);
     }
 
     if (socket) {
@@ -6432,25 +6842,42 @@
 
         socket.on('raidBossUpdate', (boss) => {
             currentRaidBossState = boss;
-            if (raidScreenActive) renderRaidBossScreen();
+            if (raidScreenActive && raidTrack === 'private') renderRaidBossScreen();
         });
 
-        socket.on('raidBossHit', (data) => {
-            if (currentRaidBossState) {
-                currentRaidBossState.hp = data.bossHp;
-                currentRaidBossState.maxHp = data.bossMaxHp;
+        socket.on('raidBossHit', (data) => handleRaidBossHit(data, 'private'));
+
+        // The boss strikes back at whoever just hit it - sent only to that one socket,
+        // never broadcast, since it's retaliation against a single striker's fighter.
+        socket.on('raidBossRetaliate', (data) => handleRaidBossRetaliate(data, 'private'));
+
+        socket.on('publicRaidBossUpdate', (boss) => {
+            currentPublicRaidBossState = boss;
+            if (raidScreenActive && raidTrack === 'public') renderRaidBossScreen();
+        });
+
+        socket.on('publicRaidBossHit', (data) => handleRaidBossHit(data, 'public'));
+
+        socket.on('publicRaidBossRetaliate', (data) => handleRaidBossRetaliate(data, 'public'));
+
+        function handleRaidBossHit(data, track) {
+            let stateVar = track === 'public' ? currentPublicRaidBossState : currentRaidBossState;
+            if (stateVar) {
+                stateVar.hp = data.bossHp;
+                stateVar.maxHp = data.bossMaxHp;
             }
-            if (raidScreenActive) {
+            let onThisScreen = raidScreenActive && raidTrack === track;
+            if (onThisScreen) {
                 let hpEl = document.getElementById("raid-boss-hp");
                 if (hpEl) hpEl.innerText = `${data.bossHp} / ${data.bossMaxHp}`;
                 let logEl = document.getElementById("raid-combat-log");
                 if (logEl) logEl.innerHTML = `<span style="color:#00ffff;">${data.log}</span>`;
             }
-            if (data.isDefeated && raidScreenActive) {
+            if (data.isDefeated && onThisScreen) {
                 raidScreenActive = false;
                 setTimeout(() => {
                     game.funds += (data.reward || 0);
-                    tickLikenessForFighters([getChampion().uid]);
+                    tickLikenessForFighters((raidParty || []).map(p => p.uid).filter(Boolean));
                     bumpLifetimeStat('totalRaidKills');
                     bumpDailyProgress('raidKills');
                     updateUI(); saveGame();
@@ -6459,28 +6886,35 @@
                         <h2 style="color:#00ff88; font-size:18px;">🏆 RAID BOSS DEFEATED!</h2>
                         <p style="color:#fff; font-size:12px;">${data.slayer} landed the final blow! Everyone who joined the fight claims $${data.reward}!</p>
                     `;
-                    renderButtons([{ text: "✔ Return to Lobby", class: "btn btn-start", action: renderActiveLobbyView }]);
+                    showRaidCatchOffer(data.dexId, data.bossName);
                 }, 900);
             }
-        });
+        }
 
-        // The boss strikes back at whoever just hit it - sent only to that one socket,
-        // never broadcast, since it's retaliation against a single striker's fighter.
-        socket.on('raidBossRetaliate', ({ damage, isCrit, enraged, bossName }) => {
-            if (!raidPlayerFighter) return;
-            raidPlayerFighter.hp = Math.max(0, raidPlayerFighter.hp - (damage || 0));
+        function handleRaidBossRetaliate(data, track) {
+            let { damage, isCrit, enraged, bossName } = data;
+            if (!raidParty || raidTrack !== track) return;
+            let pf = raidParty[raidActiveIdx];
+            if (!pf) return;
+            pf.hp = Math.max(0, pf.hp - (damage || 0));
             if (!raidScreenActive) return;
             let critTag = isCrit ? " 💢 CRITICAL HIT!" : "";
             let enrageTag = enraged ? " 🔥 ENRAGED!" : "";
             let logEl = document.getElementById("raid-combat-log");
             if (logEl) logEl.innerHTML = `<span style="color:#ff6666;">${bossName} strikes back for ${damage}!${critTag}${enrageTag}</span>`;
             let hpEl = document.getElementById("raid-player-hp");
-            if (hpEl) hpEl.innerText = `${raidPlayerFighter.hp} / ${raidPlayerFighter.maxHp}`;
-            if (raidPlayerFighter.hp <= 0) {
-                renderRaidBossScreen();
-                showGameAlert(`${raidPlayerFighter.name} was knocked out by ${bossName}! Leave the raid to send them back in at full HP.`);
+            if (hpEl) hpEl.innerText = `${pf.hp} / ${pf.maxHp}`;
+            if (pf.hp <= 0) {
+                let anyoneElseUp = raidParty.some((p, i) => i !== raidActiveIdx && p.hp > 0);
+                if (anyoneElseUp) {
+                    showGameAlert(`${pf.name} was knocked out by ${bossName}! Pick your next fighter.`);
+                    showRaidSwapPicker(true);
+                } else {
+                    renderRaidBossScreen();
+                    showGameAlert(`${pf.name} was knocked out by ${bossName}! Your whole party is down - leave the raid to heal up.`);
+                }
             }
-        });
+        }
 
         // --- Generalized trade protocol: item / character / cash all flow through the
         // same offerTrade -> receiveTradeOffer -> acceptTrade -> tradeCompleted pipeline.
@@ -6787,7 +7221,11 @@
             { text: "🌋 Obsidian Volcano", class: "btn btn-combat", action: () => selectRegion('volcano') },
             { text: "🪓 Nordic Fjord", class: "btn btn-sys", action: () => selectRegion('fjord') },
             { text: "👻 Mist-Veil Hollow", class: "btn btn-goth", action: () => selectRegion('bog') },
+            { text: "💎 Crystal Highlands", class: "btn btn-dlc", action: () => selectRegion('crystalHighlands') },
+            { text: "🐚 Sunken Reef", class: "btn btn-mine", action: () => selectRegion('reef') },
+            ...(hasStoryFlag('pl1_complete') ? [{ text: "🏴‍☠️ Shipwreck Strait", class: "btn btn-mine", action: () => selectRegion('shipwreckStrait') }] : []),
             ...(hasStoryFlag('frozen_death_unlocked') ? [{ text: "💀 The Frozen Death", class: "btn btn-villain", action: () => selectRegion('frozenDeath') }] : []),
+            ...(hasStoryFlag('pl5_complete') ? [{ text: "☠️ The Drowned Armada", class: "btn btn-villain", action: () => selectRegion('drownedArmada') }] : []),
             { text: "⬅ Back to HQ", class: "btn btn-back", action: showMainMenu }
         ]);
     }
@@ -6841,6 +7279,9 @@
         }
         if (regionKey === 'frozenDeath') {
             btns.push({ text: "👑 Face the Hollow King (Co-Op Raid)", class: "btn btn-raid", action: () => selectRaidBossTier('hollowKing') });
+        }
+        if (regionKey === 'drownedArmada') {
+            btns.push({ text: "🏴‍☠️ Face the Pirate Lord (Co-Op Raid)", class: "btn btn-raid", action: () => selectRaidBossTier('pirateLord') });
         }
         btns.push({ text: "⚔️ Hunt Regional Monster", class: "btn btn-combat", action: () => startRegionalMonsterEncounter(regionKey) });
         btns.push({ text: "🗺️ Switch Region", class: "btn btn-map", action: showWorldMap });
@@ -7105,6 +7546,583 @@
         if (!forced) {
             enemyCounterAttack();
         }
+    }
+
+    // ==================================================================
+    // ACT 3: THE PIRATE LORD - NAVAL COMBAT
+    // A deliberately separate system from activeCombatSession/renderPokemonCombatScreen
+    // above: ship vs ship, resolved by STANCE rather than a strike/special/guard loop.
+    // Both sides pick a stance each round and it resolves simultaneously - Windward beats
+    // Boarding, Boarding beats Broadside, Broadside beats Windward - which is the
+    // "positioning" layer the creature-capture pipeline never needed. Named story fights
+    // (Scout, Quartermaster, Boarding Captain, the flagship) all run through this, solo,
+    // client-side. The Pirate Lord's flagship, once the story's done with it, becomes a
+    // separate co-op RAID boss through the EXISTING raid pipeline instead (see
+    // selectRaidBossTier('pirateLord')) - that system is already the server-authoritative
+    // multiplayer one, so there's no reason to rebuild shared-HP netcode a second time.
+    // ==================================================================
+
+    let activeNavalSession = null;
+
+    const NAVAL_STANCES = {
+        windward: { label: "Take the Wind", icon: "⛵", beats: 'boarding' },
+        broadside: { label: "Fire Broadside", icon: "💥", beats: 'windward' },
+        boarding: { label: "Board & Storm", icon: "🗡️", beats: 'broadside' }
+    };
+
+    function navalStanceResult(playerStance, enemyStance) {
+        if (playerStance === enemyStance) return 'tie';
+        return NAVAL_STANCES[playerStance].beats === enemyStance ? 'win' : 'lose';
+    }
+
+    // enemyWeights: relative odds for {windward, broadside, boarding} - need not sum to 1.
+    // Lets each named boss have a distinct "personality" (the Boarding Captain leans hard
+    // into boarding, so a player who's fought them before learns to answer with Windward).
+    function startNavalEncounter(config) {
+        playBGM('battle');
+        game.ship.hull = game.ship.maxHull; // fights always start at full hull, same as buildCombatParty() resets party HP for every fight
+        activeNavalSession = {
+            enemyName: config.enemyName,
+            enemyHull: config.enemyHull,
+            enemyMaxHull: config.enemyHull,
+            enemyCannons: config.enemyCannons,
+            enemyWeights: config.enemyWeights || { windward: 1, broadside: 1, boarding: 1 },
+            rewardCash: config.rewardCash || 0,
+            regionKey: config.regionKey || 'reef',
+            storyFlagOnWin: config.storyFlagOnWin || null,
+            // Black Flag-style plunder: generic {item, chance, min, max} rows plus an
+            // optional crew-recruit roll, resolved on win by rollNavalPlunder().
+            lootTable: config.lootTable || [],
+            crewRecruitChance: config.crewRecruitChance || 0,
+            crewRecruitPool: config.crewRecruitPool || [],
+            mortarUsed: false,
+            enemyBurn: null,
+            enemyDisabledNextRound: false,
+            lastLog: `Captain Vane's voice crackles over the wind: "Pick your approach and hold steady!"`
+        };
+        renderNavalCombatScreen();
+    }
+
+    function pickEnemyNavalStance(weights) {
+        let entries = Object.entries(weights);
+        let total = entries.reduce((sum, [, w]) => sum + w, 0);
+        let roll = Math.random() * total;
+        for (let [stance, w] of entries) {
+            if (roll < w) return stance;
+            roll -= w;
+        }
+        return entries[0][0];
+    }
+
+    function renderNavalCombatScreen() {
+        let s = activeNavalSession;
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #001a2e 0%, #00040a 85%)", "#ffd23f");
+        let hullPct = Math.max(0, Math.round((game.ship.hull / game.ship.maxHull) * 100));
+        let enemyPct = Math.max(0, Math.round((s.enemyHull / s.enemyMaxHull) * 100));
+        let burnNote = s.enemyBurn && s.enemyBurn.rounds > 0 ? `<p style="color:#ff8844; font-size:10px; margin:2px 0;">🔥 Enemy is ablaze - ${s.enemyBurn.rounds} round(s) of burning left!</p>` : '';
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#ffd23f; font-size:16px;">🏴‍☠️ NAVAL BATTLE vs ${s.enemyName.toUpperCase()}</h2>
+            <div style="display:flex; justify-content:space-around; width:100%; margin:8px 0;">
+                <div class="dex-card" style="text-align:center; width:48%; display:block; border-color:#33ddff; padding:6px;">
+                    <strong style="color:#33ddff; font-size:12px;">Your Ship</strong><br>
+                    🛡️ <span style="color:#33ff88; font-size:11px;">${game.ship.hull} / ${game.ship.maxHull} Hull (${hullPct}%)</span>
+                </div>
+                <div class="dex-card" style="text-align:center; width:48%; display:block; border-color:#ffd23f; padding:6px;">
+                    <strong style="color:#ffd23f; font-size:12px;">${s.enemyName}</strong><br>
+                    🛡️ <span style="color:#ff5555; font-size:11px;">${s.enemyHull} / ${s.enemyMaxHull} Hull (${enemyPct}%)</span>
+                </div>
+            </div>
+            <p style="color:#ffff88; font-size:12px; margin:2px 0; max-width:380px;">${s.lastLog}</p>
+            ${burnNote}
+            <p style="color:#7fa8bf; font-size:10px; margin:2px 0;">⛵ Windward beats Boarding &nbsp;·&nbsp; 💥 Broadside beats Windward &nbsp;·&nbsp; 🗡️ Boarding beats Broadside</p>
+        `;
+        let buttons = [
+            { text: "⛵ Take the Wind", class: "btn btn-sys", action: () => executeNavalStance('windward') },
+            { text: "💥 Fire Broadside", class: "btn btn-combat", action: () => executeNavalStance('broadside') },
+            { text: "🗡️ Board & Storm", class: "btn btn-raid", action: () => executeNavalStance('boarding') },
+            { text: "🔧 Emergency Repairs", class: "btn btn-mine", action: () => executeNavalStance('repair') }
+        ];
+        // Black Flag special actions - only offered when the ship actually has the upgrade/charges.
+        if (game.ship.mortar && !s.mortarUsed) {
+            buttons.push({ text: "💣 Mortar Volley", class: "btn btn-combat", action: () => executeNavalStance('mortar') });
+        }
+        if (game.ship.fireBarrels > 0) {
+            buttons.push({ text: `🔥 Fire Barrel (${game.ship.fireBarrels})`, class: "btn btn-combat", action: () => executeNavalStance('firebarrel') });
+        }
+        if (game.ship.chainShot > 0) {
+            buttons.push({ text: `⛓️ Chain Shot (${game.ship.chainShot})`, class: "btn btn-sys", action: () => executeNavalStance('chainshot') });
+        }
+        buttons.push({ text: "🏃 Retreat", class: "btn btn-back", action: () => { let rk = s.regionKey; activeNavalSession = null; showRegionHub(rk); } });
+        renderButtons(buttons);
+    }
+
+    // Applies any pending Fire Barrel burn to the enemy hull at the top of the round.
+    // Returns a small log fragment to tack onto whatever action the player took.
+    function tickNavalStatusEffects(s) {
+        let notes = '';
+        if (s.enemyBurn && s.enemyBurn.rounds > 0) {
+            let burnDmg = s.enemyBurn.dmgPerRound;
+            s.enemyHull = Math.max(0, s.enemyHull - burnDmg);
+            s.enemyBurn.rounds--;
+            notes += `<br><span style="color:#ff8844;">🔥 The fire below deck chews off ${burnDmg} more hull!</span>`;
+            if (s.enemyBurn.rounds <= 0) s.enemyBurn = null;
+        }
+        return notes;
+    }
+
+    function executeNavalStance(playerAction) {
+        let s = activeNavalSession;
+        if (!s) return;
+
+        // Defensive - these buttons are already hidden once the resource runs out.
+        if (playerAction === 'mortar' && (!game.ship.mortar || s.mortarUsed)) { renderNavalCombatScreen(); return; }
+        if (playerAction === 'firebarrel' && game.ship.fireBarrels <= 0) { renderNavalCombatScreen(); return; }
+        if (playerAction === 'chainshot' && game.ship.chainShot <= 0) { renderNavalCombatScreen(); return; }
+
+        // A prior Chain Shot fouls the enemy's rigging for exactly one round - consume
+        // that flag now, before this round's return fire is calculated.
+        let disabledThisRound = s.enemyDisabledNextRound;
+        s.enemyDisabledNextRound = false;
+        let burnNote = tickNavalStatusEffects(s);
+        if (s.enemyHull <= 0) { s.lastLog = (s.lastLog || '') + burnNote; finishNavalRound(); return; }
+
+        let disabledNote = disabledThisRound ? `<br><span style="color:#66ccff;">⛓️ Their rigging is still fouled - no return fire!</span>` : '';
+
+        if (playerAction === 'repair') {
+            let healed = Math.round(game.ship.maxHull * 0.18);
+            game.ship.hull = Math.min(game.ship.maxHull, game.ship.hull + healed);
+            // Exposed mid-repair: takes full cannon damage, no stance mitigation at all - unless Chain Shot just silenced their guns.
+            let incoming = disabledThisRound ? 0 : Math.max(4, Math.round(s.enemyCannons * (0.85 + Math.random() * 0.3)));
+            game.ship.hull = Math.max(0, game.ship.hull - incoming);
+            let repairIncomingNote = disabledThisRound ? '' : `<span style="color:#ff8888;">Exposed mid-repair, ${s.enemyName} lands ${incoming} damage!</span>`;
+            s.lastLog = `<span style="color:#66ccff;">Crews scramble below deck - hull patched for +${healed}!</span><br>${repairIncomingNote}${disabledNote}${burnNote}`;
+            saveGame(); updateUI();
+            finishNavalRound();
+            return;
+        }
+
+        if (playerAction === 'mortar') {
+            s.mortarUsed = true;
+            // Flat, heavy damage that ignores the stance rock-paper-scissors entirely - the
+            // whole point of a mortar is you don't need to out-maneuver anyone to use it.
+            let dmgOut = Math.round(game.ship.cannons * 2.2 + 15 + Math.random() * 10);
+            s.enemyHull = Math.max(0, s.enemyHull - dmgOut);
+            let incoming = disabledThisRound ? 0 : Math.max(3, Math.round(s.enemyCannons * (0.9 + Math.random() * 0.3)));
+            game.ship.hull = Math.max(0, game.ship.hull - incoming);
+            let mortarIncomingNote = disabledThisRound ? '' : `<span style="color:#ff8888;">Took ${incoming} return fire while reloading.</span>`;
+            s.lastLog = `<span style="color:#ffaa33;">💣 MORTAR VOLLEY! A heavy shell arcs into ${s.enemyName} for ${dmgOut} hull damage!</span><br>${mortarIncomingNote}${disabledNote}${burnNote}`;
+            saveGame(); updateUI();
+            finishNavalRound();
+            return;
+        }
+
+        if (playerAction === 'firebarrel') {
+            game.ship.fireBarrels--;
+            let dmgOut = Math.round(game.ship.cannons * 0.6 + 6 + Math.random() * 6);
+            s.enemyHull = Math.max(0, s.enemyHull - dmgOut);
+            let burnDmg = Math.max(4, Math.round(game.ship.cannons * 0.35));
+            s.enemyBurn = { rounds: 2, dmgPerRound: burnDmg };
+            let incoming = disabledThisRound ? 0 : Math.max(2, Math.round(s.enemyCannons * 0.8 * (0.85 + Math.random() * 0.3)));
+            game.ship.hull = Math.max(0, game.ship.hull - incoming);
+            let barrelIncomingNote = disabledThisRound ? '' : `<span style="color:#ff8888;">Took ${incoming} in return.</span>`;
+            s.lastLog = `<span style="color:#ff6633;">🔥 FIRE BARREL! Slick oil catches for ${dmgOut} damage and sets ${s.enemyName} ablaze (${burnDmg}/round for 2 rounds)!</span><br>${barrelIncomingNote}${disabledNote}${burnNote}`;
+            saveGame(); updateUI();
+            finishNavalRound();
+            return;
+        }
+
+        if (playerAction === 'chainshot') {
+            game.ship.chainShot--;
+            let dmgOut = Math.round(game.ship.cannons * 0.5 + 4 + Math.random() * 5);
+            s.enemyHull = Math.max(0, s.enemyHull - dmgOut);
+            s.enemyDisabledNextRound = true;
+            let incoming = disabledThisRound ? 0 : Math.max(2, Math.round(s.enemyCannons * 0.7 * (0.85 + Math.random() * 0.3)));
+            game.ship.hull = Math.max(0, game.ship.hull - incoming);
+            let chainIncomingNote = disabledThisRound ? '' : `<span style="color:#ff8888;">Took ${incoming} in return.</span>`;
+            s.lastLog = `<span style="color:#99ccff;">⛓️ CHAIN SHOT! Their rigging shreds for ${dmgOut} damage - their next volley will go wide!</span><br>${chainIncomingNote}${disabledNote}${burnNote}`;
+            saveGame(); updateUI();
+            finishNavalRound();
+            return;
+        }
+
+        let playerStance = playerAction;
+        let enemyStance = pickEnemyNavalStance(s.enemyWeights);
+        let result = navalStanceResult(playerStance, enemyStance);
+        let champion = getChampion();
+        // The one deliberate thread back to the roster system: Boarding pulls in your
+        // strongest active fighter's Power as a bonus, without making the whole fight
+        // turn into a creature battle.
+        // A fitted Ram adds flat damage specifically to Boarding - it's the "close the
+        // distance and hit them before they can react" upgrade, so it only pays off
+        // on the stance that's already about closing the distance.
+        let ramBonus = (playerStance === 'boarding' && game.ship.ram) ? 8 : 0;
+        let boardBonus = playerStance === 'boarding' ? Math.floor((champion.power || 30) / 5) + ramBonus : 0;
+        let baseDmg = game.ship.cannons + boardBonus + Math.round(Math.random() * 8);
+        let dmgMult = result === 'win' ? 1.5 : (result === 'lose' ? 0.6 : 1.0);
+        let dmgOut = Math.max(3, Math.round(baseDmg * dmgMult));
+        s.enemyHull = Math.max(0, s.enemyHull - dmgOut);
+
+        let takeMult = result === 'win' ? 0.5 : (result === 'lose' ? 1.4 : 1.0);
+        let incoming = disabledThisRound ? 0 : Math.max(2, Math.round(s.enemyCannons * takeMult * (0.85 + Math.random() * 0.3)));
+        game.ship.hull = Math.max(0, game.ship.hull - incoming);
+
+        let resultTag = result === 'win' ? '⚔️ Caught them wrong-footed!' : (result === 'lose' ? '💢 They read your approach!' : '⚖️ Both ships trade blows evenly.');
+        let stanceIncomingNote = disabledThisRound ? '' : `Took ${incoming} in return.`;
+        s.lastLog = `<span style="color:#ffff88;">You: ${NAVAL_STANCES[playerStance].icon} ${NAVAL_STANCES[playerStance].label} vs their ${NAVAL_STANCES[enemyStance].icon} ${NAVAL_STANCES[enemyStance].label} - ${resultTag}</span><br><span style="color:#33ff88;">Dealt ${dmgOut} hull damage!</span> <span style="color:#ff8888;">${stanceIncomingNote}</span>${disabledNote}${burnNote}`;
+
+        saveGame(); updateUI();
+        finishNavalRound();
+    }
+
+    function finishNavalRound() {
+        let s = activeNavalSession;
+        if (!s) return;
+        if (s.enemyHull <= 0) { setTimeout(winNavalCombat, 1000); return; }
+        if (game.ship.hull <= 0) { setTimeout(loseNavalCombat, 1000); return; }
+        renderNavalCombatScreen();
+    }
+
+    // Rolls plunder from a naval win: generic {item, chance, min, max} entries plus an
+    // optional crew recruit chance. Any encounter config can hand this a lootTable/
+    // crewRecruitPool and get consistent Black Flag-style plunder for free.
+    function rollNavalPlunder(s) {
+        let wonItems = [];
+        (s.lootTable || []).forEach(entry => {
+            if (Math.random() < (entry.chance != null ? entry.chance : 1)) {
+                let qty = entry.min != null ? (entry.min + Math.floor(Math.random() * ((entry.max || entry.min) - entry.min + 1))) : 1;
+                for (let i = 0; i < qty; i++) game.inventory.push(entry.item);
+                wonItems.push(qty > 1 ? `${qty}x ${entry.item}` : entry.item);
+            }
+        });
+        let recruitedName = null;
+        if (s.crewRecruitChance && s.crewRecruitPool && s.crewRecruitPool.length && Math.random() < s.crewRecruitChance) {
+            let pick = s.crewRecruitPool[Math.floor(Math.random() * s.crewRecruitPool.length)];
+            if (!game.ship.crewRoster.includes(pick.name)) {
+                game.ship.crewRoster.push(pick.name);
+                if (pick.bonus === 'hull') game.ship.maxHull += 10;
+                else game.ship.cannons += 2;
+                recruitedName = pick.name;
+            }
+        }
+        return { wonItems, recruitedName };
+    }
+
+    function winNavalCombat() {
+        let s = activeNavalSession;
+        if (!s) return;
+        game.funds += (s.rewardCash || 0);
+        game.ship.hull = game.ship.maxHull;
+        if (s.storyFlagOnWin) setStoryFlag(s.storyFlagOnWin);
+        let plunder = rollNavalPlunder(s);
+        saveGame(); updateUI();
+        let regionKey = s.regionKey;
+        activeNavalSession = null;
+        clearConsole("center", "radial-gradient(circle,#003344,#000)", "#33ddff");
+        let lootLine = plunder.wonItems.length ? `<p style="font-size:11px; color:#ffd23f;">🎁 Plundered: ${plunder.wonItems.join(', ')}</p>` : '';
+        let recruitLine = plunder.recruitedName ? `<p style="font-size:11px; color:#33ff88;">🧑‍🤝‍🧑 ${plunder.recruitedName} joined your crew!</p>` : '';
+        document.getElementById("console").innerHTML = `<h2 style="font-size:18px;">🏴‍☠️ ENEMY SHIP SUNK!</h2><p style="font-size:12px;">Earned $${s.rewardCash || 0}! Your ship holds together - barely.</p>${lootLine}${recruitLine}`;
+        let returnLabel = "⬅ Return to " + (REGIONS_DATA[regionKey] ? REGIONS_DATA[regionKey].name : "Saltmere Cove");
+        renderButtons([{ text: returnLabel, class: "btn btn-back", action: () => showRegionHub(regionKey) }]);
+    }
+
+    function loseNavalCombat() {
+        let s = activeNavalSession;
+        let regionKey = s ? s.regionKey : 'reef';
+        game.ship.hull = game.ship.maxHull;
+        saveGame(); updateUI();
+        activeNavalSession = null;
+        clearConsole("center", "radial-gradient(circle,#330000,#000)", "#ff3333");
+        document.getElementById("console").innerHTML = `<h2 style="font-size:18px;">💀 YOUR SHIP WAS OVERWHELMED!</h2><p style="font-size:12px;">Limped back to Saltmere Cove for emergency repairs. The enemy ship is still out there.</p>`;
+        renderButtons([{ text: "⬅ Return to Saltmere Cove", class: "btn btn-back", action: () => showRegionHub(regionKey) }]);
+    }
+
+    // --- Act 3 named story-boss encounters, same one-time-named-boss pattern as
+    // startNamedStoryBoss() above, just through the naval pipeline instead. ---
+    function startPirateLordTutorialEncounter() {
+        // Vane hands over the wheel the moment this fight starts, not on quest turn-in -
+        // the player needs a ship to fight the tutorial battle with in the first place.
+        if (!game.ship.unlocked) { game.ship.unlocked = true; saveGame(); }
+        startNavalEncounter({
+            enemyName: "Brine-Bound Scout",
+            enemyHull: Math.round(150 * ENEMY_HP_MULTIPLIER),
+            enemyCannons: Math.round(14 * ENEMY_ATK_MULTIPLIER),
+            enemyWeights: { windward: 1, broadside: 3, boarding: 1 },
+            rewardCash: 250,
+            regionKey: 'reef',
+            storyFlagOnWin: 'pl1_scout_defeated',
+            lootTable: [{ item: "Whale Oil", chance: 0.5, min: 1, max: 2 }]
+        });
+    }
+
+    function startQuartermasterEncounter() {
+        startNavalEncounter({
+            enemyName: "Brine-Bound Quartermaster",
+            enemyHull: Math.round(320 * ENEMY_HP_MULTIPLIER),
+            enemyCannons: Math.round(24 * ENEMY_ATK_MULTIPLIER),
+            enemyWeights: { windward: 1, broadside: 2, boarding: 3 },
+            rewardCash: 500,
+            regionKey: 'shipwreckStrait',
+            storyFlagOnWin: 'pl2_quartermaster_defeated',
+            lootTable: [
+                { item: "Salvaged Metal", chance: 0.6, min: 1, max: 3 },
+                { item: "Ship Timber", chance: 0.4, min: 1, max: 2 }
+            ]
+        });
+    }
+
+    function startBoardingCaptainEncounter() {
+        startNavalEncounter({
+            enemyName: "Brine-Bound Boarding Captain",
+            enemyHull: Math.round(420 * ENEMY_HP_MULTIPLIER),
+            enemyCannons: Math.round(32 * ENEMY_ATK_MULTIPLIER),
+            enemyWeights: { windward: 1, broadside: 1, boarding: 4 },
+            rewardCash: 750,
+            regionKey: 'shipwreckStrait',
+            storyFlagOnWin: 'pl5_boardingcaptain_defeated',
+            lootTable: [
+                { item: "Shark Hide", chance: 0.5, min: 1, max: 2 },
+                { item: "Salvaged Metal", chance: 0.5, min: 2, max: 3 }
+            ],
+            crewRecruitChance: 0.35,
+            crewRecruitPool: [
+                { name: "Old Fenwick", bonus: "hull" },
+                { name: "Marta Quill", bonus: "cannons" }
+            ]
+        });
+    }
+
+    function startFlagshipEncounter() {
+        startNavalEncounter({
+            enemyName: "The Revenant's Due",
+            enemyHull: Math.round(600 * ENEMY_HP_MULTIPLIER),
+            enemyCannons: Math.round(42 * ENEMY_ATK_MULTIPLIER),
+            enemyWeights: { windward: 2, broadside: 2, boarding: 2 },
+            rewardCash: 1500,
+            regionKey: 'reef',
+            storyFlagOnWin: 'pl_flagship_defeated',
+            lootTable: [
+                { item: "Ship Timber", chance: 0.7, min: 2, max: 4 },
+                { item: "Salvaged Metal", chance: 0.7, min: 2, max: 4 },
+                { item: "Shark Hide", chance: 0.4, min: 1, max: 2 }
+            ],
+            crewRecruitChance: 0.5,
+            crewRecruitPool: [
+                { name: "Old Fenwick", bonus: "hull" },
+                { name: "Marta Quill", bonus: "cannons" },
+                { name: "Deckhand Priya", bonus: "hull" }
+            ]
+        });
+    }
+
+    // --- Act 3, Part III: "The Captain's Mercy" - a real choice, not just a fetch/defend
+    // objective, same spirit as the Hollow King outline's Forest-guardian choice. Reached
+    // via a settlement action button (see getSettlementActionButtons('saltmere')) once
+    // pl_mercy_choice is active - the Quartermaster's ship is already sunk by this point,
+    // this is purely about what happens to its bound crew. ---
+    function showMercyChoiceScreen() {
+        playBGM('villain');
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #001a2e 0%, #00040a 85%)", "#ffd23f");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#ffd23f; font-size:16px;">⚔️ THE CAPTAIN'S MERCY</h2>
+            <p style="color:#ccc; font-size:12px; max-width:380px;">The Quartermaster's crew weren't willing servants - they're drowned sailors, bound against their will. One of them still seems to be fighting the curse from the inside. Vane's voice crackles over the wind: "Your call, outlander. Quick and clean, or try to break what's binding them - and risk it not working."</p>
+        `;
+        renderButtons([
+            { text: "🔥 Burn the Wreck", class: "btn btn-villain", action: () => resolveMercyChoice('burn') },
+            { text: "⚒️ Attempt to Break the Curse", class: "btn btn-goth", action: () => resolveMercyChoice('save') },
+            { text: "⬅ Decide Later", class: "btn btn-back", action: () => showRegionHub('shipwreckStrait') }
+        ]);
+    }
+
+    function resolveMercyChoice(choice) {
+        if (choice === 'burn') {
+            game.ship.crewFreed = false;
+            setStoryFlag('pl3_choice_made');
+            saveGame(); updateUI();
+            showGameAlert("🔥 You give the order. The wreck goes up fast, and whatever was left of that crew goes with it. Vane doesn't say much - just nods, once, like she expected as much.");
+            showRegionHub('shipwreckStrait');
+            return;
+        }
+        // Weighted by saltmere reputation, exactly the way the Hollow King outline
+        // proposed for its Forest-guardian choice: more trust already earned, better odds
+        // the rite works - the reputation grind pays off in a moment that actually matters.
+        let rep = (game.reputation && game.reputation.saltmere) || 0;
+        let chance = Math.min(0.85, 0.35 + rep / 100);
+        let success = Math.random() < chance;
+        game.ship.crewFreed = success;
+        setStoryFlag('pl3_choice_made');
+        saveGame(); updateUI();
+        if (success) {
+            showGameAlert("⚒️ Against every odd, the binding cracks. A sailor - Rin, they manage to say - draws a first free breath in longer than either of you can guess. Vane pulls them aboard without a second's hesitation.");
+        } else {
+            showGameAlert("⚒️ The rite fails. Whatever curse held that crew together unravels the wrong way, and there's nothing left to save. The wreck goes under anyway.");
+        }
+        showRegionHub('shipwreckStrait');
+    }
+
+    // --- Act 3, Part IV: reuses the market/trade flavor-action pattern already
+    // established by haggleBazaar() etc., just gated behind an active quest instead of
+    // being always-available (see getSettlementActionButtons('duneSpire')). ---
+    function traceSmugglingRoute() {
+        setStoryFlag('pl4_route_traced');
+        bumpReputation('duneSpire', 5);
+        saveGame(); updateUI();
+        showGameAlert("🗺️ Tariq goes quiet as the ledger numbers line up. \"Same client, different name, paid too well to question twice.\" He slams the book shut. \"Not again. Not on my watch.\"");
+        showRegionHub('desert');
+    }
+
+    // --- The Shipyard: Saltmere Cove's upgrade hub for game.ship, same one-button-per-
+    // stat pattern as commissionRune()/forageHerbs() etc. above. ---
+    // Black Flag-style ship refits: Ram/Mortar are one-time hull upgrades gated on
+    // crafting materials from harpooning/diving; Fire Barrels/Chain Shot are consumable
+    // charges bought in batches of 3. Same countInventoryItem/removeInventoryItems
+    // convention as the rest of the crafting-material code (indexOf/filter on the flat
+    // game.inventory string array).
+    function countInventoryItem(name) {
+        return game.inventory.filter(i => i === name).length;
+    }
+
+    function removeInventoryItems(name, qty) {
+        let n = qty;
+        game.inventory = game.inventory.filter(i => { if (n > 0 && i === name) { n--; return false; } return true; });
+    }
+
+    const SHIP_UPGRADE_COSTS = {
+        hull: { funds: 250 },
+        cannons: { funds: 300 },
+        speed: { funds: 200 },
+        ram: { funds: 300, material: "Ship Timber", qty: 5 },
+        mortar: { funds: 350, material: "Salvaged Metal", qty: 5 },
+        fireBarrels: { funds: 100, material: "Whale Oil", qty: 2 },
+        chainShot: { funds: 100, material: "Shark Hide", qty: 2 }
+    };
+
+    function showShipyardMenu() {
+        playBGM('hq');
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #001a2e 0%, #00040a 85%)", "#33ddff");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#33ddff; font-size:18px;">⚓ SALTMERE SHIPYARD</h2>
+            <div class="dex-card" style="text-align:center; font-size:12px; display:block;">
+                🛡️ Hull: <strong style="color:#33ddff;">${game.ship.maxHull}</strong>&nbsp;&nbsp;
+                💣 Cannons: <strong style="color:#ffd23f;">${game.ship.cannons}</strong>&nbsp;&nbsp;
+                💨 Speed: <strong style="color:#88ff88;">${game.ship.speed}</strong><br>
+                🐏 Ram: <strong style="color:${game.ship.ram ? '#33ff88' : '#888'};">${game.ship.ram ? 'Fitted' : 'None'}</strong>&nbsp;&nbsp;
+                💥 Mortar: <strong style="color:${game.ship.mortar ? '#33ff88' : '#888'};">${game.ship.mortar ? 'Fitted' : 'None'}</strong>&nbsp;&nbsp;
+                🔥 Fire Barrels: <strong style="color:#ffaa33;">${game.ship.fireBarrels}</strong>&nbsp;&nbsp;
+                ⛓️ Chain Shot: <strong style="color:#99ccff;">${game.ship.chainShot}</strong>
+            </div>
+            <p style="color:#7fa8bf; font-size:10px; margin:4px 0;">🎒 In hold: ${countInventoryItem('Ship Timber')} Ship Timber, ${countInventoryItem('Salvaged Metal')} Salvaged Metal, ${countInventoryItem('Whale Oil')} Whale Oil, ${countInventoryItem('Shark Hide')} Shark Hide</p>
+        `;
+        let buttons = [
+            { text: "🛡️ Reinforce the Hull (+15 Max Hull, $250)", class: "btn btn-farm", action: () => upgradeShip('hull') },
+            { text: "💣 Upgrade Cannons (+4 Cannons, $300)", class: "btn btn-combat", action: () => upgradeShip('cannons') },
+            { text: "💨 Refit the Rigging (+1 Speed, $200)", class: "btn btn-sys", action: () => upgradeShip('speed') }
+        ];
+        if (!game.ship.ram) buttons.push({ text: "🐏 Fit a Boarding Ram (5x Ship Timber, $300)", class: "btn btn-goth", action: () => upgradeShip('ram') });
+        if (!game.ship.mortar) buttons.push({ text: "💥 Fit a Mortar (5x Salvaged Metal, $350)", class: "btn btn-combat", action: () => upgradeShip('mortar') });
+        buttons.push({ text: "🔥 Buy Fire Barrels x3 (2x Whale Oil, $100)", class: "btn btn-combat", action: () => upgradeShip('fireBarrels') });
+        buttons.push({ text: "⛓️ Buy Chain Shot x3 (2x Shark Hide, $100)", class: "btn btn-sys", action: () => upgradeShip('chainShot') });
+        buttons.push({ text: "⬅ Back to Saltmere Cove", class: "btn btn-back", action: () => showRegionHub('reef') });
+        renderButtons(buttons);
+    }
+
+    function upgradeShip(stat) {
+        let costDef = SHIP_UPGRADE_COSTS[stat];
+        if (!costDef) return;
+        if (game.funds < costDef.funds) { log("❌ Not enough funds for that upgrade!", "color-red"); return; }
+        if (costDef.material && countInventoryItem(costDef.material) < costDef.qty) {
+            log(`❌ Not enough ${costDef.material} in the hold (need ${costDef.qty})!`, "color-red");
+            return;
+        }
+        if (stat === 'ram' && game.ship.ram) return;
+        if (stat === 'mortar' && game.ship.mortar) return;
+
+        game.funds -= costDef.funds;
+        if (costDef.material) removeInventoryItems(costDef.material, costDef.qty);
+
+        if (stat === 'hull') { game.ship.maxHull += 15; game.ship.hull = game.ship.maxHull; }
+        if (stat === 'cannons') game.ship.cannons += 4;
+        if (stat === 'speed') game.ship.speed += 1;
+        if (stat === 'ram') game.ship.ram = true;
+        if (stat === 'mortar') game.ship.mortar = true;
+        if (stat === 'fireBarrels') game.ship.fireBarrels += 3;
+        if (stat === 'chainShot') game.ship.chainShot += 3;
+
+        bumpReputation('saltmere', 2);
+        saveGame(); updateUI();
+        log("⚓ Your ship's been refitted at the Shipyard!", "color-cyan");
+        showShipyardMenu();
+    }
+
+    // --- Black Flag-style optional superbosses: repeatable naval hunts with no story
+    // flag on win, gated on already having finished the tutorial fight (pl1_complete)
+    // so the player has a ship worth risking first. Richer plunder than any story fight. ---
+    const LEGENDARY_SHIPS = {
+        ashenWidow: {
+            key: 'ashenWidow', name: "The Ashen Widow", icon: "🔥",
+            enemyHull: 950, enemyCannons: 58, enemyWeights: { windward: 1, broadside: 4, boarding: 1 },
+            rewardCash: 2200,
+            lootTable: [
+                { item: "Whale Oil", chance: 0.8, min: 2, max: 4 },
+                { item: "Salvaged Metal", chance: 0.5, min: 1, max: 3 }
+            ],
+            crewRecruitChance: 0.4,
+            crewRecruitPool: [{ name: "Ash-Handed Delphine", bonus: "cannons" }]
+        },
+        leviathansMaw: {
+            key: 'leviathansMaw', name: "Leviathan's Maw", icon: "🐙",
+            enemyHull: 1250, enemyCannons: 50, enemyWeights: { windward: 1, broadside: 1, boarding: 5 },
+            rewardCash: 2600,
+            lootTable: [
+                { item: "Shark Hide", chance: 0.8, min: 2, max: 4 },
+                { item: "Ship Timber", chance: 0.5, min: 1, max: 3 }
+            ],
+            crewRecruitChance: 0.4,
+            crewRecruitPool: [{ name: "Barnacle Tom", bonus: "hull" }]
+        },
+        lastGale: {
+            key: 'lastGale', name: "The Last Gale", icon: "🌪️",
+            enemyHull: 850, enemyCannons: 65, enemyWeights: { windward: 4, broadside: 1, boarding: 1 },
+            rewardCash: 2400,
+            lootTable: [
+                { item: "Ship Timber", chance: 0.6, min: 2, max: 3 },
+                { item: "Salvaged Metal", chance: 0.6, min: 2, max: 3 },
+                { item: "Shark Hide", chance: 0.3, min: 1, max: 2 }
+            ],
+            crewRecruitChance: 0.45,
+            crewRecruitPool: [{ name: "Windrunner Sable", bonus: "cannons" }]
+        }
+    };
+
+    function showLegendaryShipsMenu() {
+        playBGM('villain');
+        clearConsole("center", "radial-gradient(circle at 50% 30%, #001a2e 0%, #00040a 85%)", "#ffd23f");
+        document.getElementById("console").innerHTML = `
+            <h2 style="color:#ffd23f; font-size:16px;">☠️ LEGENDARY SHIP HUNTS</h2>
+            <p style="color:#7fa8bf; font-size:11px; max-width:380px;">Rare, brutal hulls that haunt these waters. None of them are required for the main story - they're here for a crew that wants a real fight and richer plunder. Repeatable, so hunt them as often as your hull can take it.</p>
+        `;
+        renderButtons([
+            ...Object.values(LEGENDARY_SHIPS).map(ship => ({
+                text: `${ship.icon} ${ship.name}`, class: "btn btn-raid",
+                action: () => startLegendaryShipEncounter(ship.key)
+            })),
+            { text: "⬅ Back to Saltmere Cove", class: "btn btn-back", action: () => showRegionHub('reef') }
+        ]);
+    }
+
+    function startLegendaryShipEncounter(key) {
+        let def = LEGENDARY_SHIPS[key];
+        if (!def) return;
+        startNavalEncounter({
+            enemyName: def.name,
+            enemyHull: Math.round(def.enemyHull * ENEMY_HP_MULTIPLIER),
+            enemyCannons: Math.round(def.enemyCannons * ENEMY_ATK_MULTIPLIER),
+            enemyWeights: def.enemyWeights,
+            rewardCash: def.rewardCash,
+            regionKey: 'reef',
+            lootTable: def.lootTable,
+            crewRecruitChance: def.crewRecruitChance,
+            crewRecruitPool: def.crewRecruitPool
+        });
     }
 
     // --- CHASE STUDIOS SPLASH ---
